@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>Shinken Application</Name>
+		<Assembly>C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\2022\dll\SKToolsRibbon.dll</Assembly>
+		<AddInId>D5DC75DD-2D67-42A5-868B-76251C1AE1C1</AddInId>
+		<FullClassName>SKToolsRibbon.Ribbon</FullClassName>
+		<VendorId>Shinken</VendorId>
+		<VendorDescription>Shinken</VendorDescription>
+	</AddIn>
+  <AddIn Type="Application">
+    <Name>Shinken Application</Name>
+    <Assembly>C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\2022\dll\SKToolsAddins.dll</Assembly>
+    <AddInId>27D11A12-D51D-4A29-A005-5EDA5B9BF82A</AddInId>
+    <FullClassName>SKToolsAddins.App</FullClassName>
+	<VendorId>Shinken</VendorId>
+	<VendorDescription>Shinken</VendorDescription>
+  </AddIn>
+</RevitAddIns>
+

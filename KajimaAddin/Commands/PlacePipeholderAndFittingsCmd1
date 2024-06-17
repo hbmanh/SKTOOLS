@@ -1,0 +1,392 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Mechanical;
+using Autodesk.Revit.DB.Plumbing;
+using Autodesk.Revit.DB.Structure;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+
+namespace SKToolsAddins.Commands
+{
+    [Transaction(TransactionMode.Manual)]
+    public class PlacePipeholderAndFittingsCmd : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiapp = commandData.Application;
+            UIDocument uidoc = uiapp.ActiveUIDocument;
+            Document doc = uidoc.Document;
+
+            // Get the CAD link selected by the user
+            var refLinkCad = uidoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
+            var selectedCadLink = doc.GetElement(refLinkCad) as ImportInstance;
+
+            // Get only CAD lines and polylines in the CAD document
+            Dictionary<Curve, string> curveLayerMappings = new Dictionary<Curve, string>();
+
+            // Defaults to medium detail, no references and no view.
+            Options option = new Options();
+            GeometryElement geoElement = selectedCadLink.get_Geometry(option);
+
+            foreach (GeometryObject geoObject in geoElement)
+            {
+                if (!(geoObject is GeometryInstance geoInstance)) continue;
+                GeometryElement geoElement2 = geoInstance.GetInstanceGeometry();
+                foreach (GeometryObject geoObject2 in geoElement2)
+                {
+                    if (geoObject2 is Line line)
+                    {
+                        curveLayerMappings[line] = CadUtils.GetLayerNameFromCurveOrPolyline(line, selectedCadLink);
+                    }
+                    else if (geoObject2 is PolyLine polyLine)
+                    {
+                        IList<XYZ> points = polyLine.GetCoordinates();
+                        for (int i = 0; i < points.Count - 1; i++)
+                        {
+                            Line segment = Line.CreateBound(points[i], points[i + 1]);
+                            curveLayerMappings[segment] = CadUtils.GetLayerNameFromCurveOrPolyline(polyLine, selectedCadLink); // Get the layer name from the polyline
+                        }
+                    }
+                }
+            }
+
+            Level level = uidoc.ActiveView.GenLevel;
+
+            // Placeholder types and system mappings based on CAD layer names
+            var ductMappings = new Dictionary<string, (string type, string system)>
+            {
+                { "M6SA", ("00_丸ティー", "M06_給気_SA") },
+                { "M6RA", ("00_丸ティー", "M06_還気_RA") },
+                { "M6EA", ("00_丸ティー", "M06_排気_EA") },
+                { "M6OA", ("00_丸ティー", "M06_外気_OA") },
+                { "M6PASS", ("00_丸ティー", "M06_パス_PA") },
+                { "M6SOA", ("00_丸ティー", "M06_外気(処理外気)_SOA") },
+                { "M6KEA", ("00_丸ティー", "M06_厨房排気_KEA") }
+            };
+
+            var pipeMappings = new Dictionary<string, (string type, string system)>
+            {
+                { "M5D", ("00_排水", "M05_ドレン(空調)_D") },
+                { "M3R", ("00_冷媒", "M03_冷媒_R") },
+                { "P1WATER", ("00_供給", "M05_加湿給水") },
+                { "M4C", ("00_供給", "M04_冷水(往)_C") },
+                { "M4CH", ("00_供給", "M04_冷温水(往)_CH") }
+            };
+
+            var systemTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(MechanicalSystemType))
+                .Cast<MechanicalSystemType>()
+                .ToDictionary(e => e.Name);
+
+            var pipingSystemTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(PipingSystemType))
+                .Cast<PipingSystemType>()
+                .ToDictionary(e => e.Name);
+
+            var ductTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(DuctType))
+                .Cast<DuctType>()
+                .ToDictionary(e => e.Name);
+
+            var pipeTypes = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_PipeCurves)
+                .OfClass(typeof(PipeType))
+                .Cast<PipeType>()
+                .ToDictionary(e => e.Name);
+
+            List<Pipe> pipes = new List<Pipe>();
+            List<Duct> ducts = new List<Duct>();
+
+            using (Transaction trans = new Transaction(doc))
+            {
+                trans.Start("Create duct and pipe placeholders from CAD lines and polylines");
+                // Store the created pipe placeholders
+                List<ElementId> pipePlaceholderIds = new List<ElementId>();
+                List<ElementId> ductPlaceholderIds = new List<ElementId>();
+
+                foreach (var curve in curveLayerMappings.Keys)
+                {
+                    // Get the layer of the CAD line
+                    if (!curveLayerMappings.TryGetValue(curve, out var layerName))
+                        continue;
+
+                    // Check if the curve belongs to a duct layer
+                    if (ductMappings.TryGetValue(layerName, out var ductInfo))
+                    {
+                        var (ductTypeName, systemTypeName) = ductInfo;
+
+                        if (!ductTypes.TryGetValue(ductTypeName, out var ductType) || !systemTypes.TryGetValue(systemTypeName, out var systemType))
+                            continue;
+
+                        XYZ startPoint = curve.GetEndPoint(0);
+                        XYZ endPoint = curve.GetEndPoint(1);
+
+                        if (startPoint.DistanceTo(endPoint) < 0.00254) // Check if the length is less than 1/10 inch
+                            continue;
+                        //var duct = Duct.Create(doc, systemType.Id, ductType.Id, level.Id, startPoint, endPoint);
+                        //ducts.Add(duct);
+                        //duct.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(0.0);
+                        var ductPlaceholder = Duct.CreatePlaceholder(doc, systemType.Id, ductType.Id, level.Id, startPoint, endPoint);
+                        ductPlaceholder.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(0.0);
+                        ductPlaceholderIds.Add(ductPlaceholder.Id);
+                    }
+
+                    // Check if the curve belongs to a pipe layer
+                    else if (pipeMappings.TryGetValue(layerName, out var pipeInfo))
+                    {
+                        var (pipeTypeName, systemTypeName) = pipeInfo;
+
+                        if (!pipeTypes.TryGetValue(pipeTypeName, out var pipeType) || !pipingSystemTypes.TryGetValue(systemTypeName, out var systemType))
+                            continue;
+
+                        XYZ startPoint = curve.GetEndPoint(0);
+                        XYZ endPoint = curve.GetEndPoint(1);
+
+                        if (startPoint.DistanceTo(endPoint) < 0.00254) // Check if the length is less than 1/10 inch
+                            continue;
+                        //var pipe = Pipe.Create(doc, systemType.Id, pipeType.Id, level.Id, startPoint, endPoint);
+                        //pipes.Add(pipe);
+                        //pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(0.0);
+                        var pipePlaceholder = Pipe.CreatePlaceholder(doc, systemType.Id, pipeType.Id, level.Id, startPoint, endPoint);
+                        pipePlaceholder.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(0.0);
+                        pipePlaceholderIds.Add(pipePlaceholder.Id);
+                    }
+                }
+                ////Connector duct
+                //for (int i = 0; i < ducts.Count() - 1; i++)
+                //{
+                //    ConnectorManager ductConnectorManager1 = ducts[i].ConnectorManager;
+                //    ConnectorSet ductConnectorSet1 = ductConnectorManager1.Connectors;
+                //    ConnectorManager ductConnectorManager2 = ducts[i].ConnectorManager;
+                //    ConnectorSet ductConnectorSet2 = ductConnectorManager2.Connectors;
+
+                //    Connector ducConnector1 = null;
+                //    Connector ducConnector2 = null;
+                //    double minDist = double.MaxValue;
+                //    foreach (Connector connector1 in ductConnectorSet1)
+                //    {
+                //        foreach (Connector connector2 in ductConnectorSet2)
+                //        {
+                //            double d = connector1.Origin.DistanceTo(connector2.Origin);
+                //            if (d < minDist)
+                //            {
+                //                ducConnector1 = connector1;
+                //                ducConnector2 = connector2;
+                //                minDist = d;
+                //            }
+                //        }
+                //    }
+                //    FamilyInstance fitting = doc.Create.NewElbowFitting(ducConnector1, ducConnector2);
+                //}
+                // Check for intersections and place fittings for both ducts and pipes
+                PlacePipeFittingsAtIntersections(doc, pipes);
+                PlaceDuctFittingsAtIntersections(doc, ducts);
+
+                trans.Commit();
+            }
+
+            TaskDialog.Show("Success", "Successfully created duct and pipe placeholders from imported CAD lines and polylines.");
+            return Result.Succeeded;
+        }
+
+        private void PlacePipeFittingsAtIntersections(Document doc, List<Pipe> pipes)
+        {
+            for (int i = 0; i < pipes.Count; i++)
+            {
+                var pipe1 = pipes[i];
+
+                for (int j = i + 1; j < pipes.Count; j++)
+                {
+                    var pipe2 = pipes[j];
+
+                    IntersectionResultArray results;
+                    var options = new Options { ComputeReferences = true };
+                    Line line1 = (pipe1.Location as LocationCurve).Curve as Line;
+                    Line line2 = (pipe2.Location as LocationCurve).Curve as Line;
+
+                    if (line1 != null && line2 != null && line1.Intersect(line2, out results) == SetComparisonResult.Overlap)
+                    {
+                        XYZ intersectionPoint = results.get_Item(0).XYZPoint;
+
+                        // Determine if it's a T-intersection or a 90-degree bend
+                        bool isTIntersection = IsTIntersection(line1, line2, intersectionPoint);
+                        bool isNinetyDegreeBend = IsNinetyDegreeBend(line1, line2);
+
+                        // Determine pipe type
+                        string pipeType = pipe1.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString();
+
+                        // Create a pipe fitting at the intersection point
+                        if (pipeType == "00_排水")
+                        {
+                            if (isTIntersection)
+                            {
+                                CreatePipeFitting(doc, pipe1, pipe2, intersectionPoint, "021_径違い90° 大曲がり Y-排水-SK");
+                            }
+                            else if (isNinetyDegreeBend)
+                            {
+                                CreatePipeFitting(doc, pipe1, pipe2, intersectionPoint, "011_エルボ-排水-SK");
+                            }
+                        }
+                        else if (pipeType == "00_冷媒")
+                        {
+                            if (isTIntersection)
+                            {
+                                CreatePipeFitting(doc, pipe1, pipe2, intersectionPoint, "027_等径ティ-冷媒-SK");
+                            }
+                            else if (isNinetyDegreeBend)
+                            {
+                                CreatePipeFitting(doc, pipe1, pipe2, intersectionPoint, "001_エルボ45°-冷媒-SK");
+                            }
+                        }
+                        else if (pipeType == "00_供給")
+                        {
+                            if (isTIntersection)
+                            {
+                                CreatePipeFitting(doc, pipe1, pipe2, intersectionPoint, "001_エルボ45°-冷媒-SK");
+                            }
+                            else if (isNinetyDegreeBend)
+                            {
+                                CreatePipeFitting(doc, pipe1, pipe2, intersectionPoint, "011_エルボ-給水-SK");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void PlaceDuctFittingsAtIntersections(Document doc, List<Duct> ducts)
+        {
+            for (int i = 0; i < ducts.Count; i++)
+            {
+                var duct1 = ducts[i];
+
+                for (int j = i + 1; j < ducts.Count; j++)
+                {
+                    var duct2 = ducts[j];
+
+                    IntersectionResultArray results;
+                    var options = new Options { ComputeReferences = true };
+                    Line line1 = (duct1.Location as LocationCurve).Curve as Line;
+                    Line line2 = (duct2.Location as LocationCurve).Curve as Line;
+
+                    if (line1 != null && line2 != null && line1.Intersect(line2, out results) == SetComparisonResult.Overlap)
+                    {
+                        XYZ intersectionPoint = results.get_Item(0).XYZPoint;
+
+                        // Determine if it's a T-intersection or a 90-degree bend
+                        bool isTIntersection = IsTIntersection(line1, line2, intersectionPoint);
+                        bool isNinetyDegreeBend = IsNinetyDegreeBend(line1, line2);
+
+                        // Determine duct type
+                        string ductType = duct1.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString();
+
+                        // Create a duct fitting at the intersection point
+                        if (ductType == "00_丸ティー")
+                        {
+                            if (isTIntersection)
+                            {
+                                CreateDuctFitting(doc, duct1, duct2, intersectionPoint, "031_90°エルボ-丸ダクト-SK");
+                            }
+                            else if (isNinetyDegreeBend)
+                            {
+                                CreateDuctFitting(doc, duct1, duct2, intersectionPoint, "031_90°エルボ-丸ダクト-SK");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool IsTIntersection(Line line1, Line line2, XYZ intersectionPoint)
+        {
+            return line1.GetEndPoint(0).IsAlmostEqualTo(intersectionPoint) || line1.GetEndPoint(1).IsAlmostEqualTo(intersectionPoint) ||
+                   line2.GetEndPoint(0).IsAlmostEqualTo(intersectionPoint) || line2.GetEndPoint(1).IsAlmostEqualTo(intersectionPoint);
+        }
+
+        private bool IsNinetyDegreeBend(Line line1, Line line2)
+        {
+            return Math.Abs(line1.Direction.AngleTo(line2.Direction) - Math.PI / 2) < 0.01;
+        }
+
+        private void CreatePipeFitting(Document doc, Pipe pipe1, Pipe pipe2, XYZ intersectionPoint, string fittingType)
+        {
+            // Get the pipe fitting type from the name
+            FamilySymbol fittingSymbol = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_PipeFitting)
+                .Cast<FamilySymbol>()
+                .FirstOrDefault(fs => fs.Name.Equals(fittingType, StringComparison.OrdinalIgnoreCase));
+
+            if (fittingSymbol == null)
+                return;
+
+            // Calculate the rotation angle
+            XYZ direction1 = (pipe1.Location as LocationCurve).Curve.GetEndPoint(1) - (pipe1.Location as LocationCurve).Curve.GetEndPoint(0);
+            XYZ direction2 = (pipe2.Location as LocationCurve).Curve.GetEndPoint(1) - (pipe2.Location as LocationCurve).Curve.GetEndPoint(0);
+            double angle = direction1.AngleTo(direction2);
+
+            // Create the fitting
+            if (!fittingSymbol.IsActive)
+                fittingSymbol.Activate();
+
+            var fitting = doc.Create.NewFamilyInstance(intersectionPoint, fittingSymbol, pipe1, StructuralType.NonStructural);
+
+            // Rotate the fitting to align with the pipes
+            ElementTransformUtils.RotateElement(doc, fitting.Id, Line.CreateBound(intersectionPoint, intersectionPoint + XYZ.BasisZ), angle);
+        }
+
+        private void CreateDuctFitting(Document doc, Duct duct1, Duct duct2, XYZ intersectionPoint, string fittingType)
+        {
+            // Get the duct fitting type from the name
+            FamilySymbol fittingSymbol = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_DuctFitting)
+                .Cast<FamilySymbol>()
+                .FirstOrDefault(fs => fs.Name.Equals(fittingType, StringComparison.OrdinalIgnoreCase));
+
+            if (fittingSymbol == null)
+                return;
+
+            // Calculate the rotation angle
+            XYZ direction1 = (duct1.Location as LocationCurve).Curve.GetEndPoint(1) - (duct1.Location as LocationCurve).Curve.GetEndPoint(0);
+            XYZ direction2 = (duct2.Location as LocationCurve).Curve.GetEndPoint(1) - (duct2.Location as LocationCurve).Curve.GetEndPoint(0);
+            double angle = direction1.AngleTo(direction2);
+
+            // Create the fitting
+            if (!fittingSymbol.IsActive)
+                fittingSymbol.Activate();
+
+            var fitting = doc.Create.NewFamilyInstance(intersectionPoint, fittingSymbol, duct1, StructuralType.NonStructural);
+
+            // Rotate the fitting to align with the ducts
+            ElementTransformUtils.RotateElement(doc, fitting.Id, Line.CreateBound(intersectionPoint, intersectionPoint + XYZ.BasisZ), angle);
+        }
+
+        // Additional utility class for CAD utilities
+        public static class CadUtils
+        {
+            public static string GetLayerNameFromCurveOrPolyline(GeometryObject geoObject, ImportInstance cadLink)
+            {
+                GraphicsStyle gStyle = cadLink.Document.GetElement(geoObject.GraphicsStyleId) as GraphicsStyle;
+                return gStyle?.GraphicsStyleCategory?.Name ?? string.Empty;
+            }
+        }
+    }
+
+    // Custom filter for CAD links
+    public class ImportInstanceSelectionFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element elem)
+        {
+            return elem is ImportInstance;
+        }
+
+        public bool AllowReference(Reference reference, XYZ position)
+        {
+            return true;
+        }
+    }
+}
