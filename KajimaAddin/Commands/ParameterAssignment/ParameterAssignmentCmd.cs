@@ -40,7 +40,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                 return Result.Failed;
             }
 
-            // Read data from Excel files and create ParamObj list
+            // Read data from Excel file and create ParamObj list
             List<ParamObj> parameterObjs = ReadParametersFromExcel(excelFilePath1, excelFilePath2, doc);
 
             // Process the parameterObjs and assign shared parameters
