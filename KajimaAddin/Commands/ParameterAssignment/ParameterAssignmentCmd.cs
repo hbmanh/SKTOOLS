@@ -25,18 +25,18 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             // Show file dialog to select the first Excel file
-            string excelFilePath1 = GetExcelFilePath("Select the first Excel file (竣工BIM01-エレメント表)");
+            string excelFilePath1 = GetExcelFilePath("最初のExcelファイルを選択 (竣工BIM01-エレメント表)");
             if (string.IsNullOrEmpty(excelFilePath1))
             {
-                message = "No file selected.";
+                message = "ファイルが選択されていません。";
                 return Result.Failed;
             }
 
             // Show file dialog to select the second Excel file
-            string excelFilePath2 = GetExcelFilePath("Select the second Excel file (竣工BIM02-BCI)");
+            string excelFilePath2 = GetExcelFilePath("二番目のExcelファイルを選択 (竣工BIM02-BCI)");
             if (string.IsNullOrEmpty(excelFilePath2))
             {
-                message = "No file selected.";
+                message = "ファイルが選択されていません。";
                 return Result.Failed;
             }
 
@@ -65,7 +65,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
         {
             using (OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                Filter = "Excel Files|*.xls;*.xlsx;*.xlsm",
+                Filter = "Excelファイル|*.xls;*.xlsx;*.xlsm",
                 Title = title
             })
             {
@@ -180,7 +180,6 @@ namespace SKToolsAddins.Commands.ParameterAssignment
 
             return null;
         }
-
         private Result ProcessParameters(Document doc, Application app, List<ParamObj> parameterObjs, ref string message)
         {
             if (!EnsureSharedParameterFileIsSet(app, ref message))
@@ -191,19 +190,19 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             DefinitionFile sharedParamFile = app.OpenSharedParameterFile();
             if (sharedParamFile == null)
             {
-                message = "Shared parameter file is not set.";
+                message = "共有パラメータファイルが設定されていません。";
                 return Result.Failed;
             }
 
-            using (Transaction transaction = new Transaction(doc, "Assign Shared Parameters"))
+            using (Transaction transaction = new Transaction(doc, "共有パラメータを割り当てる"))
             {
                 transaction.Start();
 
                 foreach (var paramObj in parameterObjs)
                 {
                     string paramName = SanitizeParameterName(paramObj.ParamName);
-                    DefinitionGroup sharedParamGroup = sharedParamFile.Groups.FirstOrDefault(g => g.Name == "CustomParameters")
-                                                       ?? sharedParamFile.Groups.Create("CustomParameters");
+                    DefinitionGroup sharedParamGroup = sharedParamFile.Groups.FirstOrDefault(g => g.Name == "カスタムパラメータ")
+                                                           ?? sharedParamFile.Groups.Create("カスタムパラメータ");
                     Definition definition = sharedParamGroup.Definitions.FirstOrDefault(d => d.Name == paramName);
 
                     if (definition == null)
@@ -219,9 +218,20 @@ namespace SKToolsAddins.Commands.ParameterAssignment
 
                     // Check if the parameter already exists in the project
                     BindingMap bindingMap = doc.ParameterBindings;
-                    if (bindingMap.Contains(definition))
+                    bool parameterExistsInProject = false;
+                    DefinitionBindingMapIterator iterator = bindingMap.ForwardIterator();
+                    while (iterator.MoveNext())
                     {
-                        continue; // Skip if parameter already exists in the project
+                        if (iterator.Key.Name == paramName)
+                        {
+                            parameterExistsInProject = true;
+                            break;
+                        }
+                    }
+
+                    if (parameterExistsInProject)
+                    {
+                        continue; // Skip if project parameter already exists
                     }
 
                     CategorySet categorySet = app.Create.NewCategorySet();
@@ -252,6 +262,9 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             return Result.Succeeded;
         }
 
+
+
+
         private string SanitizeParameterName(string paramName)
         {
             // Remove non-printable characters
@@ -263,15 +276,15 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             DefinitionFile sharedParamFile = app.OpenSharedParameterFile();
             if (sharedParamFile == null)
             {
-                TaskDialog defineSharedParamFileDialog = new TaskDialog("Shared Parameter File")
+                TaskDialog defineSharedParamFileDialog = new TaskDialog("共有パラメータファイル")
                 {
-                    MainInstruction = "No shared parameter file is set. Please select or create a shared parameter file.",
-                    MainContent = "Would you like to select an existing shared parameter file or create a new one?",
+                    MainInstruction = "共有パラメータファイルが設定されていません。既存の共有パラメータファイルを選択するか、新しい共有パラメータファイルを作成してください。",
+                    MainContent = "既存の共有パラメータファイルを選択しますか、新しい共有パラメータファイルを作成しますか？",
                     CommonButtons = TaskDialogCommonButtons.Cancel,
                     DefaultButton = TaskDialogResult.Cancel
                 };
-                defineSharedParamFileDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Select existing shared parameter file");
-                defineSharedParamFileDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Create new shared parameter file");
+                defineSharedParamFileDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "既存の共有パラメータファイルを選択する");
+                defineSharedParamFileDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "新しい共有パラメータファイルを作成する");
 
                 TaskDialogResult result = defineSharedParamFileDialog.Show();
 
@@ -280,8 +293,8 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                     case TaskDialogResult.CommandLink1:
                         OpenFileDialog openFileDialog = new OpenFileDialog
                         {
-                            Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
-                            Title = "Select Shared Parameter File"
+                            Filter = "テキストファイル (*.txt)|*.txt|すべてのファイル (*.*)|*.*",
+                            Title = "共有パラメータファイルを選択する"
                         };
 
                         if (openFileDialog.ShowDialog() == DialogResult.OK)
@@ -293,8 +306,8 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                     case TaskDialogResult.CommandLink2:
                         SaveFileDialog saveFileDialog = new SaveFileDialog
                         {
-                            Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
-                            Title = "Create New Shared Parameter File"
+                            Filter = "テキストファイル (*.txt)|*.txt|すべてのファイル (*.*)|*.*",
+                            Title = "新しい共有パラメータファイルを作成する"
                         };
 
                         if (saveFileDialog.ShowDialog() == DialogResult.OK)
@@ -311,7 +324,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                         break;
 
                     case TaskDialogResult.Cancel:
-                        message = "Operation cancelled by user.";
+                        message = "ユーザーによって操作がキャンセルされました。";
                         return false;
                 }
             }
@@ -319,7 +332,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             sharedParamFile = app.OpenSharedParameterFile();
             if (sharedParamFile == null)
             {
-                message = "Failed to set shared parameter file.";
+                message = "共有パラメータファイルの設定に失敗しました。";
                 return false;
             }
 
