@@ -72,24 +72,24 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             // Placeholder types and system mappings based on CAD layer names
             var ductMappings = new Dictionary<string, (string type, string system)>
-            {
-                { "M6SA", ("2D_00_丸ティー", "M06_給気_SA") },
-                { "M6RA", ("2D_00_丸ティー", "M06_還気_RA") },
-                { "M6EA", ("2D_00_丸ティー", "M06_排気_EA") },
-                { "M6OA", ("2D_00_丸ティー", "M06_外気_OA") },
-                { "M6PASS", ("2D_00_丸ティー", "M06_パス_PA") },
-                { "M6SOA", ("2D_00_丸ティー", "M06_外気(処理外気)_SOA") },
-                { "M6KEA", ("2D_00_丸ティー", "M06_厨房排気_KEA") }
-            };
+    {
+        { "M6SA", ("2D_00_丸ティー", "M06_給気_SA") },
+        { "M6RA", ("2D_00_丸ティー", "M06_還気_RA") },
+        { "M6EA", ("2D_00_丸ティー", "M06_排気_EA") },
+        { "M6OA", ("2D_00_丸ティー", "M06_外気_OA") },
+        { "M6PASS", ("2D_00_丸ティー", "M06_パス_PA") },
+        { "M6SOA", ("2D_00_丸ティー", "M06_外気(処理外気)_SOA") },
+        { "M6KEA", ("2D_00_丸ティー", "M06_厨房排気_KEA") }
+    };
 
             var pipeMappings = new Dictionary<string, (string type, string system)>
-            {
-                { "M5D", ("2D_00_排水_ドレン(空調)", "M05_ドレン(空調)_D") },
-                { "M3R", ("2D_00_排水_冷媒_R", "M03_冷媒_R") },
-                { "P1WATER", ("2D_00_加湿給水/C/CH", "M05_加湿給水") },
-                { "M4C", ("2D_00_加湿給水/C/CH", "M04_冷水(往)_C") },
-                { "M4CH", ("2D_00_加湿給水/C/CH", "M04_冷温水(往)_CH") }
-            };
+    {
+        { "M5D", ("2D_00_排水_ドレン(空調)", "M05_ドレン(空調)_D") },
+        { "M3R", ("2D_00_排水_冷媒_R", "M03_冷媒_R") },
+        { "P1WATER", ("2D_00_加湿給水/C/CH", "M05_加湿給水") },
+        { "M4C", ("2D_00_加湿給水/C/CH", "M04_冷水(往)_C") },
+        { "M4CH", ("2D_00_加湿給水/C/CH", "M04_冷温水(往)_CH") }
+    };
 
             var systemTypes = new FilteredElementCollector(doc)
                 .OfClass(typeof(MechanicalSystemType))
@@ -211,12 +211,30 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     // Add connector vào Xpoints
                     foreach (var splitCurve in splitCurves)
                     {
+                        if (splitCurve is Duct duct)
+                        {
+                            var systemType = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsValueString();
+                            if (systemType != null && offsets.TryGetValue(systemType, out double offset))
+                            {
+                                duct.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(offset));
+                            }
+                        }
+                        else if (splitCurve is Pipe pipe)
+                        {
+                            var systemType = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsValueString();
+                            if (systemType != null && offsets.TryGetValue(systemType, out double offset))
+                            {
+                                pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(offset));
+                            }
+                        }
+                       
                         var connectors = splitCurve.ConnectorManager.Connectors.Cast<Connector>().ToList();
                         foreach (var connector in connectors)
                         {
                             var xPoint = connector.Origin;
                             customCurve.XPointsConnectors.Add((xPoint, connector));
                         }
+                       
                     }
                 }
                 // Group points to classify TeePoints and ElbowPoints
@@ -259,48 +277,14 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 {
                     CreateTeeFitting(doc, teePoint.Connectors);
                 }
-               
-                foreach (var customCurve in customCurves)
-                {
-                    var mepCurve = customCurve.MepCurve;
 
-                    try
-                    {
-                        switch (mepCurve)
-                        {
-                            case Duct _:
-                            {
-                                var systemType = mepCurve.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsString();
-                                if (offsets.TryGetValue(systemType, out double offset))
-                                {
-                                    mepCurve.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(offset));
-                                }
-
-                                break;
-                            }
-                            case Pipe _:
-                            {
-                                var systemType = mepCurve.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsString();
-                                if (offsets.TryGetValue(systemType, out double offset))
-                                {
-                                    mepCurve.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(offset));
-                                }
-
-                                break;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        //
-                    }
-                }
                 trans.Commit();
             }
 
             TaskDialog.Show("Success", "Successfully created duct and pipe from imported CAD lines and polylines.");
             return Result.Succeeded;
         }
+
 
         private Dictionary<string, double> GetSystemOffsets(Dictionary<Curve, string> curveLayerMappings, Dictionary<string, (string type, string system)> ductMappings, Dictionary<string, (string type, string system)> pipeMappings)
         {
@@ -401,7 +385,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             {
                 double radius = arc.Radius + 10 / 304.8;
                 XYZ centerPoint = arc.Center;
-                double additionalHeight = 3200 / 304.8; 
+                double additionalHeight = 3200 / 304.8;
                 XYZ newCenterPoint = new XYZ(centerPoint.X, centerPoint.Y, centerPoint.Z + additionalHeight);
                 if (level == null) continue;
                 Solid arcBlockCheckIntersection = newCenterPoint.CreateCylinderUpAndDnByLevel(doc, radius, 1, level);

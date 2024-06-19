@@ -28,7 +28,6 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             var mepCurves = new List<MEPCurve>();
 
-            // Thu thập ducts từ level hiện tại
             var ducts = new FilteredElementCollector(doc)
                 .OfCategory(BuiltInCategory.OST_DuctCurves)
                 .OfClass(typeof(Duct))
@@ -38,7 +37,6 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 .ToList();
             mepCurves.AddRange(ducts);
 
-            // Thu thập pipes từ level hiện tại
             var pipes = new FilteredElementCollector(doc)
                 .OfCategory(BuiltInCategory.OST_PipeCurves)
                 .OfClass(typeof(Pipe))
@@ -48,8 +46,8 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 .ToList();
             mepCurves.AddRange(pipes);
 
-            // Hiển thị hộp thoại nhập để lấy cao độ cho các hệ thống
-            var offsets = GetSystemOffsets(mepCurves);
+            // Hiển thị hộp thoại nhập để lấy cao độ system
+            var offsets = GetSystemOffsets(doc, mepCurves);
 
             using (Transaction trans = new Transaction(doc))
             {
@@ -102,7 +100,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             return Result.Succeeded;
         }
 
-        private Dictionary<ElementId, double> GetSystemOffsets(List<MEPCurve> mepCurves)
+        private Dictionary<ElementId, double> GetSystemOffsets(Document doc, List<MEPCurve> mepCurves)
         {
             var offsets = new Dictionary<ElementId, double>();
 
@@ -154,7 +152,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 int rowIndex = 1;
                 foreach (var systemId in relevantSystems)
                 {
-                    var systemName = GetSystemName(systemId); // Helper method to get system name
+                    var systemName = GetSystemName(doc,systemId); // Helper method to get system name
                     tableLayoutPanel.Controls.Add(new Label() { Text = systemName, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, rowIndex);
                     TextBox textBox = new TextBox() { Tag = systemId, Text = "2800" }; // Set default value to 2800
                     tableLayoutPanel.Controls.Add(textBox, 1, rowIndex);
@@ -196,14 +194,11 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             return offsets;
         }
 
-        private string GetSystemName(ElementId systemId)
+        private string GetSystemName(Document doc,ElementId systemId)
         {
-            // Implement a method to get the system name based on the systemId
-            // This can be a lookup in the document's element list or a predefined dictionary
-            // For example:
-            // var systemElement = doc.GetElement(systemId);
-            // return systemElement.Name;
-            return systemId.ToString(); // Replace with actual implementation
+
+            var systemElement = doc.GetElement(systemId);
+            return systemElement.Name;
         }
     }
 }
