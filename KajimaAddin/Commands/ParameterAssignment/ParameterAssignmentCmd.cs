@@ -44,7 +44,14 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             List<ParamObj> parameterObjs = ReadParametersFromExcel(excelFilePath1, excelFilePath2, doc);
 
             // Process the parameterObjs and assign shared parameters
-            return ProcessParameters(doc, app, parameterObjs, ref message);
+            Result result = ProcessParameters(doc, app, parameterObjs, ref message);
+            if (result != Result.Succeeded)
+            {
+                return result;
+            }
+
+            // Create schedules for each category with corresponding parameters as fields
+            return CreateSchedules(doc, parameterObjs, ref message);
         }
 
         public class ParamObj
@@ -103,12 +110,12 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                             string cellValue = sheet1.Cells[row, col].Text;
                             if (cellValue == "O" || cellValue == "Y")
                             {
-                                string categoryName = sheet1.Cells[4, col].Text; // Read from row 5
+                                string categoryName = sheet1.Cells[5, col].Text; // Read from row 5
                                 if (string.IsNullOrWhiteSpace(categoryName))
                                 {
                                     continue; // Skip if categoryName is empty
                                 }
-                                var categories = GetCategoriesFromSheet2(sheet2, categoryName, doc);
+                                var categories = GetCategoriesFromBIM01(sheet2, categoryName, doc);
                                 paramObj.Categories.AddRange(categories);
                             }
                         }
@@ -121,7 +128,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             return parameterObjs;
         }
 
-        private List<Category> GetCategoriesFromSheet2(ExcelWorksheet sheet, string categoryName, Document doc)
+        private List<Category> GetCategoriesFromBIM01(ExcelWorksheet sheet, string categoryName, Document doc)
         {
             List<Category> categories = new List<Category>();
 
@@ -132,7 +139,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                     continue; // Skip strikethrough and empty rows
                 }
 
-                if (sheet.Cells[row, 2].Text == categoryName)
+                if (sheet.Cells[row, 3].Text == categoryName)
                 {
                     string categoryInternalNames = sheet.Cells[row, 8].Text; // Column H (zero-based index 7)
 
@@ -180,6 +187,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
 
             return null;
         }
+
         private Result ProcessParameters(Document doc, Application app, List<ParamObj> parameterObjs, ref string message)
         {
             if (!EnsureSharedParameterFileIsSet(app, ref message))
@@ -202,7 +210,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                 {
                     string paramName = SanitizeParameterName(paramObj.ParamName);
                     DefinitionGroup sharedParamGroup = sharedParamFile.Groups.FirstOrDefault(g => g.Name == "カスタムパラメータ")
-                                                           ?? sharedParamFile.Groups.Create("カスタムパラメータ");
+                                                               ?? sharedParamFile.Groups.Create("カスタムパラメータ");
                     Definition definition = sharedParamGroup.Definitions.FirstOrDefault(d => d.Name == paramName);
 
                     if (definition == null)
@@ -210,28 +218,24 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                         ExternalDefinitionCreationOptions options = new ExternalDefinitionCreationOptions(paramName, SpecTypeId.String.Text);
                         definition = sharedParamGroup.Definitions.Create(options);
                     }
-                    else
-                    {
-                        // If parameter already exists in shared parameter file, skip the creation
-                        definition = sharedParamGroup.Definitions.FirstOrDefault(d => d.Name == paramName);
-                    }
 
                     // Check if the parameter already exists in the project
                     BindingMap bindingMap = doc.ParameterBindings;
-                    bool parameterExistsInProject = false;
+                    Definition existingDefinition = null;
                     DefinitionBindingMapIterator iterator = bindingMap.ForwardIterator();
                     while (iterator.MoveNext())
                     {
                         if (iterator.Key.Name == paramName)
                         {
-                            parameterExistsInProject = true;
+                            existingDefinition = iterator.Key as Definition;
                             break;
                         }
                     }
 
-                    if (parameterExistsInProject)
+                    // If the parameter exists, remove it before creating a new one
+                    if (existingDefinition != null)
                     {
-                        continue; // Skip if project parameter already exists
+                        bindingMap.Remove(existingDefinition);
                     }
 
                     CategorySet categorySet = app.Create.NewCategorySet();
@@ -261,8 +265,6 @@ namespace SKToolsAddins.Commands.ParameterAssignment
 
             return Result.Succeeded;
         }
-
-
 
 
         private string SanitizeParameterName(string paramName)
@@ -337,6 +339,113 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             }
 
             return true;
+        }
+
+        private Result CreateSchedules(Document doc, List<ParamObj> parameterObjs, ref string message)
+        {
+            using (Transaction transaction = new Transaction(doc, "スケジュールを作成"))
+            {
+                transaction.Start();
+
+                var categoryParamGroups = new Dictionary<Category, List<ParamObj>>();
+                foreach (var paramObj in parameterObjs)
+                {
+                    foreach (var category in paramObj.Categories)
+                    {
+                        if (!categoryParamGroups.ContainsKey(category))
+                        {
+                            categoryParamGroups[category] = new List<ParamObj>();
+                        }
+                        if (!categoryParamGroups[category].Contains(paramObj))
+                        {
+                            categoryParamGroups[category].Add(paramObj);
+                        }
+                    }
+                }
+                List<ParamObj> uniqueParameters = new List<ParamObj>();
+                
+                foreach (var categoryGroup in categoryParamGroups)
+                {
+                    var paramObjs = categoryGroup.Value;
+                    foreach (var paramObj in paramObjs)
+                    {
+                        if (uniqueParameters .All(p => p.ParamName != paramObj.ParamName))
+                        {
+                            uniqueParameters .Add(paramObj);
+                        }
+                    }
+                    
+                }
+
+                var parameterCategoryGroups = new Dictionary<ParamObj, List<Category>>();
+                foreach (var paramObj in parameterObjs)
+                {
+                    foreach (var category in paramObj.Categories)
+                    {
+                        if (!parameterCategoryGroups.ContainsKey(paramObj))
+                        {
+                            parameterCategoryGroups[paramObj] = new List<Category>();
+                        }
+                        if (!parameterCategoryGroups[paramObj].Contains(category))
+                        {
+                            parameterCategoryGroups[paramObj].Add(category);
+                        }
+                    }
+                }
+                List<Category> uniqueCategories = new List<Category>();
+
+                foreach (var parameterGroup in parameterCategoryGroups)
+                {
+                    var categoriesContainParamObj = parameterGroup.Value;
+                    foreach (var category in categoriesContainParamObj)
+                    {
+                        if (uniqueCategories .All(c => c.Id != category.Id) && HasInstances(doc, category))
+                        { 
+                            uniqueCategories .Add(category);
+                        }
+                    }
+                }
+                foreach (var category in uniqueCategories)
+                {
+                    // Create a schedule for the category
+                    ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, category.Id);
+                    var schedulableFields = schedule.Definition.GetSchedulableFields();
+
+                    foreach (var paramObj in uniqueParameters)
+                    {
+                        // Check if the parameter is bound to the category
+                        bool isParameterBoundToCategory = paramObj.Categories.Any(c => c.Id == category.Id);
+
+                        if (isParameterBoundToCategory )
+                        {
+                            var field = schedulableFields.FirstOrDefault(f => f.GetName(doc).Equals(paramObj.ParamName, StringComparison.OrdinalIgnoreCase));
+                            // Add fields to the schedule
+                            if (field != null)
+                            {
+                                schedule.Definition.AddField(field);
+                            }
+                            //if (field != null && field.ParameterId != ElementId.InvalidElementId)
+                            //{
+                            //    Element parameterElement = doc.GetElement(field.ParameterId);
+                            //    if (parameterElement != null && parameterElement is SharedParameterElement)
+                            //    {
+                            //        // Add fields to the schedule
+                            //        schedule.Definition.AddField(field);
+                            //    }
+                            //}
+                        }
+                    }
+                }
+
+                transaction.Commit();
+            }
+
+            return Result.Succeeded;
+        }
+        private bool HasInstances(Document doc, Category category)
+        {
+            FilteredElementCollector collector = new FilteredElementCollector(doc).OfCategoryId(category.Id).WhereElementIsNotElementType();
+            return collector.Any();
         }
     }
 }
