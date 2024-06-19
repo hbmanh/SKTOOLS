@@ -1,12 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using SKToolsAddins.Utils;
+using Form = System.Windows.Forms.Form;
+using Panel = System.Windows.Forms.Panel;
+using TextBox = System.Windows.Forms.TextBox;
+using UnitUtils = SKToolsAddins.Utils.UnitUtils;
 
 namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 {
@@ -21,6 +26,9 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             Level level = uidoc.ActiveView.GenLevel;
 
+            // Hiển thị hộp thoại nhập để lấy cao độ system
+            var offsets = GetSystemOffsets(doc);
+
             using (Transaction trans = new Transaction(doc))
             {
                 trans.Start("Convert Placeholders to Pipes and Ducts");
@@ -28,7 +36,6 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 List<MEPCurve> mepCurves = new List<MEPCurve>();
 
                 // Thu thập tất cả các Pipe Placeholder và Duct Placeholder từ level hiện tại
-
                 List<Pipe> pipePlaceholders = new FilteredElementCollector(doc)
                     .OfCategory(BuiltInCategory.OST_PlaceHolderPipes)
                     .OfClass(typeof(Pipe))
@@ -47,44 +54,97 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 mepCurves.AddRange(pipePlaceholders);
                 mepCurves.AddRange(ductPlaceholders);
 
-        var xPoints = MEPCurveUtils.FindIntersectionPoints(mepCurves).ToList();
-                List<CustomCurve> customCurves = new List<CustomCurve>();
-                foreach (var mepCurve in mepCurves)
+                foreach (var pipe in pipePlaceholders)
                 {
-                    var customCurve = new CustomCurve(mepCurve);
-                    // Chia các MEPCurve dựa trên xPoints
-                    var splitCurves = MEPCurveUtils.SplitCurve(doc, mepCurve, xPoints, level);
-                    customCurve.SplitCurves.AddRange(splitCurves);
-
-                    // Add connector vào Xpoints
-                    foreach (var splitCurve in splitCurves)
+                    if (pipe == null) continue;
+                    XYZ startPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(0);
+                    XYZ endPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(1);
+                    var systemId = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
+                    var pipeSize = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
+                    double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
+                    if (startPoint != null && endPoint != null)
                     {
-                        var connectors = splitCurve.ConnectorManager.Connectors.Cast<Connector>().ToList();
-                        foreach (var connector in connectors)
+                        var newPipe = Pipe.Create(doc, systemId, pipe.GetTypeId(), level.Id, startPoint, endPoint);
+                        if (pipeSize.HasValue)
                         {
-                            var xPoint = connector.Origin;
-                            customCurve.XPoints.Add(xPoint);
-                            customCurve.XPointsConnectors.Add((xPoint, connector));
+                            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.Set(pipeSize.Value); // thiết lập kích thước cho ống mới
                         }
+                        newPipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
+                        doc.Delete(pipe.Id);
                     }
-                    customCurves.Add(customCurve);
                 }
-                var allXPointsConnectors = customCurves.SelectMany(c => c.XPointsConnectors);
-                // Nhóm các XPointsConnectors theo tọa độ X, Y, Z sau khi làm tròn
-                var groupedPoints = allXPointsConnectors
-                    .GroupBy(p => new
+
+                foreach (var duct in ductPlaceholders)
+                {
+                    if (duct == null) continue;
+                    XYZ startPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(0);
+                    XYZ endPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(1);
+                    var systemId = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
+                    var ductSize = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
+                    double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
+                    if (startPoint != null && endPoint != null)
                     {
-                        X = Math.Round(p.XPoints.X, 0),
-                        Y = Math.Round(p.XPoints.Y, 0),
-                        Z = Math.Round(p.XPoints.Z, 0)
-                    })
-                    .Select(g => new
+                        var newDuct = Duct.Create(doc, systemId, duct.GetTypeId(), level.Id, startPoint, endPoint);
+                        if (ductSize.HasValue)
+                        {
+                            newDuct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.Set(ductSize.Value); // thiết lập kích thước cho ống dẫn mới
+                        }
+                        newDuct.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
+                        doc.Delete(duct.Id);
+                    }
+                }
+
+                List<XYZ> xPoints;
+                List<dynamic> groupedPoints;
+
+                // Chia các MEP curves tại các điểm giao cắt và tạo fittings
+                try
+                {
+                    xPoints = MEPCurveUtils.FindIntersectionPoints(mepCurves).ToList();
+                    List<CustomCurve> customCurves = new List<CustomCurve>();
+                    foreach (var mepCurve in mepCurves)
                     {
-                        Point = g.Key,
-                        // Danh sách các Connectors tương ứng với điểm đó
-                        Connectors = g.Select(p => p.Connector).ToList()
-                    })
-                    .ToList();
+                        var customCurve = new CustomCurve(mepCurve);
+                        // Chia các MEPCurve dựa trên xPoints
+                        var splitCurves = MEPCurveUtils.SplitCurve(doc, mepCurve, xPoints, level);
+                        customCurve.SplitCurves.AddRange(splitCurves);
+
+                        // Add connector vào Xpoints
+                        foreach (var splitCurve in splitCurves)
+                        {
+                            var connectors = splitCurve.ConnectorManager.Connectors.Cast<Connector>().ToList();
+                            foreach (var connector in connectors)
+                            {
+                                var xPoint = connector.Origin;
+                                customCurve.XPoints.Add(xPoint);
+                                customCurve.XPointsConnectors.Add((xPoint, connector));
+                            }
+                        }
+                        customCurves.Add(customCurve);
+                    }
+                    var allXPointsConnectors = customCurves.SelectMany(c => c.XPointsConnectors);
+                    // Nhóm các XPointsConnectors theo tọa độ X, Y, Z sau khi làm tròn
+                    groupedPoints = allXPointsConnectors
+                        .GroupBy(p => new
+                        {
+                            X = Math.Round(p.XPoints.X, 0),
+                            Y = Math.Round(p.XPoints.Y, 0),
+                            Z = Math.Round(p.XPoints.Z, 0)
+                        })
+                        .Select(g => new
+                        {
+                            Point = g.Key,
+                            // Danh sách các Connectors tương ứng với điểm đó
+                            Connectors = g.Select(p => p.Connector).ToList()
+                        })
+                        .ToList<dynamic>();
+                }
+                catch
+                {
+                    //skip
+                    groupedPoints = new List<dynamic>();
+                }
+
                 var isTeePoints = new List<(XYZ Point, List<Connector> Connectors)>();
                 var isElbowPoints = new List<(XYZ Point, List<Connector> Connectors)>();
                 // Tìm kiếm các điểm Tee và Elbow
@@ -118,6 +178,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             TaskDialog.Show("Success", "Successfully converted Placeholders to Pipes and Ducts");
             return Result.Succeeded;
         }
+
         private void CreateElbowFitting(Document doc, Connector connector1, Connector connector2)
         {
             try
@@ -170,6 +231,151 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             }
         }
 
+        private Dictionary<ElementId, double> GetSystemOffsets(Document doc)
+        {
+            var offsets = new Dictionary<ElementId, double>();
+
+            var relevantSystems = new HashSet<ElementId>();
+
+            var placeholders = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_PlaceHolderPipes)
+                .OfClass(typeof(MEPCurve))
+                .WhereElementIsNotElementType()
+                .Cast<MEPCurve>()
+                .ToList();
+
+            placeholders.AddRange(new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_PlaceHolderDucts)
+                .OfClass(typeof(MEPCurve))
+                .WhereElementIsNotElementType()
+                .Cast<MEPCurve>());
+
+            foreach (var mepCurve in placeholders)
+            {
+                ElementId systemId;
+                if (mepCurve is Duct)
+                {
+                    systemId = mepCurve.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
+                }
+                else
+                {
+                    systemId = mepCurve.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
+                }
+                relevantSystems.Add(systemId);
+            }
+
+            using (Form form = new Form())
+            {
+                form.Text = "Input Offsets for Systems";
+                form.Width = 400;
+                form.Height = 400;
+                form.StartPosition = FormStartPosition.CenterScreen;
+
+                Panel panel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    AutoScroll = true
+                };
+
+                TableLayoutPanel tableLayoutPanel = new TableLayoutPanel
+                {
+                    ColumnCount = 2,
+                    RowCount = relevantSystems.Count + 1,
+                    Dock = DockStyle.Top,
+                    AutoSize = true
+                };
+
+                // Adjust the column widths
+                tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
+                tableLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+
+                // Add header row
+                tableLayoutPanel.Controls.Add(new Label() { Text = "System", TextAlign = System.Drawing.ContentAlignment.MiddleCenter }, 0, 0);
+                tableLayoutPanel.Controls.Add(new Label() { Text = "Offset (mm)", TextAlign = System.Drawing.ContentAlignment.MiddleCenter }, 1, 0);
+
+                // Add rows for relevant systems
+                int rowIndex = 1;
+                foreach (var systemId in relevantSystems)
+                {
+                    var systemName = GetSystemName(doc, systemId); // Helper method to get system name
+                    tableLayoutPanel.Controls.Add(new Label() { Text = systemName, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, rowIndex);
+
+                    // Get the current offset value for the system
+                    double currentOffset = GetCurrentOffsetForSystem(doc, systemId, placeholders);
+
+                    TextBox textBox = new TextBox() { Tag = systemId, Text = currentOffset.ToString() }; // Set default value to current offset
+                    tableLayoutPanel.Controls.Add(textBox, 1, rowIndex);
+                    rowIndex++;
+                }
+
+                panel.Controls.Add(tableLayoutPanel);
+
+                // Add OK and Cancel buttons
+                Button buttonOk = new Button() { Text = "OK", DialogResult = DialogResult.OK };
+                Button buttonCancel = new Button() { Text = "Cancel", DialogResult = DialogResult.Cancel };
+
+                FlowLayoutPanel flowLayoutPanel = new FlowLayoutPanel()
+                {
+                    FlowDirection = FlowDirection.RightToLeft,
+                    Dock = DockStyle.Bottom,
+                    AutoSize = true
+                };
+
+                flowLayoutPanel.Controls.Add(buttonCancel);
+                flowLayoutPanel.Controls.Add(buttonOk);
+
+                form.Controls.Add(panel);
+                form.Controls.Add(flowLayoutPanel);
+
+                if (form.ShowDialog() == DialogResult.OK)
+                {
+                    for (int i = 1; i < rowIndex; i++)
+                    {
+                        var textBox = tableLayoutPanel.GetControlFromPosition(1, i) as TextBox;
+                        if (double.TryParse(textBox.Text, out double offset))
+                        {
+                            offsets[(ElementId)textBox.Tag] = offset;
+                        }
+                    }
+                }
+            }
+
+            return offsets;
+        }
+
+        private double GetCurrentOffsetForSystem(Document doc, ElementId systemId, List<MEPCurve> mepCurves)
+        {
+            // Find an example MEP curve for the system to get its current offset
+            foreach (var mepCurve in mepCurves)
+            {
+                ElementId currentSystemId;
+                if (mepCurve is Duct)
+                {
+                    currentSystemId = mepCurve.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
+                }
+                else
+                {
+                    currentSystemId = mepCurve.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
+                }
+
+                if (currentSystemId == systemId)
+                {
+                    double? offset = mepCurve.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.AsDouble();
+                    if (offset.HasValue)
+                    {
+                        return UnitUtils.FeetToMm(offset.Value); // Convert from feet to mm
+                    }
+                }
+            }
+            return 2800; // Default value if no offset found
+        }
+
+        private string GetSystemName(Document doc, ElementId systemId)
+        {
+            var systemElement = doc.GetElement(systemId);
+            return systemElement.Name;
+        }
+
         class CustomCurve
         {
             public MEPCurve MepCurve { get; set; }
@@ -186,5 +392,4 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             }
         }
     }
-
 }

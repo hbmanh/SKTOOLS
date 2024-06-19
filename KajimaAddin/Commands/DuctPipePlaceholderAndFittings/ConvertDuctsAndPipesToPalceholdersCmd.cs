@@ -152,9 +152,13 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 int rowIndex = 1;
                 foreach (var systemId in relevantSystems)
                 {
-                    var systemName = GetSystemName(doc,systemId); // Helper method to get system name
+                    var systemName = GetSystemName(doc, systemId); // Helper method to get system name
                     tableLayoutPanel.Controls.Add(new Label() { Text = systemName, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, rowIndex);
-                    TextBox textBox = new TextBox() { Tag = systemId, Text = "2800" }; // Set default value to 2800
+
+                    // Get the current offset value for the system
+                    double currentOffset = GetCurrentOffsetForSystem(doc, systemId, mepCurves);
+
+                    TextBox textBox = new TextBox() { Tag = systemId, Text = currentOffset.ToString() }; // Set default value to current offset
                     tableLayoutPanel.Controls.Add(textBox, 1, rowIndex);
                     rowIndex++;
                 }
@@ -194,9 +198,35 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             return offsets;
         }
 
-        private string GetSystemName(Document doc,ElementId systemId)
+        private double GetCurrentOffsetForSystem(Document doc, ElementId systemId, List<MEPCurve> mepCurves)
         {
+            // Find an example MEP curve for the system to get its current offset
+            foreach (var mepCurve in mepCurves)
+            {
+                ElementId currentSystemId;
+                if (mepCurve is Duct)
+                {
+                    currentSystemId = mepCurve.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
+                }
+                else
+                {
+                    currentSystemId = mepCurve.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
+                }
 
+                if (currentSystemId == systemId)
+                {
+                    double? offset = mepCurve.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.AsDouble();
+                    if (offset.HasValue)
+                    {
+                        return UnitUtils.FeetToMm(offset.Value); // Convert from feet to mm
+                    }
+                }
+            }
+            return 2800; // Default value if no offset found
+        }
+
+        private string GetSystemName(Document doc, ElementId systemId)
+        {
             var systemElement = doc.GetElement(systemId);
             return systemElement.Name;
         }
