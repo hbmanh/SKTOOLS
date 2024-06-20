@@ -9,6 +9,7 @@ using Autodesk.Revit.UI;
 using OfficeOpenXml;
 using Application = Autodesk.Revit.ApplicationServices.Application;
 using Binding = Autodesk.Revit.DB.Binding;
+using View = Autodesk.Revit.DB.View;
 
 namespace SKToolsAddins.Commands.ParameterAssignment
 {
@@ -51,7 +52,16 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             }
 
             // Create schedules for each category with corresponding parameters as fields
-            return CreateSchedules(doc, parameterObjs, ref message);
+            List<ViewSchedule> createdSchedules = CreateSchedules(doc, parameterObjs, ref message);
+            if (createdSchedules == null || !createdSchedules.Any())
+            {
+                return Result.Failed;
+            }
+
+            // Export schedules to Excel
+            ExportSchedulesToExcel(doc, createdSchedules);
+
+            return Result.Succeeded;
         }
 
         public class ParamObj
@@ -266,7 +276,6 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             return Result.Succeeded;
         }
 
-
         private string SanitizeParameterName(string paramName)
         {
             // Remove non-printable characters
@@ -341,8 +350,10 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             return true;
         }
 
-        private Result CreateSchedules(Document doc, List<ParamObj> parameterObjs, ref string message)
+        private List<ViewSchedule> CreateSchedules(Document doc, List<ParamObj> parameterObjs, ref string message)
         {
+            List<ViewSchedule> createdSchedules = new List<ViewSchedule>();
+
             using (Transaction transaction = new Transaction(doc, "スケジュールを作成"))
             {
                 transaction.Start();
@@ -363,18 +374,18 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                     }
                 }
                 List<ParamObj> uniqueParameters = new List<ParamObj>();
-                
+
                 foreach (var categoryGroup in categoryParamGroups)
                 {
                     var paramObjs = categoryGroup.Value;
                     foreach (var paramObj in paramObjs)
                     {
-                        if (uniqueParameters .All(p => p.ParamName != paramObj.ParamName))
+                        if (uniqueParameters.All(p => p.ParamName != paramObj.ParamName))
                         {
-                            uniqueParameters .Add(paramObj);
+                            uniqueParameters.Add(paramObj);
                         }
                     }
-                    
+
                 }
 
                 var parameterCategoryGroups = new Dictionary<ParamObj, List<Category>>();
@@ -399,9 +410,9 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                     var categoriesContainParamObj = parameterGroup.Value;
                     foreach (var category in categoriesContainParamObj)
                     {
-                        if (uniqueCategories .All(c => c.Id != category.Id) && HasInstances(doc, category))
-                        { 
-                            uniqueCategories .Add(category);
+                        if (uniqueCategories.All(c => c.Id != category.Id) && HasInstances(doc, category))
+                        {
+                            uniqueCategories.Add(category);
                         }
                     }
                 }
@@ -409,14 +420,14 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                 {
                     // Create a schedule for the category
                     ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, category.Id);
+                    createdSchedules.Add(schedule);
                     var schedulableFields = schedule.Definition.GetSchedulableFields();
-
                     foreach (var paramObj in uniqueParameters)
                     {
                         // Check if the parameter is bound to the category
                         bool isParameterBoundToCategory = paramObj.Categories.Any(c => c.Id == category.Id);
 
-                        if (isParameterBoundToCategory )
+                        if (isParameterBoundToCategory)
                         {
                             var field = schedulableFields.FirstOrDefault(f => f.GetName(doc).Equals(paramObj.ParamName, StringComparison.OrdinalIgnoreCase));
                             // Add fields to the schedule
@@ -424,15 +435,6 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                             {
                                 schedule.Definition.AddField(field);
                             }
-                            //if (field != null && field.ParameterId != ElementId.InvalidElementId)
-                            //{
-                            //    Element parameterElement = doc.GetElement(field.ParameterId);
-                            //    if (parameterElement != null && parameterElement is SharedParameterElement)
-                            //    {
-                            //        // Add fields to the schedule
-                            //        schedule.Definition.AddField(field);
-                            //    }
-                            //}
                         }
                     }
                 }
@@ -440,12 +442,137 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                 transaction.Commit();
             }
 
-            return Result.Succeeded;
+            return createdSchedules;
         }
+
         private bool HasInstances(Document doc, Category category)
         {
             FilteredElementCollector collector = new FilteredElementCollector(doc).OfCategoryId(category.Id).WhereElementIsNotElementType();
             return collector.Any();
         }
+
+        private void ExportSchedulesToExcel(Document doc, List<ViewSchedule> createdSchedules)
+        {
+            string excelExportPath = GetSaveFilePath();
+            if (string.IsNullOrEmpty(excelExportPath))
+            {
+                TaskDialog.Show("Export Schedules", "Export operation was canceled.");
+                return;
+            }
+
+            using (ExcelPackage package = new ExcelPackage())
+            {
+                var scheduleNames = new HashSet<string>();
+
+                foreach (var schedule in createdSchedules)
+                {
+                    // Ensure unique worksheet name
+                    string worksheetName = schedule.Name.Length > 31 ? schedule.Name.Substring(0, 31) : schedule.Name;
+                    string originalName = worksheetName;
+                    int counter = 1;
+                    while (scheduleNames.Contains(worksheetName))
+                    {
+                        worksheetName = $"{originalName}_{counter}";
+                        if (worksheetName.Length > 31)
+                        {
+                            worksheetName = worksheetName.Substring(0, 31);
+                        }
+                        counter++;
+                    }
+                    scheduleNames.Add(worksheetName);
+
+                    // Create worksheet for each schedule
+                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add(worksheetName);
+
+                    // Collect schedule data
+                    var tableData = schedule.GetTableData();
+                    var sectionData = tableData.GetSectionData(SectionType.Body);
+
+                    // Identify columns with data
+                    var schedulableFields = schedule.Definition.GetSchedulableFields();
+                    List<int> includedColumns = new List<int>();
+
+                    for (int i = 0; i < schedulableFields.Count; i++)
+                    {
+                        bool columnHasData = false;
+                        for (int r = 0; r < sectionData.NumberOfRows; r++)
+                        {
+                            if (i < sectionData.NumberOfColumns)
+                            {
+                                var cellText = schedule.GetCellText(SectionType.Body, r, i);
+                                if (!string.IsNullOrEmpty(cellText))
+                                {
+                                    columnHasData = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (columnHasData)
+                        {
+                            includedColumns.Add(i);
+                        }
+                    }
+
+                    // Add headers for included columns
+                    int colIndex = 1;
+                    foreach (int col in includedColumns)
+                    {
+                        worksheet.Cells[1, colIndex].Value = schedulableFields[col].GetName(doc);
+                        worksheet.Cells[1, colIndex].Style.Font.Bold = true;
+                        worksheet.Cells[1, colIndex].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                        worksheet.Cells[1, colIndex].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+                        worksheet.Cells[1, colIndex].Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
+                        worksheet.Cells[1, colIndex].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
+                        worksheet.Cells[1, colIndex].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
+                        worksheet.Column(colIndex).Width = 20; // Adjust column width
+                        colIndex++;
+                    }
+
+                    // Add data for included columns
+                    int row = 1; // Start from row 1 since we want to shift everything up
+                    for (int r = 0; r < sectionData.NumberOfRows; r++)
+                    {
+                        colIndex = 1;
+                        foreach (int col in includedColumns)
+                        {
+                            if (col < sectionData.NumberOfColumns)
+                            {
+                                var cellText = schedule.GetCellText(SectionType.Body, r, col);
+                                worksheet.Cells[row, colIndex].Value = cellText;
+                                worksheet.Cells[row, colIndex].Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
+                                worksheet.Cells[row, colIndex].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Left;
+                                worksheet.Cells[row, colIndex].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
+                            }
+                            colIndex++;
+                        }
+                        row++;
+                    }
+                }
+
+                // Save the Excel file
+                FileInfo fileInfo = new FileInfo(excelExportPath);
+                package.SaveAs(fileInfo);
+            }
+
+            TaskDialog.Show("Export Schedules", "Schedules have been successfully exported to: " + excelExportPath);
+        }
+
+        private string GetSaveFilePath()
+        {
+            using (SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "Excelファイル|*.xlsx",
+                Title = "エクスポート先のファイルを選択",
+                DefaultExt = "xlsx"
+            })
+            {
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    return saveFileDialog.FileName;
+                }
+            }
+            return null;
+        }
+
     }
 }
