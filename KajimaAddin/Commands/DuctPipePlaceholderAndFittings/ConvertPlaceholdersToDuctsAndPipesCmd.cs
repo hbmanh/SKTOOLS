@@ -26,17 +26,22 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             Level level = uidoc.ActiveView.GenLevel;
 
-            // Hiển thị hộp thoại nhập để lấy cao độ system
-            var offsets = GetSystemOffsets(doc);
+            // Lấy lựa chọn của người dùng
+            ICollection<ElementId> selectedIds = uidoc.Selection.GetElementIds();
+            List<MEPCurve> mepCurves = new List<MEPCurve>();
+            List<Element> selectedElements = new List<Element>();
 
-            using (Transaction trans = new Transaction(doc))
+            if (selectedIds.Count > 0)
             {
-                trans.Start("Convert Placeholders to Pipes and Ducts");
-
-                List<MEPCurve> mepCurves = new List<MEPCurve>();
-
-                // Thu thập tất cả các Pipe Placeholder và Duct Placeholder từ level hiện tại
-                List<Pipe> pipePlaceholders = new FilteredElementCollector(doc)
+                // Nếu có lựa chọn
+                selectedElements = selectedIds.Select(id => doc.GetElement(id)).ToList();
+                mepCurves.AddRange(selectedElements.OfType<Pipe>().Where(d => d.ReferenceLevel.Id == level.Id));
+                mepCurves.AddRange(selectedElements.OfType<Duct>().Where(d => d.ReferenceLevel.Id == level.Id));
+            }
+            else
+            {
+                // Nếu không có lựa chọn, lấy tất cả các đối tượng trong Active View
+                var pipePlaceholders = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
                     .OfCategory(BuiltInCategory.OST_PlaceHolderPipes)
                     .OfClass(typeof(Pipe))
                     .WhereElementIsNotElementType()
@@ -44,17 +49,28 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     .Where(d => d.ReferenceLevel.Id == level.Id)
                     .ToList();
 
-                List<Duct> ductPlaceholders = new FilteredElementCollector(doc)
+                var ductPlaceholders = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
                     .OfCategory(BuiltInCategory.OST_PlaceHolderDucts)
                     .OfClass(typeof(Duct))
                     .WhereElementIsNotElementType()
                     .Cast<Duct>()
                     .Where(d => d.ReferenceLevel.Id == level.Id)
                     .ToList();
+
                 mepCurves.AddRange(pipePlaceholders);
                 mepCurves.AddRange(ductPlaceholders);
+                selectedElements.AddRange(pipePlaceholders);
+                selectedElements.AddRange(ductPlaceholders);
+            }
 
-                foreach (var pipe in pipePlaceholders)
+            // Hiển thị hộp thoại nhập để lấy cao độ system cho các đối tượng được chọn hoặc trong active view
+            var offsets = GetSystemOffsets(doc, selectedElements);
+
+            using (Transaction trans = new Transaction(doc))
+            {
+                trans.Start("Convert Placeholders to Pipes and Ducts");
+                List<MEPCurve> newCurves = new List<MEPCurve>();
+                foreach (var pipe in mepCurves.OfType<Pipe>())
                 {
                     if (pipe == null) continue;
                     XYZ startPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(0);
@@ -71,10 +87,11 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                         }
                         newPipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
                         doc.Delete(pipe.Id);
+                        newCurves.Add(newPipe);
                     }
                 }
 
-                foreach (var duct in ductPlaceholders)
+                foreach (var duct in mepCurves.OfType<Duct>())
                 {
                     if (duct == null) continue;
                     XYZ startPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(0);
@@ -91,6 +108,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                         }
                         newDuct.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
                         doc.Delete(duct.Id);
+                        newCurves.Add(newDuct);
                     }
                 }
 
@@ -100,9 +118,9 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 // Chia các MEP curves tại các điểm giao cắt và tạo fittings
                 try
                 {
-                    xPoints = MEPCurveUtils.FindIntersectionPoints(mepCurves).ToList();
+                    xPoints = MEPCurveUtils.FindIntersectionPoints(newCurves).ToList();
                     List<CustomCurve> customCurves = new List<CustomCurve>();
-                    foreach (var mepCurve in mepCurves)
+                    foreach (var mepCurve in newCurves)
                     {
                         var customCurve = new CustomCurve(mepCurve);
                         // Chia các MEPCurve dựa trên xPoints
@@ -231,24 +249,16 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             }
         }
 
-        private Dictionary<ElementId, double> GetSystemOffsets(Document doc)
+        private Dictionary<ElementId, double> GetSystemOffsets(Document doc, List<Element> selectedElements)
         {
             var offsets = new Dictionary<ElementId, double>();
 
             var relevantSystems = new HashSet<ElementId>();
 
-            var placeholders = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_PlaceHolderPipes)
-                .OfClass(typeof(MEPCurve))
-                .WhereElementIsNotElementType()
-                .Cast<MEPCurve>()
+            var placeholders = selectedElements
+                .Where(e => e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PlaceHolderPipes || e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PlaceHolderDucts)
+                .OfType<MEPCurve>()
                 .ToList();
-
-            placeholders.AddRange(new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_PlaceHolderDucts)
-                .OfClass(typeof(MEPCurve))
-                .WhereElementIsNotElementType()
-                .Cast<MEPCurve>());
 
             foreach (var mepCurve in placeholders)
             {
