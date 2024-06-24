@@ -26,25 +26,67 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             Level level = uidoc.ActiveView.GenLevel;
 
+            var selectedElements = uidoc.Selection.GetElementIds();
             var mepCurves = new List<MEPCurve>();
 
-            var ducts = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_DuctCurves)
-                .OfClass(typeof(Duct))
-                .WhereElementIsNotElementType()
-                .Cast<Duct>()
-                .Where(d => d.ReferenceLevel.Id == level.Id)
-                .ToList();
-            mepCurves.AddRange(ducts);
+            if (selectedElements.Count > 0)
+            {
+                // Process only selected elements
+                var selectedDucts = selectedElements
+                    .Select(id => doc.GetElement(id))
+                    .OfType<Duct>()
+                    .Where(d => d.ReferenceLevel.Id == level.Id)
+                    .ToList();
+                mepCurves.AddRange(selectedDucts);
 
-            var pipes = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_PipeCurves)
-                .OfClass(typeof(Pipe))
-                .WhereElementIsNotElementType()
-                .Cast<Pipe>()
-                .Where(d => d.ReferenceLevel.Id == level.Id)
-                .ToList();
-            mepCurves.AddRange(pipes);
+                var selectedPipes = selectedElements
+                    .Select(id => doc.GetElement(id))
+                    .OfType<Pipe>()
+                    .Where(d => d.ReferenceLevel.Id == level.Id)
+                    .ToList();
+                mepCurves.AddRange(selectedPipes);
+            }
+            else
+            {
+                // Process all elements in the active view
+                var ducts = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
+                    .OfCategory(BuiltInCategory.OST_DuctCurves)
+                    .OfClass(typeof(Duct))
+                    .WhereElementIsNotElementType()
+                    .Cast<Duct>()
+                    .Where(d => d.ReferenceLevel.Id == level.Id)
+                    .ToList();
+                mepCurves.AddRange(ducts);
+
+                var pipes = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
+                    .OfCategory(BuiltInCategory.OST_PipeCurves)
+                    .OfClass(typeof(Pipe))
+                    .WhereElementIsNotElementType()
+                    .Cast<Pipe>()
+                    .Where(d => d.ReferenceLevel.Id == level.Id)
+                    .ToList();
+                mepCurves.AddRange(pipes);
+            }
+
+
+
+            //var ducts = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
+            //    .OfCategory(BuiltInCategory.OST_DuctCurves)
+            //    .OfClass(typeof(Duct))
+            //    .WhereElementIsNotElementType()
+            //    .Cast<Duct>()
+            //    //.Where(d => d.ReferenceLevel.Id == level.Id)
+            //    .ToList();
+            //mepCurves.AddRange(ducts);
+
+            //var pipes = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
+            //    .OfCategory(BuiltInCategory.OST_PipeCurves)
+            //    .OfClass(typeof(Pipe))
+            //    .WhereElementIsNotElementType()
+            //    .Cast<Pipe>()
+            //    //.Where(d => d.ReferenceLevel.Id == level.Id)
+            //    .ToList();
+            //mepCurves.AddRange(pipes);
 
             // Hiển thị hộp thoại nhập để lấy cao độ system
             var offsets = GetSystemOffsets(doc, mepCurves);
@@ -53,7 +95,47 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             {
                 trans.Start("Convert Pipes and Ducts to Placeholders");
 
-                foreach (var duct in ducts)
+                //foreach (var duct in ducts)
+                //{
+                //    if (duct == null) continue;
+                //    XYZ startPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(0);
+                //    XYZ endPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(1);
+                //    var systemId = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
+                //    var ductSize = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
+                //    double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
+                //    if (startPoint != null && endPoint != null)
+                //    {
+                //        var newDuctPlaceholder = Duct.CreatePlaceholder(doc, systemId, duct.GetTypeId(), level.Id, startPoint, endPoint);
+                //        if (ductSize.HasValue)
+                //        {
+                //            newDuctPlaceholder.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.Set(ductSize.Value); // thiết lập kích thước cho placeholder
+                //        }
+                //        newDuctPlaceholder.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
+                //        doc.Delete(duct.Id);
+                //    }
+                //}
+
+                //foreach (var pipe in pipes)
+                //{
+                //    if (pipe == null) continue;
+                //    XYZ startPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(0);
+                //    XYZ endPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(1);
+                //    var systemId = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
+                //    var pipeSize = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
+                //    double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
+                //    if (startPoint != null && endPoint != null)
+                //    {
+                //        var newPipePlaceholder = Pipe.CreatePlaceholder(doc, systemId, pipe.GetTypeId(), level.Id, startPoint, endPoint);
+                //        if (pipeSize.HasValue)
+                //        {
+                //            newPipePlaceholder.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.Set(pipeSize.Value); // thiết lập kích thước cho placeholder
+                //        }
+                //        newPipePlaceholder.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
+                //        doc.Delete(pipe.Id);
+                //    }
+                //}
+
+                foreach (var duct in mepCurves.OfType<Duct>())
                 {
                     if (duct == null) continue;
                     XYZ startPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(0);
@@ -73,7 +155,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     }
                 }
 
-                foreach (var pipe in pipes)
+                foreach (var pipe in mepCurves.OfType<Pipe>())
                 {
                     if (pipe == null) continue;
                     XYZ startPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(0);
