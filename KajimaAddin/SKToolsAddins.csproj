@@ -248,6 +248,7 @@
     <Compile Include="Commands\CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
+    <Compile Include="Commands\IntersectWithFrame\IntersectWithFrameCmd.cs" />
     <Compile Include="Commands\ParameterAssignment\ParameterAssignmentForm .cs">
       <SubType>Form</SubType>
     </Compile>
@@ -456,6 +457,7 @@
       <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\Avalonia.BuildServices.0.0.29\build\Avalonia.BuildServices.targets" Condition="Exists('..\packages\Avalonia.BuildServices.0.0.29\build\Avalonia.BuildServices.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

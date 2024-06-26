@@ -7,8 +7,11 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
+using DocumentFormat.OpenXml.Wordprocessing;
 using SKToolsAddins.Utils;
+using Document = Autodesk.Revit.DB.Document;
 using Form = System.Windows.Forms.Form;
+using Level = Autodesk.Revit.DB.Level;
 using Panel = System.Windows.Forms.Panel;
 using TextBox = System.Windows.Forms.TextBox;
 using UnitUtils = SKToolsAddins.Utils.UnitUtils;
@@ -68,72 +71,37 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 mepCurves.AddRange(pipes);
             }
 
-
-
-            //var ducts = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
-            //    .OfCategory(BuiltInCategory.OST_DuctCurves)
-            //    .OfClass(typeof(Duct))
-            //    .WhereElementIsNotElementType()
-            //    .Cast<Duct>()
-            //    //.Where(d => d.ReferenceLevel.Id == level.Id)
-            //    .ToList();
-            //mepCurves.AddRange(ducts);
-
-            //var pipes = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
-            //    .OfCategory(BuiltInCategory.OST_PipeCurves)
-            //    .OfClass(typeof(Pipe))
-            //    .WhereElementIsNotElementType()
-            //    .Cast<Pipe>()
-            //    //.Where(d => d.ReferenceLevel.Id == level.Id)
-            //    .ToList();
-            //mepCurves.AddRange(pipes);
-
             // Hiển thị hộp thoại nhập để lấy cao độ system
             var offsets = GetSystemOffsets(doc, mepCurves);
 
             using (Transaction trans = new Transaction(doc))
             {
                 trans.Start("Convert Pipes and Ducts to Placeholders");
+                var ductFittings = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_DuctFitting)
+                    .OfClass(typeof(FamilyInstance))
+                    .ToElements()
+                    .Cast<FamilyInstance>()
+                    .ToList();
+                foreach (var ductFitting in ductFittings)
+                {
+                    var ductFittingName = ductFitting.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsValueString();
+                    ductFitting.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS).Set(ductFittingName);
+                }
 
-                //foreach (var duct in ducts)
-                //{
-                //    if (duct == null) continue;
-                //    XYZ startPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(0);
-                //    XYZ endPoint = (duct.Location as LocationCurve)?.Curve.GetEndPoint(1);
-                //    var systemId = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
-                //    var ductSize = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
-                //    double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
-                //    if (startPoint != null && endPoint != null)
-                //    {
-                //        var newDuctPlaceholder = Duct.CreatePlaceholder(doc, systemId, duct.GetTypeId(), level.Id, startPoint, endPoint);
-                //        if (ductSize.HasValue)
-                //        {
-                //            newDuctPlaceholder.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.Set(ductSize.Value); // thiết lập kích thước cho placeholder
-                //        }
-                //        newDuctPlaceholder.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
-                //        doc.Delete(duct.Id);
-                //    }
-                //}
+                // Lưu trữ thông tin hệ thống của fittings
+                var pipeFittings = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_PipeFitting)
+                    .OfClass(typeof(FamilyInstance))
+                    .ToElements()
+                    .Cast<FamilyInstance>()
+                    .ToList();
+                foreach (var pipeFitting in pipeFittings)
+                {
+                    var pipeFittingName = pipeFitting.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsValueString();
+                    pipeFitting.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS).Set(pipeFittingName);
 
-                //foreach (var pipe in pipes)
-                //{
-                //    if (pipe == null) continue;
-                //    XYZ startPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(0);
-                //    XYZ endPoint = (pipe.Location as LocationCurve)?.Curve.GetEndPoint(1);
-                //    var systemId = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
-                //    var pipeSize = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
-                //    double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
-                //    if (startPoint != null && endPoint != null)
-                //    {
-                //        var newPipePlaceholder = Pipe.CreatePlaceholder(doc, systemId, pipe.GetTypeId(), level.Id, startPoint, endPoint);
-                //        if (pipeSize.HasValue)
-                //        {
-                //            newPipePlaceholder.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.Set(pipeSize.Value); // thiết lập kích thước cho placeholder
-                //        }
-                //        newPipePlaceholder.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM)?.Set(UnitUtils.MmToFeet(offset));
-                //        doc.Delete(pipe.Id);
-                //    }
-                //}
+                }
 
                 foreach (var duct in mepCurves.OfType<Duct>())
                 {
@@ -143,6 +111,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     var systemId = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
                     var ductSize = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
                     double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
+
                     if (startPoint != null && endPoint != null)
                     {
                         var newDuctPlaceholder = Duct.CreatePlaceholder(doc, systemId, duct.GetTypeId(), level.Id, startPoint, endPoint);
@@ -154,7 +123,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                         doc.Delete(duct.Id);
                     }
                 }
-
+                
                 foreach (var pipe in mepCurves.OfType<Pipe>())
                 {
                     if (pipe == null) continue;
@@ -163,6 +132,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     var systemId = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
                     var pipeSize = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble(); // lấy kích thước
                     double offset = offsets.ContainsKey(systemId) ? offsets[systemId] : 2800; // Default offset if not provided
+
                     if (startPoint != null && endPoint != null)
                     {
                         var newPipePlaceholder = Pipe.CreatePlaceholder(doc, systemId, pipe.GetTypeId(), level.Id, startPoint, endPoint);
