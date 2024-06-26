@@ -104,18 +104,25 @@ namespace SKToolsAddins.Utils
 
         public static MEPCurve CreateNewCurveFromCurvesCollinear(Document doc, MEPCurve curve1, MEPCurve curve2, Level level)
         {
+            if (!IsElementValid(curve1) || !IsElementValid(curve2))
+            {
+                return null;
+            }
+
             var line1 = (curve1.Location as LocationCurve)?.Curve as Line;
             var line2 = (curve2.Location as LocationCurve)?.Curve as Line;
 
             if (line1 == null || line2 == null)
+            {
                 return null;
+            }
 
             XYZ start1 = line1.GetEndPoint(0);
             XYZ end1 = line1.GetEndPoint(1);
             XYZ start2 = line2.GetEndPoint(0);
             XYZ end2 = line2.GetEndPoint(1);
 
-            // Tìm hai điểm xa nhất
+            // Find the two farthest points
             XYZ[] points = { start1, end1, start2, end2 };
             double maxDistance = 0;
             XYZ point1 = null;
@@ -135,7 +142,7 @@ namespace SKToolsAddins.Utils
                 }
             }
 
-            // Tạo một pipe hoặc duct mới từ hai điểm xa nhất
+            // Create a new pipe or duct from the two farthest points
             MEPCurve newCurve = null;
             if (curve1 is Pipe)
             {
@@ -150,6 +157,21 @@ namespace SKToolsAddins.Utils
 
             return newCurve;
         }
+
+        public static bool IsElementValid(Element element)
+        {
+            try
+            {
+                var id = element.Id;
+                var doc = element.Document;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
 
 
         public static List<MEPCurve> SplitCurve(Document doc, MEPCurve curve, List<XYZ> xPoints, Level level)

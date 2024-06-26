@@ -58,8 +58,8 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                 return Result.Failed;
             }
 
-            // Export schedules to Excel
-            ExportSchedulesToExcel(doc, createdSchedules);
+            //// Export schedules to Excel
+            //ExportSchedulesToExcel(doc, createdSchedules);
 
             return Result.Succeeded;
         }
@@ -385,7 +385,6 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                             uniqueParameters.Add(paramObj);
                         }
                     }
-
                 }
 
                 var parameterCategoryGroups = new Dictionary<ParamObj, List<Category>>();
@@ -420,7 +419,10 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                 {
                     // Create a schedule for the category
                     ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, category.Id);
+                    // Set the name of the schedule
+                    schedule.Name = "竣工BIM " + category.Name + " 集計表";
                     createdSchedules.Add(schedule);
+                    schedule.Definition.IncludeLinkedFiles = true;
                     var schedulableFields = schedule.Definition.GetSchedulableFields();
                     foreach (var paramObj in uniqueParameters)
                     {
@@ -437,6 +439,7 @@ namespace SKToolsAddins.Commands.ParameterAssignment
                             }
                         }
                     }
+
                 }
 
                 transaction.Commit();
@@ -445,116 +448,141 @@ namespace SKToolsAddins.Commands.ParameterAssignment
             return createdSchedules;
         }
 
+        //private void ExportSchedulesToExcel(Document doc, List<ViewSchedule> createdSchedules)
+        //{
+        //    string excelExportPath = GetSaveFilePath();
+        //    if (string.IsNullOrEmpty(excelExportPath))
+        //    {
+        //        TaskDialog.Show("Export Schedules", "Export operation was canceled.");
+        //        return;
+        //    }
+
+        //    using (ExcelPackage package = new ExcelPackage())
+        //    {
+        //        var scheduleNames = new HashSet<string>();
+
+        //        foreach (var schedule in createdSchedules)
+        //        {
+        //            // Ensure unique worksheet name
+        //            string worksheetName = schedule.Name.Length > 31 ? schedule.Name.Substring(0, 31) : schedule.Name;
+        //            string originalName = worksheetName;
+        //            int counter = 1;
+        //            while (scheduleNames.Contains(worksheetName))
+        //            {
+        //                worksheetName = $"{originalName}_{counter}";
+        //                if (worksheetName.Length > 31)
+        //                {
+        //                    worksheetName = worksheetName.Substring(0, 31);
+        //                }
+        //                counter++;
+        //            }
+        //            scheduleNames.Add(worksheetName);
+
+        //            // Create worksheet for each schedule
+        //            ExcelWorksheet worksheet = package.Workbook.Worksheets.Add(worksheetName);
+
+        //            // Collect schedule data
+        //            var tableData = schedule.GetTableData();
+        //            var sectionData = tableData.GetSectionData(SectionType.Body);
+
+        //            // Identify columns with data
+        //            var schedulableFields = schedule.Definition.GetSchedulableFields();
+        //            List<int> includedColumns = new List<int>();
+
+        //            for (int i = 0; i < schedulableFields.Count; i++)
+        //            {
+        //                bool columnHasData = false;
+        //                for (int r = 0; r < sectionData.NumberOfRows; r++)
+        //                {
+        //                    if (i < sectionData.NumberOfColumns)
+        //                    {
+        //                        var cellText = schedule.GetCellText(SectionType.Body, r, i);
+        //                        if (!string.IsNullOrEmpty(cellText))
+        //                        {
+        //                            columnHasData = true;
+        //                            break;
+        //                        }
+        //                    }
+        //                }
+        //                if (columnHasData)
+        //                {
+        //                    includedColumns.Add(i);
+        //                }
+        //            }
+
+        //            // Add headers for included columns
+        //            int colIndex = 1;
+        //            foreach (int col in includedColumns)
+        //            {
+        //                worksheet.Cells[1, colIndex].Value = schedulableFields[col].GetName(doc); // Fixed the GetName method call
+        //                worksheet.Cells[1, colIndex].Style.Font.Bold = true;
+        //                worksheet.Cells[1, colIndex].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+        //                worksheet.Cells[1, colIndex].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+        //                worksheet.Cells[1, colIndex].Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
+        //                worksheet.Cells[1, colIndex].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
+        //                worksheet.Cells[1, colIndex].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
+        //                worksheet.Column(colIndex).Width = 20; // Adjust column width
+        //                colIndex++;
+        //            }
+
+        //            // Add data for included columns
+        //            int row = 2; // Start from row 2 since row 1 is the header
+        //            for (int r = 0; r < sectionData.NumberOfRows; r++)
+        //            {
+        //                colIndex = 1;
+        //                foreach (int col in includedColumns)
+        //                {
+        //                    if (col < sectionData.NumberOfColumns)
+        //                    {
+        //                        var cellText = schedule.GetCellText(SectionType.Body, r, col);
+        //                        worksheet.Cells[row, colIndex].Value = cellText;
+        //                        worksheet.Cells[row, colIndex].Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
+        //                        worksheet.Cells[row, colIndex].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Left;
+        //                        worksheet.Cells[row, colIndex].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
+        //                    }
+        //                    colIndex++;
+        //                }
+        //                row++;
+        //            }
+        //        }
+
+        //        // Save the Excel file
+        //        FileInfo fileInfo = new FileInfo(excelExportPath);
+        //        package.SaveAs(fileInfo);
+        //    }
+
+        //    TaskDialog.Show("Export Schedules", "Schedules have been successfully exported to: " + excelExportPath);
+        //}
+
+
         private bool HasInstances(Document doc, Category category)
         {
-            FilteredElementCollector collector = new FilteredElementCollector(doc).OfCategoryId(category.Id).WhereElementIsNotElementType();
-            return collector.Any();
-        }
+            bool hasInstances = new FilteredElementCollector(doc)
+                .OfCategoryId(category.Id)
+                .WhereElementIsNotElementType()
+                .Any();
 
-        private void ExportSchedulesToExcel(Document doc, List<ViewSchedule> createdSchedules)
-        {
-            string excelExportPath = GetSaveFilePath();
-            if (string.IsNullOrEmpty(excelExportPath))
+            if (!hasInstances)
             {
-                TaskDialog.Show("Export Schedules", "Export operation was canceled.");
-                return;
-            }
-
-            using (ExcelPackage package = new ExcelPackage())
-            {
-                var scheduleNames = new HashSet<string>();
-
-                foreach (var schedule in createdSchedules)
+                foreach (RevitLinkInstance linkInstance in new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance)))
                 {
-                    // Ensure unique worksheet name
-                    string worksheetName = schedule.Name.Length > 31 ? schedule.Name.Substring(0, 31) : schedule.Name;
-                    string originalName = worksheetName;
-                    int counter = 1;
-                    while (scheduleNames.Contains(worksheetName))
+                    Document linkDoc = linkInstance.GetLinkDocument();
+                    if (linkDoc != null)
                     {
-                        worksheetName = $"{originalName}_{counter}";
-                        if (worksheetName.Length > 31)
+                        hasInstances = new FilteredElementCollector(linkDoc)
+                            .OfCategoryId(category.Id)
+                            .WhereElementIsNotElementType()
+                            .Any();
+
+                        if (hasInstances)
                         {
-                            worksheetName = worksheetName.Substring(0, 31);
+                            break;
                         }
-                        counter++;
-                    }
-                    scheduleNames.Add(worksheetName);
-
-                    // Create worksheet for each schedule
-                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add(worksheetName);
-
-                    // Collect schedule data
-                    var tableData = schedule.GetTableData();
-                    var sectionData = tableData.GetSectionData(SectionType.Body);
-
-                    // Identify columns with data
-                    var schedulableFields = schedule.Definition.GetSchedulableFields();
-                    List<int> includedColumns = new List<int>();
-
-                    for (int i = 0; i < schedulableFields.Count; i++)
-                    {
-                        bool columnHasData = false;
-                        for (int r = 0; r < sectionData.NumberOfRows; r++)
-                        {
-                            if (i < sectionData.NumberOfColumns)
-                            {
-                                var cellText = schedule.GetCellText(SectionType.Body, r, i);
-                                if (!string.IsNullOrEmpty(cellText))
-                                {
-                                    columnHasData = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (columnHasData)
-                        {
-                            includedColumns.Add(i);
-                        }
-                    }
-
-                    // Add headers for included columns
-                    int colIndex = 1;
-                    foreach (int col in includedColumns)
-                    {
-                        worksheet.Cells[1, colIndex].Value = schedulableFields[col].GetName(doc);
-                        worksheet.Cells[1, colIndex].Style.Font.Bold = true;
-                        worksheet.Cells[1, colIndex].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                        worksheet.Cells[1, colIndex].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
-                        worksheet.Cells[1, colIndex].Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
-                        worksheet.Cells[1, colIndex].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
-                        worksheet.Cells[1, colIndex].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
-                        worksheet.Column(colIndex).Width = 20; // Adjust column width
-                        colIndex++;
-                    }
-
-                    // Add data for included columns
-                    int row = 1; // Start from row 1 since we want to shift everything up
-                    for (int r = 0; r < sectionData.NumberOfRows; r++)
-                    {
-                        colIndex = 1;
-                        foreach (int col in includedColumns)
-                        {
-                            if (col < sectionData.NumberOfColumns)
-                            {
-                                var cellText = schedule.GetCellText(SectionType.Body, r, col);
-                                worksheet.Cells[row, colIndex].Value = cellText;
-                                worksheet.Cells[row, colIndex].Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
-                                worksheet.Cells[row, colIndex].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Left;
-                                worksheet.Cells[row, colIndex].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
-                            }
-                            colIndex++;
-                        }
-                        row++;
                     }
                 }
-
-                // Save the Excel file
-                FileInfo fileInfo = new FileInfo(excelExportPath);
-                package.SaveAs(fileInfo);
             }
 
-            TaskDialog.Show("Export Schedules", "Schedules have been successfully exported to: " + excelExportPath);
+            return hasInstances;
         }
 
         private string GetSaveFilePath()

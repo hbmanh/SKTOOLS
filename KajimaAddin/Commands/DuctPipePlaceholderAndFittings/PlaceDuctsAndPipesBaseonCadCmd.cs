@@ -350,11 +350,12 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             foreach (var arc in arcs)
             {
-                double radius = arc.Radius + 10 / 304.8;
+                double radius = arc.Radius + 30 / 304.8;
                 XYZ centerPoint = arc.Center;
-                double dist = 3000 / 304.8;
+                //XYZ newCenterPoint = new XYZ(centerPoint.X, centerPoint.Y, centerPoint.Z - 2800 / 304.8);
+                //double dist = 10000 / 304.8;
                 if (level == null) continue;
-                Solid arcBlockCheckIntersection = centerPoint.CreateCylinderUpAndDnByLevel(doc, radius, dist, level);
+                Solid arcBlockCheckIntersection = centerPoint.CreateCylinderUpAndDnByLevel(doc, radius, 1, level);
                 arcBlockCheckIntersection.BakeSolidToDirectShape(doc);
                 var customSolid = new CustomSolid(arcBlockCheckIntersection);
                 customSolids.Add(customSolid);
@@ -375,36 +376,47 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     if (curve == null)
                         continue;
 
-                    var intersectionResult = customSolid.Solid.IntersectWithCurve(curve, new SolidCurveIntersectionOptions());
+                    var bottomZ = customSolid.Solid.GetBottomPlanarFace().Origin.Z;
+                    var curveTransformed = curve.CreateTransformed(Transform.CreateTranslation(new XYZ(0, 0, bottomZ)));
+                    var intersectionResult = customSolid.Solid.IntersectWithCurve(curveTransformed, new SolidCurveIntersectionOptions());
+
                     if (intersectionResult != null && intersectionResult.SegmentCount > 0)
                     {
                         customSolid.MepCurves.Add(customCurve.MepCurve);
                     }
+                }
 
-                    var collinearCurves = MEPCurveUtils.GetCollinearCurves(customSolid.MepCurves);
-                    if (collinearCurves.Count == 0) continue;
+                var collinearCurves = MEPCurveUtils.GetCollinearCurves(customSolid.MepCurves);
+                if (collinearCurves.Count == 0) continue;
 
-                    var mepCurvesOfCustomSolid = customSolid.MepCurves;
-                    foreach (var (curve1, curve2) in collinearCurves)
+                var mepCurvesOfCustomSolid = customSolid.MepCurves;
+                foreach (var (curve1, curve2) in collinearCurves)
+                {
+                    if (!MEPCurveUtils.IsElementValid(curve1) || !MEPCurveUtils.IsElementValid(curve2))
                     {
-                        var newCurve = MEPCurveUtils.CreateNewCurveFromCurvesCollinear(doc, curve1, curve2, level);
-                        var collinearCurveIds = collinearCurves.SelectMany(cc => new[] { cc.Item1.Id, cc.Item2.Id }).Distinct().ToList();
-                        customSolid.MepCurves = customSolid.MepCurves.Where(mc => collinearCurveIds.Contains(mc.Id)).ToList();
-
-                        if (newCurve == null) continue;
-
-                        customCurves.Add(new CustomCurve(newCurve));
-                        mepCurvesOfCustomSolid.Add(newCurve);
-
-                        mepCurvesOfCustomSolid.RemoveAll(c => c.Id == curve1.Id || c.Id == curve2.Id);
-                        customSolid.MepCurves.RemoveAll(c => c.Id == curve1.Id || c.Id == curve2.Id);
-                        customCurves.RemoveAll(c => c.MepCurve.Id == curve1.Id || c.MepCurve.Id == curve2.Id);
-                        doc.Delete(curve1.Id);
-                        doc.Delete(curve2.Id);
+                        continue;
                     }
 
-                    xPointsInsideBlock.AddRange(MEPCurveUtils.FindIntersectionPoints(mepCurvesOfCustomSolid));
+                    var newCurve = MEPCurveUtils.CreateNewCurveFromCurvesCollinear(doc, curve1, curve2, level);
+                    if (newCurve == null)
+                    {
+                        continue;
+                    }
+
+                    var collinearCurveIds = collinearCurves.SelectMany(cc => new[] { cc.Item1.Id, cc.Item2.Id }).Distinct().ToList();
+                    customSolid.MepCurves = customSolid.MepCurves.Where(mc => collinearCurveIds.Contains(mc.Id)).ToList();
+
+                    customCurves.Add(new CustomCurve(newCurve));
+                    mepCurvesOfCustomSolid.Add(newCurve);
+
+                    mepCurvesOfCustomSolid.RemoveAll(c => c.Id == curve1.Id || c.Id == curve2.Id);
+                    customSolid.MepCurves.RemoveAll(c => c.Id == curve1.Id || c.Id == curve2.Id);
+                    customCurves.RemoveAll(c => c.MepCurve.Id == curve1.Id || c.MepCurve.Id == curve2.Id);
+                    doc.Delete(curve1.Id);
+                    doc.Delete(curve2.Id);
                 }
+
+                xPointsInsideBlock.AddRange(MEPCurveUtils.FindIntersectionPoints(mepCurvesOfCustomSolid));
             }
 
             return xPointsInsideBlock;
