@@ -108,6 +108,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
 
                 foreach (var entry in intersectionData)
                 {
+                    var pipeOrDuct = doc.GetElement(entry.Key);
                     var points = entry.Value;
                     for (int i = 0; i < points.Count; i += 2)
                     {
@@ -133,6 +134,19 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                             if (lengthParam != null)
                             {
                                 lengthParam.Set(point1.DistanceTo(point2));
+                            }
+
+                            // Set the parameter OD to the diameter of the pipe/duct + 50mm
+                            Parameter diameterParam = pipeOrDuct.LookupParameter("Diameter");
+                            if (diameterParam != null && diameterParam.HasValue)
+                            {
+                                double pipeDiameter = diameterParam.AsDouble(); // Revit stores length units in feet by default
+                                double sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters); // Adding 50mm and converting to feet
+                                Parameter odParam = sleeveInstance.LookupParameter("OD");
+                                if (odParam != null)
+                                {
+                                    odParam.Set(sleeveDiameter);
+                                }
                             }
                         }
                     }
