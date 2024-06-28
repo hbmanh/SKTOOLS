@@ -1,160 +1,167 @@
-﻿//using Autodesk.Revit.Attributes;
-//using Autodesk.Revit.DB;
-//using Autodesk.Revit.UI;
-//using System.Collections.Generic;
-//using System.Linq;
+﻿using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+using Autodesk.Revit.UI;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
-//namespace SKToolsAddins.Commands.IntersectWithFrame
-//{
-//    [Transaction(TransactionMode.Manual)]
-//    public class IntersectWithFrameCmd : IExternalCommand
-//    {
-//        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
-//        {
-//            UIApplication uiapp = commandData.Application;
-//            UIDocument uidoc = uiapp.ActiveUIDocument;
-//            Document doc = uidoc.Document;
-//            View activeView = uidoc.ActiveView;
+namespace SKToolsAddins.Commands.IntersectWithFrame
+{
+    [Transaction(TransactionMode.Manual)]
+    public class IntersectWithFrameCmd : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiapp = commandData.Application;
+            UIDocument uidoc = uiapp.ActiveUIDocument;
+            Document doc = uidoc.Document;
 
-//            // Collect pipes and ducts in the active view
-//            List<Element> pipes = GetElementsInView(doc, activeView.Id, BuiltInCategory.OST_PipeCurves);
-//            List<Element> ducts = GetElementsInView(doc, activeView.Id, BuiltInCategory.OST_DuctCurves);
+            // Get all linked documents
+            var linkedDocs = new FilteredElementCollector(doc)
+                .OfClass(typeof(RevitLinkInstance))
+                .Cast<RevitLinkInstance>()
+                .Select(link => link.GetLinkDocument())
+                .Where(linkedDoc => linkedDoc != null)
+                .ToList();
 
-//            // Collect linked documents containing structural framing
-//            List<RevitLinkInstance> linkedDocuments = GetLinkedDocumentsWithFraming(doc);
+            // Get all pipes and ducts in the current document
+            var pipesAndDucts = new FilteredElementCollector(doc)
+                .OfClass(typeof(MEPCurve))
+                .WhereElementIsNotElementType()
+                .ToElements();
 
-//            List<XYZ> intersectionPoints = new List<XYZ>();
+            // Get all structural framings in the linked documents
+            var structuralFramings = new List<Element>();
+            foreach (var linkedDoc in linkedDocs)
+            {
+                var framings = new FilteredElementCollector(linkedDoc)
+                    .OfClass(typeof(FamilyInstance))
+                    .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                    .WhereElementIsNotElementType()
+                    .ToElements();
+                structuralFramings.AddRange(framings);
+            }
 
-//            // Process intersections for each linked document
-//            foreach (RevitLinkInstance linkInstance in linkedDocuments)
-//            {
-//                Document linkDoc = linkInstance.GetLinkDocument();
-//                if (linkDoc != null)
-//                {
-//                    Transform linkTransform = linkInstance.GetTransform();
-//                    FilteredElementCollector framingCollector = new FilteredElementCollector(linkDoc, activeView.Id)
-//                        .OfCategory(BuiltInCategory.OST_StructuralFraming)
-//                        .OfClass(typeof(FamilyInstance));
+            // Dictionary to store intersection results with midpoint and direction
+            var intersectionData = new Dictionary<ElementId, List<XYZ>>();
 
-//                    List<Element> structuralFramings = new List<Element>(framingCollector);
+            // Place the スリーブ_SK family instances at the midpoint of intersection points
+            using (Transaction trans = new Transaction(doc, "Place Sleeves"))
+            {
+                trans.Start();
+                foreach (var pipeOrDuct in pipesAndDucts)
+                {
+                    var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                    if (pipeOrDuctCurve == null)
+                        continue;
 
-//                    // Check for intersections between pipes and structural framings
-//                    intersectionPoints.AddRange(GetIntersections(pipes, structuralFramings, linkTransform));
+                    foreach (var framing in structuralFramings)
+                    {
+                        var framingGeometry = framing.get_Geometry(new Options());
 
-//                    // Check for intersections between ducts and structural framings
-//                    intersectionPoints.AddRange(GetIntersections(ducts, structuralFramings, linkTransform));
-//                }
-//            }
+                        // Extract solids from the geometry
+                        List<Solid> framingSolids = new List<Solid>();
+                        foreach (GeometryObject geomObj in framingGeometry)
+                        {
+                            if (geomObj is Solid solid && solid.Volume > 0)
+                            {
+                                framingSolids.Add(solid);
+                            }
+                            else if (geomObj is GeometryInstance geomInstance)
+                            {
+                                var instanceGeometry = geomInstance.GetInstanceGeometry();
+                                foreach (var instanceGeomObj in instanceGeometry)
+                                {
+                                    if (instanceGeomObj is Solid instanceSolid && instanceSolid.Volume > 0)
+                                    {
+                                        framingSolids.Add(instanceSolid);
+                                    }
+                                }
+                            }
+                        }
 
-//            // Handle the intersection points as needed, e.g., store them in a parameter or highlight in UI
-//            TaskDialog.Show("Intersections", $"Found {intersectionPoints.Count} intersections in the active view.");
+                        // Check intersections
+                        foreach (Solid framingSolid in framingSolids)
+                        {
+                            foreach (Face face in framingSolid.Faces)
+                            {
+                                var resultArray = new IntersectionResultArray();
+                                if (face.Intersect(pipeOrDuctCurve, out resultArray) == SetComparisonResult.Overlap)
+                                {
+                                    if (!intersectionData.ContainsKey(pipeOrDuct.Id))
+                                    {
+                                        intersectionData[pipeOrDuct.Id] = new List<XYZ>();
+                                    }
 
-//            return Result.Succeeded;
-//        }
+                                    foreach (IntersectionResult intersectionResult in resultArray)
+                                    {
+                                        intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
-//        private List<Element> GetElementsInView(Document doc, ElementId viewId, BuiltInCategory category)
-//        {
-//            FilteredElementCollector collector = new FilteredElementCollector(doc, viewId)
-//                .OfCategory(category)
-//                .OfClass(typeof(MEPCurve));
-//            return collector.ToList();
-//        }
+                // Load the スリーブ_SK family symbol
+                FamilySymbol sleeveSymbol = null;
+                var pipeAccessories = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_PipeAccessory)
+                    .OfClass(typeof(FamilySymbol))
+                    .WhereElementIsElementType()
+                    .Cast<FamilySymbol>()
+                    .FirstOrDefault(symbol => symbol.Family.Name == "スリーブ_SK");
 
-//        private List<RevitLinkInstance> GetLinkedDocumentsWithFraming(Document doc)
-//        {
-//            FilteredElementCollector linkCollector = new FilteredElementCollector(doc)
-//                .OfClass(typeof(RevitLinkInstance));
+                if (pipeAccessories != null)
+                {
+                    sleeveSymbol = pipeAccessories;
+                }
+                else
+                {
+                    message = "The スリーブ_SK family could not be found.";
+                    return Result.Failed;
+                }
+                if (!sleeveSymbol.IsActive)
+                {
+                    sleeveSymbol.Activate();
+                    doc.Regenerate();
+                }
 
-//            List<RevitLinkInstance> linkedDocuments = new List<RevitLinkInstance>();
-//            foreach (Element linkElement in linkCollector)
-//            {
-//                if (linkElement is RevitLinkInstance linkInstance)
-//                {
-//                    Document linkDoc = linkInstance.GetLinkDocument();
-//                    if (linkDoc != null)
-//                    {
-//                        FilteredElementCollector framingCollector = new FilteredElementCollector(linkDoc)
-//                            .OfCategory(BuiltInCategory.OST_StructuralFraming)
-//                            .OfClass(typeof(FamilyInstance));
+                foreach (var entry in intersectionData)
+                {
+                    var points = entry.Value;
+                    if (points.Count >= 2)
+                    {
+                        // Calculate midpoint and direction
+                        XYZ point1 = points[0];
+                        XYZ point2 = points[1];
+                        XYZ midpoint = (point1 + point2) / 2;
+                        XYZ direction = (point2 - point1).Normalize();
 
-//                        if (framingCollector.GetElementCount() > 0)
-//                        {
-//                            linkedDocuments.Add(linkInstance);
-//                        }
-//                    }
-//                }
-//            }
-//            return linkedDocuments;
-//        }
+                        // Place the sleeve instance
+                        FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
 
-//        private List<XYZ> GetIntersections(List<Element> mepElements, List<Element> structuralFramings, Transform linkTransform)
-//        {
-//            List<XYZ> intersectionPoints = new List<XYZ>();
+                        // Rotate the sleeve to be parallel with the direction vector plus an additional 90 degrees
+                        Line axis = Line.CreateBound(midpoint, midpoint + XYZ.BasisZ);
+                        double angle = XYZ.BasisX.AngleTo(direction);
+                        double additionalRotation = Math.PI / 2; // 90 degrees in radians
+                        ElementTransformUtils.RotateElement(doc, sleeveInstance.Id, axis, angle + additionalRotation);
 
-//            foreach (Element mepElement in mepElements)
-//            {
-//                Curve mepCurve = GetElementCurve(mepElement);
-//                if (mepCurve != null)
-//                {
-//                    foreach (Element framing in structuralFramings)
-//                    {
-//                        Solid framingSolid = GetElementSolid(framing);
-//                        if (framingSolid != null)
-//                        {
-//                            Solid transformedSolid = SolidUtils.CreateTransformed(framingSolid, linkTransform);
-//                            SolidCurveIntersection intersection = transformedSolid.IntersectWithCurve(mepCurve, new SolidCurveIntersectionOptions());
-//                            if (intersection != null)
-//                            {
-//                                for (int i = 0; i < intersection.SegmentCount; i++)
-//                                {
-//                                    CurveSegment segment = intersection.GetCurveSegment(i);
-//                                    IntersectionResultArray results = segment.ComputeCurveIntersections(mepCurve, false, false, 0.0);
-//                                    foreach (IntersectionResult result in results)
-//                                    {
-//                                        intersectionPoints.Add(result.XYZPoint);
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
+                        // Set the parameter L to the distance between the intersection points
+                        Parameter lengthParam = sleeveInstance.LookupParameter("L");
+                        if (lengthParam != null)
+                        {
+                            lengthParam.Set(point1.DistanceTo(point2));
+                        }
+                    }
+                }
 
-//            return intersectionPoints;
-//        }
+                trans.Commit();
+            }
 
-//        private Curve GetElementCurve(Element element)
-//        {
-//            LocationCurve locCurve = element.Location as LocationCurve;
-//            if (locCurve != null)
-//            {
-//                return locCurve.Curve;
-//            }
-//            return null;
-//        }
-
-//        private Solid GetElementSolid(Element element)
-//        {
-//            GeometryElement geomElement = element.get_Geometry(new Options());
-//            foreach (GeometryObject geomObj in geomElement)
-//            {
-//                if (geomObj is GeometryInstance geomInstance)
-//                {
-//                    GeometryElement instanceGeom = geomInstance.GetInstanceGeometry();
-//                    foreach (GeometryObject instanceObj in instanceGeom)
-//                    {
-//                        if (instanceObj is Solid solid && solid.Volume > 0)
-//                        {
-//                            return solid;
-//                        }
-//                    }
-//                }
-//                else if (geomObj is Solid solid && solid.Volume > 0)
-//                {
-//                    return solid;
-//                }
-//            }
-//            return null;
-//        }
-//    }
-//}
+            TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
+            return Result.Succeeded;
+        }
+    }
+}
