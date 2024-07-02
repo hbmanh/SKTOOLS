@@ -45,6 +45,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
 
             // Dictionary to store intersection results with midpoint and direction
             var intersectionData = new Dictionary<ElementId, List<XYZ>>();
+            var errorMessages = new Dictionary<ElementId, List<string>>();
 
             using (Transaction trans = new Transaction(doc, "Place Sleeves"))
             {
@@ -120,6 +121,33 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                             XYZ midpoint = (point1 + point2) / 2;
                             XYZ direction = (point2 - point1).Normalize();
 
+                            // Calculate OD and height of the beam (H)
+                            double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
+                            double sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters); // Adding 50mm and converting to feet
+                            double beamHeight = GetBeamHeight(points[i], points[i + 1], structuralFramings);
+
+                            List<string> errors = new List<string>();
+
+                            if (sleeveDiameter > UnitUtils.ConvertToInternalUnits(750, UnitTypeId.Millimeters))
+                            {
+                                errors.Add("OD > 750mm");
+                            }
+
+                            if (sleeveDiameter > beamHeight / 3)
+                            {
+                                errors.Add("OD > H/3");
+                            }
+
+                            if (errors.Count > 0)
+                            {
+                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                                {
+                                    errorMessages[pipeOrDuct.Id] = new List<string>();
+                                }
+                                errorMessages[pipeOrDuct.Id].AddRange(errors);
+                                continue;
+                            }
+
                             // Place the sleeve instance
                             FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
 
@@ -136,17 +164,11 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                                 lengthParam.Set(point1.DistanceTo(point2));
                             }
 
-                            // Set the parameter OD to the diameter of the pipe/duct + 50mm
-                            Parameter diameterParam = pipeOrDuct.LookupParameter("Diameter");
-                            if (diameterParam != null && diameterParam.HasValue)
+                            // Set the parameter OD to the calculated sleeve diameter
+                            Parameter odParam = sleeveInstance.LookupParameter("OD");
+                            if (odParam != null)
                             {
-                                double pipeDiameter = diameterParam.AsDouble(); // Revit stores length units in feet by default
-                                double sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters); // Adding 50mm and converting to feet
-                                Parameter odParam = sleeveInstance.LookupParameter("OD");
-                                if (odParam != null)
-                                {
-                                    odParam.Set(sleeveDiameter);
-                                }
+                                odParam.Set(sleeveDiameter);
                             }
                         }
                     }
@@ -155,8 +177,43 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                 trans.Commit();
             }
 
-            TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
+            if (errorMessages.Any())
+            {
+                string errorMsg = string.Join("\n", errorMessages.Select(kv => $"ID: {kv.Key} - Errors: {string.Join(", ", kv.Value.Distinct())}"));
+                TaskDialog.Show("Invalid Pipes/Ducts", errorMsg);
+            }
+            else
+            {
+                TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
+            }
+
             return Result.Succeeded;
+        }
+
+        private double GetBeamHeight(XYZ point1, XYZ point2, List<Element> structuralFramings)
+        {
+            foreach (var framing in structuralFramings)
+            {
+                var framingGeometry = framing.get_Geometry(new Options());
+                if (framingGeometry == null)
+                    continue;
+
+                List<Solid> solids = GetSolidsFromGeometry(framingGeometry);
+
+                foreach (Solid solid in solids)
+                {
+                    foreach (Face face in solid.Faces)
+                    {
+                        if (face.Project(point1) != null && face.Project(point2) != null)
+                        {
+                            BoundingBoxXYZ boundingBox = solid.GetBoundingBox();
+                            return boundingBox.Max.Z - boundingBox.Min.Z; // Assuming Z direction is the height
+                        }
+                    }
+                }
+            }
+
+            return 0;
         }
 
         private List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
