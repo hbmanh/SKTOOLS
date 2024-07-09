@@ -2,7 +2,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using Microsoft.Win32; // Namespace for SaveFileDialog
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,55 +19,87 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            // Get all linked documents
-            var linkedDocs = new FilteredElementCollector(doc)
+            var linkedDocs = GetLinkedDocuments(doc);
+            var pipesAndDucts = GetElementsOfType<MEPCurve>(doc);
+            var structuralFramings = new List<Element>();
+            foreach (var linkedDoc in linkedDocs)
+            {
+                structuralFramings.AddRange(GetElementsOfType<FamilyInstance>(linkedDoc, BuiltInCategory.OST_StructuralFraming));
+            }
+
+            var intersectionData = new Dictionary<ElementId, List<XYZ>>();
+            var errorMessages = new Dictionary<ElementId, HashSet<string>>();
+            var sleevePlacements = new Dictionary<ElementId, List<(XYZ, double)>>();
+            var directShapes = new List<DirectShape>();
+
+            ProcessIntersections(doc, structuralFramings, pipesAndDucts, intersectionData, directShapes);
+
+            var sleeveSymbol = GetSleeveSymbol(doc, ref message);
+            if (sleeveSymbol == null)
+                return Result.Failed;
+
+            PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
+
+            if (errorMessages.Any())
+                HandleErrors(errorMessages);
+            else
+                TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
+
+            return Result.Succeeded;
+        }
+
+        private List<Document> GetLinkedDocuments(Document doc)
+        {
+            return new FilteredElementCollector(doc)
                 .OfClass(typeof(RevitLinkInstance))
                 .Cast<RevitLinkInstance>()
                 .Select(link => link.GetLinkDocument())
                 .Where(linkedDoc => linkedDoc != null)
                 .ToList();
+        }
 
-            // Get all pipes and ducts in the current document
-            var pipesAndDucts = new FilteredElementCollector(doc)
-                .OfClass(typeof(MEPCurve))
-                .WhereElementIsNotElementType()
-                .ToElements();
+        private List<Element> GetElementsOfType<T>(Document doc, BuiltInCategory? category = null) where T : Element
+        {
+            var collector = new FilteredElementCollector(doc)
+                .OfClass(typeof(T))
+                .WhereElementIsNotElementType();
 
-            // Get all structural framings in the linked documents
-            var structuralFramings = linkedDocs
-                .SelectMany(linkedDoc => new FilteredElementCollector(linkedDoc)
-                    .OfClass(typeof(FamilyInstance))
-                    .OfCategory(BuiltInCategory.OST_StructuralFraming)
-                    .WhereElementIsNotElementType()
-                    .ToElements())
-                .ToList();
+            if (category.HasValue)
+                collector.OfCategory(category.Value);
 
-            // Dictionary to store intersection results with midpoint and direction
-            var intersectionData = new Dictionary<ElementId, List<XYZ>>();
-            var errorMessages = new Dictionary<ElementId, HashSet<string>>();
-            var sleevePlacements = new Dictionary<ElementId, List<(XYZ, double)>>(); // Track placed sleeves with their diameters
-            var directShapes = new List<DirectShape>();
+            return collector.ToElements().ToList();
+        }
 
-            using (var trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
+        private void ProcessIntersections(Document doc, List<Element> structuralFramings, List<Element> pipesAndDucts, Dictionary<ElementId, List<XYZ>> intersectionData, List<DirectShape> directShapes)
+        {
+            using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
             {
                 trans.Start();
-
-                foreach (var pipeOrDuct in pipesAndDucts)
+                foreach (var framing in structuralFramings)
                 {
-                    var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
-                    if (pipeOrDuctCurve == null) continue;
+                    var framingGeometry = framing.get_Geometry(new Options());
+                    if (framingGeometry == null)
+                        continue;
 
-                    foreach (var framing in structuralFramings)
+                    List<Solid> solids = GetSolidsFromGeometry(framingGeometry);
+
+                    foreach (Solid solid in solids)
                     {
-                        var framingGeometry = framing.get_Geometry(new Options());
-                        if (framingGeometry == null) continue;
-
-                        var solids = GetSolidsFromGeometry(framingGeometry);
-
-                        foreach (var solid in solids)
+                        var surroundingFaces = GetSurroundingFaces(solid);
+                        foreach (Face face in surroundingFaces)
                         {
-                            foreach (Face face in solid.Faces)
+                            var directShape = CreateDirectShapeForBeamFace(doc, solid, face);
+                            if (directShape != null)
                             {
+                                directShapes.Add(directShape);
+                            }
+
+                            foreach (var pipeOrDuct in pipesAndDucts)
+                            {
+                                var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                                if (pipeOrDuctCurve == null)
+                                    continue;
+
                                 if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
                                 {
                                     if (!intersectionData.ContainsKey(pipeOrDuct.Id))
@@ -79,192 +111,208 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                                     {
                                         intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
                                     }
-
-                                    var directShape = CreateDirectShapeForBeamFace(doc, solid, face);
-                                    if (directShape != null)
-                                    {
-                                        directShapes.Add(directShape);
-                                    }
                                 }
                             }
                         }
                     }
                 }
+                trans.Commit();
+            }
+        }
 
-                // Load the スリーブ_SK family symbol
-                var sleeveSymbol = new FilteredElementCollector(doc)
-                    .OfCategory(BuiltInCategory.OST_PipeAccessory)
-                    .OfClass(typeof(FamilySymbol))
-                    .WhereElementIsElementType()
-                    .Cast<FamilySymbol>()
-                    .FirstOrDefault(symbol => symbol.FamilyName == "スリーブ_SK");
+        private FamilySymbol GetSleeveSymbol(Document doc, ref string message)
+        {
+            var sleeveSymbol = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_PipeAccessory)
+                .OfClass(typeof(FamilySymbol))
+                .WhereElementIsElementType()
+                .Cast<FamilySymbol>()
+                .FirstOrDefault(symbol => symbol.FamilyName == "スリーブ_SK");
 
-                if (sleeveSymbol == null)
-                {
-                    message = "The スリーブ_SK family could not be found.";
-                    return Result.Failed;
-                }
+            if (sleeveSymbol == null)
+            {
+                message = "The スリーブ_SK family could not be found.";
+                return null;
+            }
 
-                if (!sleeveSymbol.IsActive)
-                {
-                    sleeveSymbol.Activate();
-                    doc.Regenerate();
-                }
+            if (!sleeveSymbol.IsActive)
+            {
+                sleeveSymbol.Activate();
+                doc.Regenerate();
+            }
+
+            return sleeveSymbol;
+        }
+
+        private void PlaceSleeves(Document doc, FamilySymbol sleeveSymbol, Dictionary<ElementId, List<XYZ>> intersectionData, List<Element> structuralFramings, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, Dictionary<ElementId, HashSet<string>> errorMessages, List<DirectShape> directShapes)
+        {
+            using (Transaction trans = new Transaction(doc, "Place Sleeves"))
+            {
+                trans.Start();
 
                 foreach (var entry in intersectionData)
                 {
                     var pipeOrDuct = doc.GetElement(entry.Key);
                     var points = entry.Value;
 
-                    for (int i = 0; i < points.Count - 1; i += 2)
+                    for (int i = 0; i < points.Count; i += 2)
                     {
-                        var point1 = points[i];
-                        var point2 = points[i + 1];
-                        var midpoint = (point1 + point2) / 2;
-                        var direction = (point2 - point1).Normalize();
-
-                        var pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
-                        var sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters); // Adding 50mm and converting to feet
-                        var beamHeight = GetBeamHeight(point1, point2, structuralFramings);
-
-                        var errors = new HashSet<string>();
-
-                        if (sleeveDiameter > UnitUtils.ConvertToInternalUnits(750, UnitTypeId.Millimeters))
+                        if (i + 1 < points.Count)
                         {
-                            errors.Add("OD > 750mm");
-                        }
+                            XYZ point1 = points[i];
+                            XYZ point2 = points[i + 1];
+                            XYZ midpoint = (point1 + point2) / 2;
+                            XYZ direction = (point2 - point1).Normalize();
 
-                        if (sleeveDiameter > beamHeight / 3)
-                        {
-                            errors.Add("OD > H/3");
-                        }
+                            double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
+                            double sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters);
+                            double beamHeight = GetBeamHeight(point1, structuralFramings);
 
-                        if (!sleevePlacements.ContainsKey(entry.Key))
-                        {
-                            sleevePlacements[entry.Key] = new List<(XYZ, double)>();
-                        }
+                            HashSet<string> errors = ValidateSleevePlacement(sleeveDiameter, beamHeight, midpoint, sleevePlacements, entry.Key);
 
-                        // Check distance to other sleeves in the same beam
-                        foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[entry.Key])
-                        {
-                            var minDistance = (sleeveDiameter + otherDiameter) * 1.5;
-                            if (Math.Abs(midpoint.X - otherMidpoint.X) < minDistance || Math.Abs(midpoint.Y - otherMidpoint.Y) < minDistance)
+                            if (errors.Count > 0)
                             {
-                                errors.Add("Distance between sleeves < (OD1 + OD2)*3/2");
-                                break;
+                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                                {
+                                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                                }
+                                errorMessages[pipeOrDuct.Id].UnionWith(errors);
+                                continue;
                             }
-                        }
 
-                        if (errors.Any())
-                        {
-                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            {
-                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                            }
-                            errorMessages[pipeOrDuct.Id].UnionWith(errors);
-                            continue;
-                        }
-
-                        // Place the sleeve instance
-                        var sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
-
-                        // Rotate the sleeve to be parallel with the direction vector plus an additional 90 degrees
-                        var axis = Line.CreateBound(midpoint, midpoint + XYZ.BasisZ);
-                        var angle = XYZ.BasisX.AngleTo(direction);
-                        var additionalRotation = Math.PI / 2; // 90 degrees in radians
-                        ElementTransformUtils.RotateElement(doc, sleeveInstance.Id, axis, angle + additionalRotation);
-
-                        // Set the parameter L to the distance between the intersection points
-                        var lengthParam = sleeveInstance.LookupParameter("L");
-                        lengthParam?.Set(point1.DistanceTo(point2));
-
-                        // Set the parameter OD to the calculated sleeve diameter
-                        var odParam = sleeveInstance.LookupParameter("OD");
-                        odParam?.Set(sleeveDiameter);
-
-                        // Track the sleeve placement
-                        sleevePlacements[entry.Key].Add((midpoint, sleeveDiameter));
-
-                        // Check if the midpoint of the sleeve is within any direct shape
-                        if (!directShapes.Any(ds => IsPointWithinDirectShape(midpoint, ds)))
-                        {
-                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            {
-                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                            }
-                            errorMessages[pipeOrDuct.Id].Add("Sleeve Placed Outside Permissible Beam Penetration Range.");
+                            PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
                         }
                     }
                 }
 
                 trans.Commit();
             }
-
-            if (errorMessages.Any())
-            {
-                var errorMsg = string.Join("\n", errorMessages.Select(kv => $"ID: {kv.Key} - Errors: {string.Join(", ", kv.Value.Distinct())}"));
-                var previewErrorMsg = errorMsg.Length > 500 ? errorMsg.Substring(0, 500) + "..." : errorMsg; // Limit preview to 500 characters
-
-                var taskDialog = new TaskDialog("Invalid Pipes/Ducts")
-                {
-                    MainContent = "There are errors in placing some sleeves. Do you want to save these errors to a text file?",
-                    ExpandedContent = previewErrorMsg,
-                    CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No
-                };
-
-                if (taskDialog.Show() == TaskDialogResult.Yes)
-                {
-                    // Prompt user to select file save location
-                    var saveFileDialog = new SaveFileDialog
-                    {
-                        Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
-                        Title = "Save Error Messages"
-                    };
-                    if (saveFileDialog.ShowDialog() == true)
-                    {
-                        File.WriteAllText(saveFileDialog.FileName, errorMsg);
-                        TaskDialog.Show("Invalid Pipes/Ducts", $"Errors have been written to {saveFileDialog.FileName}");
-                    }
-                }
-            }
-            else
-            {
-                TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
-            }
-
-            return Result.Succeeded;
         }
 
-        private double GetBeamHeight(XYZ point1, XYZ point2, List<Element> structuralFramings)
+        private HashSet<string> ValidateSleevePlacement(double sleeveDiameter, double beamHeight, XYZ midpoint, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId pipeOrDuctId)
+        {
+            HashSet<string> errors = new HashSet<string>();
+
+            if (sleeveDiameter > UnitUtils.ConvertToInternalUnits(750, UnitTypeId.Millimeters))
+            {
+                errors.Add("OD > 750mm");
+            }
+
+            if (sleeveDiameter > beamHeight / 3)
+            {
+                errors.Add("OD > H/3");
+            }
+
+            if (!sleevePlacements.ContainsKey(pipeOrDuctId))
+            {
+                sleevePlacements[pipeOrDuctId] = new List<(XYZ, double)>();
+            }
+
+            foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[pipeOrDuctId])
+            {
+                double minDistance = (sleeveDiameter + otherDiameter) * 1.5;
+                if (Math.Abs(midpoint.X - otherMidpoint.X) < minDistance || Math.Abs(midpoint.Y - otherMidpoint.Y) < minDistance)
+                {
+                    errors.Add($"Distance between sleeves < (OD1 + OD2)*3/2");
+                    break;
+                }
+            }
+
+            return errors;
+        }
+
+        private void PlaceSleeveInstance(Document doc, FamilySymbol sleeveSymbol, XYZ midpoint, XYZ direction, XYZ point1, XYZ point2, double sleeveDiameter, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId entryKey, Element pipeOrDuct, List<DirectShape> directShapes, Dictionary<ElementId, HashSet<string>> errorMessages)
+        {
+            FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
+
+            Line axis = Line.CreateBound(midpoint, midpoint + XYZ.BasisZ);
+            double angle = XYZ.BasisX.AngleTo(direction);
+            double additionalRotation = Math.PI / 2;
+            ElementTransformUtils.RotateElement(doc, sleeveInstance.Id, axis, angle + additionalRotation);
+
+            Parameter lengthParam = sleeveInstance.LookupParameter("L");
+            if (lengthParam != null)
+            {
+                lengthParam.Set(point1.DistanceTo(point2));
+            }
+
+            Parameter odParam = sleeveInstance.LookupParameter("OD");
+            if (odParam != null)
+            {
+                odParam.Set(sleeveDiameter);
+            }
+
+            sleevePlacements[entryKey].Add((midpoint, sleeveDiameter));
+
+            bool isWithinDirectShape = directShapes.Any(ds => IsPointWithinDirectShape(midpoint, ds));
+            if (!isWithinDirectShape)
+            {
+                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                {
+                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                }
+                errorMessages[pipeOrDuct.Id].Add("Sleeve Placed Outside Permissible Beam Penetration Range.");
+            }
+        }
+
+        private void HandleErrors(Dictionary<ElementId, HashSet<string>> errorMessages)
+        {
+            string errorMsg = string.Join("\n", errorMessages.Select(kv => $"ID: {kv.Key} - Errors: {string.Join(", ", kv.Value.Distinct())}"));
+
+            string previewErrorMsg = errorMsg.Length > 500 ? errorMsg.Substring(0, 500) + "..." : errorMsg;
+
+            TaskDialog taskDialog = new TaskDialog("Invalid Pipes/Ducts")
+            {
+                MainContent = "There are errors in placing some sleeves. Do you want to save these errors to a text file?",
+                ExpandedContent = previewErrorMsg,
+                CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No
+            };
+
+            if (taskDialog.Show() == TaskDialogResult.Yes)
+            {
+                SaveFileDialog saveFileDialog = new SaveFileDialog
+                {
+                    Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                    Title = "Save Error Messages"
+                };
+                if (saveFileDialog.ShowDialog() == true)
+                {
+                    File.WriteAllText(saveFileDialog.FileName, errorMsg);
+                    TaskDialog.Show("Invalid Pipes/Ducts", $"Errors have been written to {saveFileDialog.FileName}");
+                }
+            }
+        }
+
+        private double GetBeamHeight(XYZ point, List<Element> structuralFramings)
         {
             foreach (var framing in structuralFramings)
             {
-                var framingGeometry = framing.get_Geometry(new Options());
-                if (framingGeometry == null) continue;
-
-                var solids = GetSolidsFromGeometry(framingGeometry);
-
-                foreach (var solid in solids)
+                if (IsPointOnElement(framing, point))
                 {
-                    foreach (Face face in solid.Faces)
+                    BoundingBoxXYZ boundingBox = framing.get_BoundingBox(null);
+                    if (boundingBox != null)
                     {
-                        if (face.Project(point1) != null && face.Project(point2) != null)
-                        {
-                            var boundingBox = solid.GetBoundingBox();
-                            return boundingBox.Max.Z - boundingBox.Min.Z; // Assuming Z direction is the height
-                        }
+                        return boundingBox.Max.Z - boundingBox.Min.Z;
                     }
                 }
             }
-
             return 0;
+        }
+
+        private bool IsPointOnElement(Element element, XYZ point)
+        {
+            var boundingBox = element.get_BoundingBox(null);
+            return boundingBox != null &&
+                   point.X >= boundingBox.Min.X && point.X <= boundingBox.Max.X &&
+                   point.Y >= boundingBox.Min.Y && point.Y <= boundingBox.Max.Y &&
+                   point.Z >= boundingBox.Min.Z && point.Z <= boundingBox.Max.Z;
         }
 
         private List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
         {
-            var solids = new List<Solid>();
+            List<Solid> solids = new List<Solid>();
 
-            foreach (var geomObj in geometryElement)
+            foreach (GeometryObject geomObj in geometryElement)
             {
                 if (geomObj is Solid solid && solid.Volume > 0)
                 {
@@ -272,7 +320,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                 }
                 else if (geomObj is GeometryInstance geomInstance)
                 {
-                    var instanceGeometry = geomInstance.GetInstanceGeometry();
+                    GeometryElement instanceGeometry = geomInstance.GetInstanceGeometry();
                     solids.AddRange(GetSolidsFromGeometry(instanceGeometry));
                 }
             }
@@ -280,26 +328,61 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return solids;
         }
 
+        private List<Face> GetSurroundingFaces(Solid solid)
+        {
+            var faces = solid.Faces.Cast<Face>().Where(face => !IsTopOrBottomFace(face)).ToList();
+
+            var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
+
+            var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
+
+            sortedFaceAreas.RemoveAt(0);
+            sortedFaceAreas.RemoveAt(0);
+
+            return sortedFaceAreas.Select(f => f.Face).ToList();
+        }
+
+        private bool IsTopOrBottomFace(Face face)
+        {
+            XYZ normal = face.ComputeNormal(new UV(0.5, 0.5));
+            return Math.Abs(normal.Z) > 0.9; // Giả định hướng Z là hướng đứng
+        }
+
+        private double GetFaceArea(Face face)
+        {
+            Mesh mesh = face.Triangulate();
+            double area = 0;
+            int numTriangles = mesh.NumTriangles;
+
+            for (int i = 0; i < numTriangles; i++)
+            {
+                MeshTriangle triangle = mesh.get_Triangle(i);
+                XYZ p0 = triangle.get_Vertex(0);
+                XYZ p1 = triangle.get_Vertex(1);
+                XYZ p2 = triangle.get_Vertex(2);
+                area += 0.5 * ((p1 - p0).CrossProduct(p2 - p0)).GetLength();
+            }
+
+            return area;
+        }
+
+
         private DirectShape CreateDirectShapeForBeamFace(Document doc, Solid solid, Face face)
         {
-            // Get the bounding box of the face
-            var boundingBox = face.GetBoundingBox();
-            var min = boundingBox.Min;
-            var max = boundingBox.Max;
+            BoundingBoxUV boundingBox = face.GetBoundingBox();
+            UV min = boundingBox.Min;
+            UV max = boundingBox.Max;
 
-            // Calculate the beam height (assuming Z direction is the height)
-            var solidBoundingBox = solid.GetBoundingBox();
-            var beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
+            BoundingBoxXYZ solidBoundingBox = solid.GetBoundingBox();
+            double beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
 
-            // Calculate the new dimensions for the direct shape
-            var heightMargin = beamHeight / 4;
-            var widthMargin = beamHeight;
+            double heightMargin = beamHeight / 4;
+            double widthMargin = beamHeight;
 
-            var adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
-            var adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
+            UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
+            UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
 
-            // Create a loop for the direct shape profile
-            var profile = new List<Curve>
+            List<Curve> profile = new List<Curve>
             {
                 Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
                 Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
@@ -307,12 +390,12 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                 Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
             };
 
-            // Create a solid from the profile
-            var curveLoop = CurveLoop.Create(profile);
-            var directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { curveLoop }, face.ComputeNormal(UV.Zero), 10.0 / 304.8); // 10mm in feet
+            CurveLoop curveLoop = CurveLoop.Create(profile);
+            List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
+            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
+            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
 
-            // Create a direct shape
-            var directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+            DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
             directShape.SetShape(new GeometryObject[] { directShapeSolid });
             directShape.SetName("Beam Intersection Zone");
 
@@ -322,7 +405,8 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
         {
             var boundingBox = directShape.get_BoundingBox(null);
-            if (boundingBox == null) return false;
+            if (boundingBox == null)
+                return false;
 
             return (point.X >= boundingBox.Min.X && point.X <= boundingBox.Max.X) &&
                    (point.Y >= boundingBox.Min.Y && point.Y <= boundingBox.Max.Y) &&
