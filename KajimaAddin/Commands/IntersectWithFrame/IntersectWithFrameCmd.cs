@@ -383,50 +383,64 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
         // Create direct shape for a beam face
         private DirectShape CreateDirectShapeForBeamFace(Document doc, Solid solid, Face face)
         {
+            // Lấy BoundingBoxUV của mặt
             BoundingBoxUV boundingBox = face.GetBoundingBox();
             UV min = boundingBox.Min;
             UV max = boundingBox.Max;
 
+            // Lấy BoundingBoxXYZ của khối solid để tính chiều cao của dầm
             BoundingBoxXYZ solidBoundingBox = solid.GetBoundingBox();
             double beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
 
+            // Xác định khoảng cách biên cần thiết từ top và bottom của dầm
             double heightMargin = beamHeight / 4;
             double widthMargin = beamHeight;
 
+            // Điều chỉnh các giá trị min và max của BoundingBoxUV để tạo khoảng cách biên cần thiết
             UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
             UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
 
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho V
             if (adjustedMin.V >= adjustedMax.V)
             {
                 adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
                 adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
             }
 
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U
             if (adjustedMin.U >= adjustedMax.U)
             {
                 adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
                 adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
             }
 
-            List<Curve> profile = new List<Curve>
-            {
-                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
+            // Tạo các đường bao quanh (profile) cho mặt bằng cách sử dụng các giá trị UV đã điều chỉnh
+            List<Curve> profile = new List<Curve> 
+            { 
+                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))), 
+                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)), 
+                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))), 
                 Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
             };
 
+            // Tạo CurveLoop từ profile
             CurveLoop curveLoop = CurveLoop.Create(profile);
             List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
-            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
-            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
 
+            // Tính toán hướng đùn (extrusion direction) dựa trên pháp tuyến của mặt
+            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
+
+            // Tạo khối solid cho DirectShape bằng cách đùn CurveLoop
+            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8); // 10mm chuyển đổi sang đơn vị nội bộ
+
+            // Tạo DirectShape trong tài liệu Revit
             DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
             directShape.SetShape(new GeometryObject[] { directShapeSolid });
             directShape.SetName("Beam Intersection Zone");
 
             return directShape;
         }
+
 
         // Check if a point is within a direct shape
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
