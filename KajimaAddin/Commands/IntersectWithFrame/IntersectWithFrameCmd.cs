@@ -48,6 +48,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return Result.Succeeded;
         }
 
+        // Retrieve linked documents
         private List<Document> GetLinkedDocuments(Document doc)
         {
             return new FilteredElementCollector(doc)
@@ -58,6 +59,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                 .ToList();
         }
 
+        // Retrieve elements of specified type and category
         private List<Element> GetElementsOfType<T>(Document doc, BuiltInCategory? category = null) where T : Element
         {
             var collector = new FilteredElementCollector(doc)
@@ -70,6 +72,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return collector.ToElements().ToList();
         }
 
+        // Process intersections between structural framings and pipes/ducts
         private void ProcessIntersections(Document doc, List<Element> structuralFramings, List<Element> pipesAndDucts, Dictionary<ElementId, List<XYZ>> intersectionData, List<DirectShape> directShapes)
         {
             using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
@@ -120,6 +123,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Retrieve sleeve family symbol
         private FamilySymbol GetSleeveSymbol(Document doc, ref string message)
         {
             var sleeveSymbol = new FilteredElementCollector(doc)
@@ -144,6 +148,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return sleeveSymbol;
         }
 
+        // Place sleeves at intersection points
         private void PlaceSleeves(Document doc, FamilySymbol sleeveSymbol, Dictionary<ElementId, List<XYZ>> intersectionData, List<Element> structuralFramings, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, Dictionary<ElementId, HashSet<string>> errorMessages, List<DirectShape> directShapes)
         {
             using (Transaction trans = new Transaction(doc, "Place Sleeves"))
@@ -189,6 +194,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Validate sleeve placement conditions
         private HashSet<string> ValidateSleevePlacement(double sleeveDiameter, double beamHeight, XYZ midpoint, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId pipeOrDuctId)
         {
             HashSet<string> errors = new HashSet<string>();
@@ -221,6 +227,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return errors;
         }
 
+        // Place sleeve instance at midpoint
         private void PlaceSleeveInstance(Document doc, FamilySymbol sleeveSymbol, XYZ midpoint, XYZ direction, XYZ point1, XYZ point2, double sleeveDiameter, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId entryKey, Element pipeOrDuct, List<DirectShape> directShapes, Dictionary<ElementId, HashSet<string>> errorMessages)
         {
             FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
@@ -255,6 +262,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Handle errors and prompt to save error messages
         private void HandleErrors(Dictionary<ElementId, HashSet<string>> errorMessages)
         {
             string errorMsg = string.Join("\n", errorMessages.Select(kv => $"ID: {kv.Key} - Errors: {string.Join(", ", kv.Value.Distinct())}"));
@@ -283,6 +291,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Get beam height from structural framings
         private double GetBeamHeight(XYZ point, List<Element> structuralFramings)
         {
             foreach (var framing in structuralFramings)
@@ -299,6 +308,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return 0;
         }
 
+        // Check if a point is on a given element
         private bool IsPointOnElement(Element element, XYZ point)
         {
             var boundingBox = element.get_BoundingBox(null);
@@ -308,6 +318,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                    point.Z >= boundingBox.Min.Z && point.Z <= boundingBox.Max.Z;
         }
 
+        // Get solids from geometry element
         private List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
         {
             List<Solid> solids = new List<Solid>();
@@ -328,6 +339,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return solids;
         }
 
+        // Get surrounding faces excluding top and bottom faces
         private List<Face> GetSurroundingFaces(Solid solid)
         {
             var faces = solid.Faces.Cast<Face>().Where(face => !IsTopOrBottomFace(face)).ToList();
@@ -342,12 +354,14 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return sortedFaceAreas.Select(f => f.Face).ToList();
         }
 
+        // Check if a face is the top or bottom face
         private bool IsTopOrBottomFace(Face face)
         {
             XYZ normal = face.ComputeNormal(new UV(0.5, 0.5));
-            return Math.Abs(normal.Z) > 0.9; // Giả định hướng Z là hướng đứng
+            return Math.Abs(normal.Z) > 0.9; // Assuming Z direction is vertical
         }
 
+        // Get area of a face
         private double GetFaceArea(Face face)
         {
             Mesh mesh = face.Triangulate();
@@ -366,7 +380,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return area;
         }
 
-
+        // Create direct shape for a beam face
         private DirectShape CreateDirectShapeForBeamFace(Document doc, Solid solid, Face face)
         {
             BoundingBoxUV boundingBox = face.GetBoundingBox();
@@ -381,6 +395,18 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
 
             UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
             UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
+
+            if (adjustedMin.V >= adjustedMax.V)
+            {
+                adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
+                adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
+            }
+
+            if (adjustedMin.U >= adjustedMax.U)
+            {
+                adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
+                adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
+            }
 
             List<Curve> profile = new List<Curve>
             {
@@ -402,6 +428,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return directShape;
         }
 
+        // Check if a point is within a direct shape
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
         {
             var boundingBox = directShape.get_BoundingBox(null);
