@@ -397,8 +397,8 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             double widthMargin = beamHeight;
 
             // Điều chỉnh các giá trị min và max của BoundingBoxUV để tạo khoảng cách biên cần thiết
-            UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
-            UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
+            UV adjustedMin = new UV(min.U + widthMargin, min.V + widthMargin);
+            UV adjustedMax = new UV(max.U - widthMargin, max.V - widthMargin);
 
             // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho V
             if (adjustedMin.V >= adjustedMax.V)
