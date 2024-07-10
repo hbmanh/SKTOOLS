@@ -34,8 +34,8 @@ namespace SKToolsRibbon
             string GENPanelName = "GEN's Addins";
             RibbonPanel GENPanelNamePanel = uiapp.CreateRibbonPanel(ribbonName, GENPanelName);
 
-            string selectElementsPanelName = "Select Elements";
-            RibbonPanel selectElementsPanel = uiapp.CreateRibbonPanel(ribbonName, selectElementsPanelName);
+            //string selectElementsPanelName = "Select Elements";
+            //RibbonPanel selectElementsPanel = uiapp.CreateRibbonPanel(ribbonName, selectElementsPanelName);
 
             string CADPanelName = "CAD's Addins";
             RibbonPanel CADPanel = uiapp.CreateRibbonPanel(ribbonName, CADPanelName);

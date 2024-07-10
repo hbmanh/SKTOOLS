@@ -18,9 +18,10 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             UIApplication uiapp = commandData.Application;
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
+            View activeView = uidoc.ActiveView;
 
             var linkedDocs = GetLinkedDocuments(doc);
-            var pipesAndDucts = GetElementsOfType<MEPCurve>(doc);
+            var pipesAndDucts = GetElementsOfType<MEPCurve>(doc).Where(e => e.Document.ActiveView.Id == activeView.Id).ToList();
             var structuralFramings = new List<Element>();
             foreach (var linkedDoc in linkedDocs)
             {
@@ -45,9 +46,12 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             else
                 TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
 
+            ApplyFilterToDirectShapes(doc, activeView, directShapes);
+
             return Result.Succeeded;
         }
 
+        // Retrieve linked documents
         private List<Document> GetLinkedDocuments(Document doc)
         {
             return new FilteredElementCollector(doc)
@@ -58,6 +62,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                 .ToList();
         }
 
+        // Retrieve elements of specified type and category
         private List<Element> GetElementsOfType<T>(Document doc, BuiltInCategory? category = null) where T : Element
         {
             var collector = new FilteredElementCollector(doc)
@@ -70,6 +75,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return collector.ToElements().ToList();
         }
 
+        // Process intersections between structural framings and pipes/ducts
         private void ProcessIntersections(Document doc, List<Element> structuralFramings, List<Element> pipesAndDucts, Dictionary<ElementId, List<XYZ>> intersectionData, List<DirectShape> directShapes)
         {
             using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
@@ -113,32 +119,6 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                                     }
                                 }
                             }
-
-                            // Logic to check if the beam intersects and is joined with another beam
-                            foreach (var otherFraming in structuralFramings)
-                            {
-                                if (otherFraming.Id != framing.Id && AreBeamsBoundingBoxesIntersect(framing, otherFraming))
-                                {
-                                    // Your logic to create additional direct shapes when beams are joined
-                                    var otherFramingGeometry = otherFraming.get_Geometry(new Options());
-                                    if (otherFramingGeometry == null)
-                                        continue;
-
-                                    List<Solid> otherSolids = GetSolidsFromGeometry(otherFramingGeometry);
-                                    foreach (Solid otherSolid in otherSolids)
-                                    {
-                                        var otherSurroundingFaces = GetSurroundingFaces(otherSolid);
-                                        foreach (Face otherFace in otherSurroundingFaces)
-                                        {
-                                            var additionalDirectShape = CreateDirectShapeForBeamFace(doc, otherSolid, otherFace);
-                                            if (additionalDirectShape != null)
-                                            {
-                                                directShapes.Add(additionalDirectShape);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -146,6 +126,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Retrieve sleeve family symbol
         private FamilySymbol GetSleeveSymbol(Document doc, ref string message)
         {
             var sleeveSymbol = new FilteredElementCollector(doc)
@@ -170,6 +151,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return sleeveSymbol;
         }
 
+        // Place sleeves at intersection points
         private void PlaceSleeves(Document doc, FamilySymbol sleeveSymbol, Dictionary<ElementId, List<XYZ>> intersectionData, List<Element> structuralFramings, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, Dictionary<ElementId, HashSet<string>> errorMessages, List<DirectShape> directShapes)
         {
             using (Transaction trans = new Transaction(doc, "Place Sleeves"))
@@ -206,7 +188,38 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                                 continue;
                             }
 
-                            PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
+                            // Kiểm tra nếu pipe/duct không nằm hoàn toàn trong phạm vi direct shape sẽ không được tạo ra
+                            if (!IsPointWithinAnyDirectShape(point1, directShapes) || !IsPointWithinAnyDirectShape(point2, directShapes))
+                            {
+                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                                {
+                                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                                }
+                                errorMessages[pipeOrDuct.Id].Add("Pipe/Duct does not fully lie within the permissible direct shape boundaries.");
+                                continue;
+                            }
+
+                            // Kiểm tra xem vị trí midpoint đã có sleeve nào chưa
+                            if (!sleevePlacements.ContainsKey(entry.Key))
+                            {
+                                sleevePlacements[entry.Key] = new List<(XYZ, double)>();
+                            }
+
+                            bool placementValid = true;
+                            foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[entry.Key])
+                            {
+                                double minDistance = (sleeveDiameter + otherDiameter) * 1.5;
+                                if (midpoint.DistanceTo(otherMidpoint) < minDistance)
+                                {
+                                    placementValid = false;
+                                    break;
+                                }
+                            }
+
+                            if (placementValid)
+                            {
+                                PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
+                            }
                         }
                     }
                 }
@@ -215,6 +228,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Validate sleeve placement conditions
         private HashSet<string> ValidateSleevePlacement(double sleeveDiameter, double beamHeight, XYZ midpoint, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId pipeOrDuctId)
         {
             HashSet<string> errors = new HashSet<string>();
@@ -237,7 +251,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[pipeOrDuctId])
             {
                 double minDistance = (sleeveDiameter + otherDiameter) * 1.5;
-                if (Math.Abs(midpoint.X - otherMidpoint.X) < minDistance || Math.Abs(midpoint.Y - otherMidpoint.Y) < minDistance)
+                if (midpoint.DistanceTo(otherMidpoint) < minDistance)
                 {
                     errors.Add($"Distance between sleeves < (OD1 + OD2)*3/2");
                     break;
@@ -247,6 +261,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return errors;
         }
 
+        // Place sleeve instance at midpoint
         private void PlaceSleeveInstance(Document doc, FamilySymbol sleeveSymbol, XYZ midpoint, XYZ direction, XYZ point1, XYZ point2, double sleeveDiameter, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId entryKey, Element pipeOrDuct, List<DirectShape> directShapes, Dictionary<ElementId, HashSet<string>> errorMessages)
         {
             FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
@@ -281,6 +296,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Handle errors and prompt to save error messages
         private void HandleErrors(Dictionary<ElementId, HashSet<string>> errorMessages)
         {
             string errorMsg = string.Join("\n", errorMessages.Select(kv => $"ID: {kv.Key} - Errors: {string.Join(", ", kv.Value.Distinct())}"));
@@ -309,6 +325,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             }
         }
 
+        // Get beam height from structural framings
         private double GetBeamHeight(XYZ point, List<Element> structuralFramings)
         {
             foreach (var framing in structuralFramings)
@@ -325,6 +342,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return 0;
         }
 
+        // Check if a point is on a given element
         private bool IsPointOnElement(Element element, XYZ point)
         {
             var boundingBox = element.get_BoundingBox(null);
@@ -334,6 +352,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                    point.Z >= boundingBox.Min.Z && point.Z <= boundingBox.Max.Z;
         }
 
+        // Get solids from geometry element
         private List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
         {
             List<Solid> solids = new List<Solid>();
@@ -354,6 +373,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return solids;
         }
 
+        // Get surrounding faces excluding top and bottom faces
         private List<Face> GetSurroundingFaces(Solid solid)
         {
             var faces = solid.Faces.Cast<Face>().Where(face => !IsTopOrBottomFace(face)).ToList();
@@ -368,12 +388,14 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return sortedFaceAreas.Select(f => f.Face).ToList();
         }
 
+        // Check if a face is the top or bottom face
         private bool IsTopOrBottomFace(Face face)
         {
             XYZ normal = face.ComputeNormal(new UV(0.5, 0.5));
-            return Math.Abs(normal.Z) > 0.9;
+            return Math.Abs(normal.Z) > 0.9; // Assuming Z direction is vertical
         }
 
+        // Get area of a face
         private double GetFaceArea(Face face)
         {
             Mesh mesh = face.Triangulate();
@@ -392,33 +414,41 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return area;
         }
 
+        // Create direct shape for a beam face
         private DirectShape CreateDirectShapeForBeamFace(Document doc, Solid solid, Face face)
         {
+            // Lấy BoundingBoxUV của mặt
             BoundingBoxUV boundingBox = face.GetBoundingBox();
             UV min = boundingBox.Min;
             UV max = boundingBox.Max;
 
+            // Lấy BoundingBoxXYZ của khối solid để tính chiều cao của dầm
             BoundingBoxXYZ solidBoundingBox = solid.GetBoundingBox();
             double beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
 
+            // Xác định khoảng cách biên cần thiết từ top và bottom của dầm
             double heightMargin = beamHeight / 4;
             double widthMargin = beamHeight;
 
+            // Điều chỉnh các giá trị min và max của BoundingBoxUV để tạo khoảng cách biên cần thiết
             UV adjustedMin = new UV(min.U + widthMargin, min.V + widthMargin);
             UV adjustedMax = new UV(max.U - widthMargin, max.V - widthMargin);
 
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho V
             if (adjustedMin.V >= adjustedMax.V)
             {
                 adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
                 adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
             }
 
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U
             if (adjustedMin.U >= adjustedMax.U)
             {
                 adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
                 adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
             }
 
+            // Tạo các đường bao quanh (profile) cho mặt bằng cách sử dụng các giá trị UV đã điều chỉnh
             List<Curve> profile = new List<Curve>
             {
                 Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
@@ -427,11 +457,17 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                 Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
             };
 
+            // Tạo CurveLoop từ profile
             CurveLoop curveLoop = CurveLoop.Create(profile);
             List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
-            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
-            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
 
+            // Tính toán hướng đùn (extrusion direction) dựa trên pháp tuyến của mặt
+            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
+
+            // Tạo khối solid cho DirectShape bằng cách đùn CurveLoop
+            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8); // 10mm chuyển đổi sang đơn vị nội bộ
+
+            // Tạo DirectShape trong tài liệu Revit
             DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
             directShape.SetShape(new GeometryObject[] { directShapeSolid });
             directShape.SetName("Beam Intersection Zone");
@@ -439,6 +475,8 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             return directShape;
         }
 
+
+        // Check if a point is within a direct shape
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
         {
             var boundingBox = directShape.get_BoundingBox(null);
@@ -450,17 +488,52 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                    (point.Z >= boundingBox.Min.Z && point.Z <= boundingBox.Max.Z);
         }
 
-        private bool AreBeamsBoundingBoxesIntersect(Element beamA, Element beamB)
+        // Check if a point is within any of the direct shapes
+        private bool IsPointWithinAnyDirectShape(XYZ point, List<DirectShape> directShapes)
         {
-            var bboxA = beamA.get_BoundingBox(null);
-            var bboxB = beamB.get_BoundingBox(null);
+            return directShapes.Any(ds => IsPointWithinDirectShape(point, ds));
+        }
 
-            if (bboxA == null || bboxB == null)
-                return false;
+        // Apply filter to direct shapes and set color to green
+        private void ApplyFilterToDirectShapes(Document doc, View view, List<DirectShape> directShapes)
+        {
+            using (Transaction trans = new Transaction(doc, "Apply Filter to Direct Shapes"))
+            {
+                trans.Start();
 
-            return !(bboxA.Max.X < bboxB.Min.X || bboxA.Min.X > bboxB.Max.X ||
-                     bboxA.Max.Y < bboxB.Min.Y || bboxA.Min.Y > bboxB.Max.Y ||
-                     bboxA.Max.Z < bboxB.Min.Z || bboxA.Min.Z > bboxB.Max.Z);
+                // Create a filter for direct shapes
+                ElementCategoryFilter directShapeFilter = new ElementCategoryFilter(BuiltInCategory.OST_GenericModel);
+                ParameterFilterElement parameterFilter = ParameterFilterElement.Create(doc, "DirectShape Filter", new List<ElementId> { new ElementId(BuiltInCategory.OST_GenericModel) });
+
+                // Apply the filter to the active view
+                view.AddFilter(parameterFilter.Id);
+                ElementId solidFillPatternId = null;
+
+                List<FillPatternElement> fillPatternList = new FilteredElementCollector(doc)
+                    .WherePasses(new ElementClassFilter(typeof(FillPatternElement))).
+                    ToElements().Cast<FillPatternElement>().ToList();
+                foreach (FillPatternElement fp in fillPatternList)
+                {
+                    if (fp.GetFillPattern().IsSolidFill)
+                    {
+                        solidFillPatternId = fp.Id;
+                        break;
+                    }
+                }
+
+                // Set the color to green for the direct shapes
+                OverrideGraphicSettings overrideSettings = new OverrideGraphicSettings();
+                view.SetFilterOverrides(parameterFilter.Id, overrideSettings.SetSurfaceForegroundPatternColor(new Color(0, 255, 0)));
+                view.SetFilterOverrides(parameterFilter.Id, overrideSettings.SetSurfaceForegroundPatternId(solidFillPatternId));
+
+
+                foreach (var directShape in directShapes)
+                {
+                    view.SetElementOverrides(directShape.Id, overrideSettings);
+                }
+
+                trans.Commit();
+            }
         }
     }
 }
