@@ -25,20 +25,20 @@ namespace SKToolsRibbon
             string ribbonName = "SK-Tools";
             uiapp.CreateRibbonTab(ribbonName);
 
-            string createSpacePanelName = "スペースー括作成";
-            RibbonPanel createSpacePanel = uiapp.CreateRibbonPanel(ribbonName, createSpacePanelName);
+            //string createSpacePanelName = "スペースー括作成";
+            //RibbonPanel createSpacePanel = uiapp.CreateRibbonPanel(ribbonName, createSpacePanelName);
 
-            string changeParaPanelName = "パラメーター変更";
-            RibbonPanel changeParaPanel = uiapp.CreateRibbonPanel(ribbonName, changeParaPanelName);
+            //string changeParaPanelName = "パラメーター変更";
+            //RibbonPanel changeParaPanel = uiapp.CreateRibbonPanel(ribbonName, changeParaPanelName);
 
-            string copySetOfFilterFromViewTempPanelName = "Filter Copy";
-            RibbonPanel copySetOfFilterFromViewTempPanel = uiapp.CreateRibbonPanel(ribbonName, copySetOfFilterFromViewTempPanelName);
+            string GENPanelName = "GEN's Addins";
+            RibbonPanel GENPanelNamePanel = uiapp.CreateRibbonPanel(ribbonName, GENPanelName);
 
             string selectElementsPanelName = "Select Elements";
             RibbonPanel selectElementsPanel = uiapp.CreateRibbonPanel(ribbonName, selectElementsPanelName);
 
-            string findDWGNotUsedPanelName = "CAD's Addins";
-            RibbonPanel findDWGNotUsedPanel = uiapp.CreateRibbonPanel(ribbonName, findDWGNotUsedPanelName);
+            string CADPanelName = "CAD's Addins";
+            RibbonPanel CADPanel = uiapp.CreateRibbonPanel(ribbonName, CADPanelName);
 
             string mepAddinsPanelName = "MEP's Addins";
             RibbonPanel mepAddinsPanel = uiapp.CreateRibbonPanel(ribbonName, mepAddinsPanelName);
@@ -48,20 +48,20 @@ namespace SKToolsRibbon
 
 
             // Create Space
-            PushButtonData createSpaceBtn = ribbonUtils.CreatePushButtonData("CreateSpaceCmd",
-                "スペース\n作成", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.CreateSpace.CreateSpaceCmd", "CreateSpace.png",
-                "アドインの情報", null, null, null, null, null);
+            //PushButtonData createSpaceBtn = ribbonUtils.CreatePushButtonData("CreateSpaceCmd",
+            //    "スペース\n作成", "SKToolsAddins.dll",
+            //    "SKToolsAddins.Commands.CreateSpace.CreateSpaceCmd", "CreateSpace.png",
+            //    "アドインの情報", null, null, null, null, null);
 
-            createSpacePanel.AddItem(createSpaceBtn);
+            //createSpacePanel.AddItem(createSpaceBtn);
 
-            // ChangeBwTypAndInsPara
-            PushButtonData changeParaBtn = ribbonUtils.CreatePushButtonData("ChangeBwTypAndInsParaCmd",
-                "パラメーター\n変更", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.ChangeBwTypeAndIns.ChangeBwTypeAndInsCmd", "ChangeBwTypAndInsPara.png",
-                "アドインの情報", null, null, null, null, null);
+            //// ChangeBwTypAndInsPara
+            //PushButtonData changeParaBtn = ribbonUtils.CreatePushButtonData("ChangeBwTypAndInsParaCmd",
+            //    "パラメーター\n変更", "SKToolsAddins.dll",
+            //    "SKToolsAddins.Commands.ChangeBwTypeAndIns.ChangeBwTypeAndInsCmd", "ChangeBwTypAndInsPara.png",
+            //    "アドインの情報", null, null, null, null, null);
 
-            changeParaPanel.AddItem(changeParaBtn);
+            //changeParaPanel.AddItem(changeParaBtn);
 
             // CopySetOfFilterFromViewTemp
             PushButtonData copySetOfFilterFromViewTempBtn = ribbonUtils.CreatePushButtonData("CopySetOfFilterFromViewTempCmd",
@@ -69,7 +69,7 @@ namespace SKToolsRibbon
                 "SKToolsAddins.Commands.CopySetOfFilterFromViewTemp.CopySetOfFilterFromViewTempCmd", "CopySetOfFilterFromViewTemp.png",
                 "アドインの情報", null, null, null, null, null);
 
-            copySetOfFilterFromViewTempPanel.AddItem(copySetOfFilterFromViewTempBtn);
+            GENPanelNamePanel.AddItem(copySetOfFilterFromViewTempBtn);
 
             // SelectElements
             PushButtonData selectElementsBtn = ribbonUtils.CreatePushButtonData("SelectElementsVer1Cmd"
@@ -78,14 +78,14 @@ namespace SKToolsRibbon
                 , "SKToolsAddins.Commands.SelectElementsVer1.SelectElementsVer1Cmd"
                 , "SelectElements.png"
                 , "アドインの情報", null, null, null, null, null);
-            selectElementsPanel.AddItem(selectElementsBtn);
+            GENPanelNamePanel.AddItem(selectElementsBtn);
 
             //CadImportReplaceTextType
             PushButtonData replaceTextNotesBtn = ribbonUtils.CreatePushButtonData("ReplaceTextNoteFromCadExploreCmd",
                 "TextType\nReplace", "SKToolsAddins.dll",
                 "SKToolsAddins.Commands.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png",
                 "アドインの情報", null, null, null, null, null);
-            findDWGNotUsedPanel.AddItem(replaceTextNotesBtn);
+            CADPanel.AddItem(replaceTextNotesBtn);
 
             //CadImportReplaceLineStyle
             PushButtonData replaceLineStyleBtn = ribbonUtils.CreatePushButtonData("ReplaceLineStyleFromCadExploreCmd",
@@ -93,7 +93,7 @@ namespace SKToolsRibbon
                 "SKToolsAddins.Commands.CadImportReplaceLineStyle.CadImportReplaceLineStyleCmd", "ReplaceLine.png",
                 "アドインの情報", null, null, null, null, null);
 
-            findDWGNotUsedPanel.AddItem(replaceLineStyleBtn);
+            CADPanel.AddItem(replaceLineStyleBtn);
 
             // FindDWGNotUsed
             PushButtonData findDWGNotUsedBtn = ribbonUtils.CreatePushButtonData("FindDWGNotUsedAndDelCmd"
@@ -103,7 +103,7 @@ namespace SKToolsRibbon
                 , "FindDWGNotUsed.png"
                 , "アドインの情報"
                 , null, null, null, null, null);
-            findDWGNotUsedPanel.AddItem(findDWGNotUsedBtn);
+            CADPanel.AddItem(findDWGNotUsedBtn);
 
             // Create Pile From Cad
             PushButtonData createPileFromCadBtn = ribbonUtils.CreatePushButtonData("AutoCreatePileFromCadCmd"
@@ -113,7 +113,7 @@ namespace SKToolsRibbon
                 , "ReplaceLine.png"
                 , "アドインの情報"
                 , null, null, null, null, null);
-            findDWGNotUsedPanel.AddItem(createPileFromCadBtn);
+            CADPanel.AddItem(createPileFromCadBtn);
 
             // Create Duct/ Pipe from CAD
 
