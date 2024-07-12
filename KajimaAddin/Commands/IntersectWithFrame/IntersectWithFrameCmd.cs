@@ -42,7 +42,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
 
             if (errorMessages.Any())
-                HandleErrors(errorMessages);
+                HandleErrors(doc, errorMessages);
             else
                 TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
 
@@ -199,27 +199,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
                                 continue;
                             }
 
-                            // Kiểm tra xem vị trí midpoint đã có sleeve nào chưa
-                            if (!sleevePlacements.ContainsKey(entry.Key))
-                            {
-                                sleevePlacements[entry.Key] = new List<(XYZ, double)>();
-                            }
-
-                            bool placementValid = true;
-                            foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[entry.Key])
-                            {
-                                double minDistance = (sleeveDiameter + otherDiameter) * 1.5;
-                                if (midpoint.DistanceTo(otherMidpoint) < minDistance)
-                                {
-                                    placementValid = false;
-                                    break;
-                                }
-                            }
-
-                            if (placementValid)
-                            {
-                                PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
-                            }
+                            PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
                         }
                     }
                 }
@@ -297,31 +277,57 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
         }
 
         // Handle errors and prompt to save error messages
-        private void HandleErrors(Dictionary<ElementId, HashSet<string>> errorMessages)
+        private void HandleErrors(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages)
         {
-            string errorMsg = string.Join("\n", errorMessages.Select(kv => $"ID: {kv.Key} - Errors: {string.Join(", ", kv.Value.Distinct())}"));
-
-            string previewErrorMsg = errorMsg.Length > 500 ? errorMsg.Substring(0, 500) + "..." : errorMsg;
-
-            TaskDialog taskDialog = new TaskDialog("Invalid Pipes/Ducts")
+            using (Transaction trans = new Transaction(doc, "Create Error Schedules"))
             {
-                MainContent = "There are errors in placing some sleeves. Do you want to save these errors to a text file?",
-                ExpandedContent = previewErrorMsg,
-                CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No
-            };
+                trans.Start();
 
-            if (taskDialog.Show() == TaskDialogResult.Yes)
+                var pipeErrors = errorMessages.Where(kv => doc.GetElement(kv.Key).Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipeCurves).ToDictionary(kv => kv.Key, kv => kv.Value);
+                var ductErrors = errorMessages.Where(kv => doc.GetElement(kv.Key).Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctCurves).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+                CreateErrorSchedule(doc, "Pipe Error Schedule", pipeErrors);
+                CreateErrorSchedule(doc, "Duct Error Schedule", ductErrors);
+
+                trans.Commit();
+            }
+        }
+
+        // Create an error schedule
+        private void CreateErrorSchedule(Document doc, string scheduleName, Dictionary<ElementId, HashSet<string>> errors)
+        {
+            // Create a new Schedule
+            ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+
+            // Set the name of the schedule
+            schedule.Name = scheduleName;
+
+            // Add fields to the schedule
+            ScheduleDefinition definition = schedule.Definition;
+            SchedulableField markField = definition.GetSchedulableFields().FirstOrDefault(f => f.GetName(doc) == "Mark");
+            SchedulableField commentField = definition.GetSchedulableFields().FirstOrDefault(f => f.GetName(doc) == "Comments");
+
+            if (markField != null)
             {
-                SaveFileDialog saveFileDialog = new SaveFileDialog
-                {
-                    Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
-                    Title = "Save Error Messages"
-                };
-                if (saveFileDialog.ShowDialog() == true)
-                {
-                    File.WriteAllText(saveFileDialog.FileName, errorMsg);
-                    TaskDialog.Show("Invalid Pipes/Ducts", $"Errors have been written to {saveFileDialog.FileName}");
-                }
+                ScheduleField markScheduleField = definition.AddField(markField);
+                markScheduleField.ColumnHeading = "Mark";
+            }
+
+            if (commentField != null)
+            {
+                ScheduleField commentScheduleField = definition.AddField(commentField);
+                commentScheduleField.ColumnHeading = "Comments";
+            }
+
+            // Add error data to the schedule
+            int mark = 1;
+            foreach (var error in errors)
+            {
+                Element element = doc.GetElement(error.Key);
+                element.LookupParameter("Mark").Set(mark.ToString());
+                element.LookupParameter("Comments").Set(string.Join(", ", error.Value));
+
+                mark++;
             }
         }
 
