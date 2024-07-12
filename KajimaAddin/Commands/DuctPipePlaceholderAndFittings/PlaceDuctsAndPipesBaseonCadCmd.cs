@@ -207,6 +207,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             var curveLayerMappings = new Dictionary<Curve, string>();
             var option = new Options();
             var geoElement = selectedCadLink.get_Geometry(option);
+            var minCurveLength = 0.0016; // Minimum curve length in feet (1/16 inch)
 
             foreach (GeometryObject geoObject in geoElement)
             {
@@ -217,15 +218,21 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     {
                         if (geoObject2 is Line line)
                         {
-                            curveLayerMappings[line] = CadUtils.GetLayerNameFromCurveOrPolyline(line, selectedCadLink);
+                            if (line.Length >= minCurveLength)
+                            {
+                                curveLayerMappings[line] = CadUtils.GetLayerNameFromCurveOrPolyline(line, selectedCadLink);
+                            }
                         }
                         else if (geoObject2 is PolyLine polyLine)
                         {
                             var points = polyLine.GetCoordinates();
                             for (int i = 0; i < points.Count - 1; i++)
                             {
-                                var segment = Line.CreateBound(points[i], points[i + 1]);
-                                curveLayerMappings[segment] = CadUtils.GetLayerNameFromCurveOrPolyline(polyLine, selectedCadLink);
+                                if (points[i].DistanceTo(points[i + 1]) >= minCurveLength)
+                                {
+                                    var segment = Line.CreateBound(points[i], points[i + 1]);
+                                    curveLayerMappings[segment] = CadUtils.GetLayerNameFromCurveOrPolyline(polyLine, selectedCadLink);
+                                }
                             }
                         }
                     }
