@@ -42,9 +42,9 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
 
             if (errorMessages.Any())
-                HandleErrors(doc, errorMessages);
-            else
-                TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
+                CreateErrorSchedules(doc, errorMessages);
+
+            TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
 
             ApplyFilterToDirectShapes(doc, activeView, directShapes);
 
@@ -231,7 +231,7 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
             foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[pipeOrDuctId])
             {
                 double minDistance = (sleeveDiameter + otherDiameter) * 1.5;
-                if (midpoint.DistanceTo(otherMidpoint) < minDistance)
+                if (Math.Abs(midpoint.X - otherMidpoint.X) < minDistance || Math.Abs(midpoint.Y - otherMidpoint.Y) < minDistance)
                 {
                     errors.Add($"Distance between sleeves < (OD1 + OD2)*3/2");
                     break;
@@ -277,57 +277,57 @@ namespace SKToolsAddins.Commands.IntersectWithFrame
         }
 
         // Handle errors and prompt to save error messages
-        private void HandleErrors(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages)
+        private void CreateErrorSchedules(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages)
         {
-            using (Transaction trans = new Transaction(doc, "Create Error Schedules"))
+            // Create a schedule for pipes
+            CreateErrorSchedule(doc, errorMessages, "PipeErrorSchedule", BuiltInCategory.OST_PipeCurves);
+
+            // Create a schedule for ducts
+            CreateErrorSchedule(doc, errorMessages, "DuctErrorSchedule", BuiltInCategory.OST_DuctCurves);
+        }
+
+        private void CreateErrorSchedule(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages, string scheduleName, BuiltInCategory category)
+        {
+            using (Transaction trans = new Transaction(doc, "Create Error Schedule"))
             {
                 trans.Start();
 
-                var pipeErrors = errorMessages.Where(kv => doc.GetElement(kv.Key).Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipeCurves).ToDictionary(kv => kv.Key, kv => kv.Value);
-                var ductErrors = errorMessages.Where(kv => doc.GetElement(kv.Key).Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctCurves).ToDictionary(kv => kv.Key, kv => kv.Value);
+                ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, new ElementId(category));
 
-                CreateErrorSchedule(doc, "Pipe Error Schedule", pipeErrors);
-                CreateErrorSchedule(doc, "Duct Error Schedule", ductErrors);
+                schedule.Name = scheduleName;
+
+                SchedulableField markField = schedule.Definition.GetSchedulableFields().First(sf => sf.GetName(doc) == "Mark");
+                SchedulableField commentField = schedule.Definition.GetSchedulableFields().First(sf => sf.GetName(doc) == "Comments");
+
+                schedule.Definition.AddField(ScheduleFieldType.Instance, markField.ParameterId);
+                schedule.Definition.AddField(ScheduleFieldType.Instance, commentField.ParameterId);
+
+                int markIndex = 1;
+                foreach (var kvp in errorMessages)
+                {
+                    Element element = doc.GetElement(kvp.Key);
+                    if (element.Category.Id.IntegerValue != (int)category)
+                        continue;
+
+                    Parameter markParam = element.LookupParameter("Mark");
+                    if (markParam != null && kvp.Value.Any())
+                    {
+                        markParam.Set(markIndex.ToString());
+                        markIndex++;
+                    }
+
+                    Parameter commentParam = element.LookupParameter("Comments");
+                    if (commentParam != null)
+                    {
+                        commentParam.Set(string.Join(", ", kvp.Value));
+                    }
+                }
+
+                // Apply filter to remove elements without errors
+                ScheduleFilter filter = new ScheduleFilter(schedule.Definition.GetField(0).FieldId, ScheduleFilterType.Equal, "");
+                schedule.Definition.AddFilter(filter);
 
                 trans.Commit();
-            }
-        }
-
-        // Create an error schedule
-        private void CreateErrorSchedule(Document doc, string scheduleName, Dictionary<ElementId, HashSet<string>> errors)
-        {
-            // Create a new Schedule
-            ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-
-            // Set the name of the schedule
-            schedule.Name = scheduleName;
-
-            // Add fields to the schedule
-            ScheduleDefinition definition = schedule.Definition;
-            SchedulableField markField = definition.GetSchedulableFields().FirstOrDefault(f => f.GetName(doc) == "Mark");
-            SchedulableField commentField = definition.GetSchedulableFields().FirstOrDefault(f => f.GetName(doc) == "Comments");
-
-            if (markField != null)
-            {
-                ScheduleField markScheduleField = definition.AddField(markField);
-                markScheduleField.ColumnHeading = "Mark";
-            }
-
-            if (commentField != null)
-            {
-                ScheduleField commentScheduleField = definition.AddField(commentField);
-                commentScheduleField.ColumnHeading = "Comments";
-            }
-
-            // Add error data to the schedule
-            int mark = 1;
-            foreach (var error in errors)
-            {
-                Element element = doc.GetElement(error.Key);
-                element.LookupParameter("Mark").Set(mark.ToString());
-                element.LookupParameter("Comments").Set(string.Join(", ", error.Value));
-
-                mark++;
             }
         }
 
