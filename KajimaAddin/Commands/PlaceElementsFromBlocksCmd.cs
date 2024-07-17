@@ -1,112 +1,223 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Plumbing;
-using Autodesk.Revit.DB.Structure;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Windows.Forms;
+//using Autodesk.Revit.Attributes;
+//using Autodesk.Revit.DB;
+//using Autodesk.Revit.DB.Structure;
+//using Autodesk.Revit.UI;
+//using Autodesk.Revit.UI.Selection;
+//using ComboBox = System.Windows.Forms.ComboBox;
+//using Form = System.Windows.Forms.Form;
 
-namespace SKToolsAddins.Commands
-{
-    [Transaction(TransactionMode.Manual)]
-    public class PlaceElementsFromBlocksCmd : IExternalCommand
-    {
-        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
-        {
-            UIApplication uiapp = commandData.Application;
-            UIDocument uidoc = uiapp.ActiveUIDocument;
-            Document doc = uidoc.Document;
+//namespace SKToolsAddins.Commands
+//{
+//    [Transaction(TransactionMode.Manual)]
+//    public class PlaceElementsFromBlocksCmd : IExternalCommand
+//    {
+//        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+//        {
+//            UIApplication uiapp = commandData.Application;
+//            UIDocument uidoc = uiapp.ActiveUIDocument;
+//            Document doc = uidoc.Document;
 
-            // Get the selected CAD link
-            var refLinkCad = uidoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
-            var selectedCadLink = doc.GetElement(refLinkCad) as ImportInstance;
-            Level level = uidoc.ActiveView.GenLevel;
+//            // Get the selected CAD link
+//            var refLinkCad = uidoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
+//            var selectedCadLink = doc.GetElement(refLinkCad) as ImportInstance;
+//            Level level = uidoc.ActiveView.GenLevel;
 
-            double offset = 0000 / 304.8;
+//            double offset = 0 / 304.8;
 
-            // Family and type names to place based on block names
-            Dictionary<string, (BuiltInCategory category, string familyName, string typeName)> blockMappings = new Dictionary<string, (BuiltInCategory category, string familyName, string typeName)>
-            {
-                { "EA10168", (BuiltInCategory.OST_DuctTerminal, "033KM_線状吹出口_BL_SK", "線状吹出口_BL-D") },
-                { "EA101B8", (BuiltInCategory.OST_DuctTerminal, "031_シーリングディフューザー_SK", "E2 #25") },
-                { "EA10178", (BuiltInCategory.OST_DuctTerminal, "043KM_線状還気吸込口_CL_SK", "CL-4") },
-                { "1D420270", (BuiltInCategory.OST_DuctTerminal, "041KM_ユニバーサル形排気吸込口_SK", "HS") },
-                { "E640178", (BuiltInCategory.OST_DuctTerminal, "041KM_ユニバーサル形排気吸込口_SK", "HS") },
-                { "E640188", (BuiltInCategory.OST_DuctTerminal, "020KM_天井ガラリ_SK", "排気ガラリ") },
-                { "M800101", (BuiltInCategory.OST_DuctTerminal, "020KM_外気取入ガラリ_SK", "外気取入ガラリ") },
-                { "EA301B8", (BuiltInCategory.OST_DuctTerminal, "020KM_排気ガラリ_SK", "排気ガラリ") },
-                { "E610158", (BuiltInCategory.OST_DuctTerminal, "020KM_排気ガラリ_SK", "排気ガラリ") },
-                { "E4301C8", (BuiltInCategory.OST_MechanicalEquipment, "07030_FCU-CID_天井埋込両ダクト形", "3CID") },
-                { "1C860350", (BuiltInCategory.OST_MechanicalEquipment, "11030KM_FAN_消音ボックス付送風機", "#1_300m3/h") },
-                { "E650178", (BuiltInCategory.OST_MechanicalEquipment, "07070KM_GHP_室外機", "112.0kW") },
-                { "EA501C8", (BuiltInCategory.OST_MechanicalEquipment, "07070KM_GHP_室外機", "22.4kW") },
-                { "E430128", (BuiltInCategory.OST_MechanicalEquipment, "07062KM_AI_室内機_カセット形(2方向)", "11.2kW") },
-                { "E430198", (BuiltInCategory.OST_MechanicalEquipment, "07062KM_AI_室内機_カセット形(4方向)", "11.2kW") }
-            };
+//            // Retrieve block names from the CAD link
+//            List<string> blockNames = new List<string>();
+//            GeometryElement geoElem = selectedCadLink.get_Geometry(new Options());
+//            foreach (GeometryObject geoObj in geoElem)
+//            {
+//                GeometryInstance instance = geoObj as GeometryInstance;
+//                if (instance == null) continue;
+//                foreach (GeometryObject instObj in instance.SymbolGeometry)
+//                {
+//                    if (instObj is GeometryInstance blockInstance)
+//                    {
+//                        blockNames.Add(blockInstance.Symbol.Name);
+//                    }
+//                }
+//            }
 
-            using (Transaction trans = new Transaction(doc, "Place Elements from CAD Blocks"))
-            {
-                trans.Start();
+//            // Retrieve family names from Revit
+//            List<string> familyNames = new FilteredElementCollector(doc)
+//                .OfClass(typeof(FamilySymbol))
+//                .Cast<FamilySymbol>()
+//                .Select(fs => fs.Family.Name)
+//                .Distinct()
+//                .ToList();
 
-                // Get all block references from the CAD link
-                Element elem = doc.GetElement(refLinkCad);
-                GeometryElement geoElem = elem.get_Geometry(new Options());
-                foreach (GeometryObject geoObj in geoElem)
-                {
-                    GeometryInstance instance = geoObj as GeometryInstance;
-                    if (instance == null) continue;
-                    foreach (GeometryObject instObj in instance.SymbolGeometry)
-                    {
-                        if (!(instObj is GeometryInstance blockInstance)) continue;
-                        var blockName = blockInstance.Symbol.Name;
+//            // Show the form and get the user input
+//            MappingForm form = new MappingForm(doc, blockNames, familyNames);
+//            if (form.ShowDialog() != DialogResult.OK)
+//            {
+//                return Result.Cancelled;
+//            }
 
-                        var blockInfo = blockMappings.FirstOrDefault(kv => blockName.Contains(kv.Key)).Value;
-                        if (blockInfo == default) continue;
-                        var (category, familyName, typeName) = blockInfo;
+//            var selectedCategory = (BuiltInCategory)Enum.Parse(typeof(BuiltInCategory), form.CategoryComboBox.SelectedItem.ToString());
 
-                        var familySymbol = new FilteredElementCollector(doc)
-                            .OfCategory(category)
-                            .OfClass(typeof(FamilySymbol))
-                            .FirstOrDefault(e => (e as FamilySymbol).Family.Name == familyName && (e as FamilySymbol).Name == typeName) as FamilySymbol;
+//            Dictionary<string, (BuiltInCategory category, string familyName, string typeName)> blockMappings = new Dictionary<string, (BuiltInCategory category, string familyName, string typeName)>();
+//            foreach (DataGridViewRow row in form.MappingGridView.Rows)
+//            {
+//                if (row.IsNewRow) continue;
+//                string blockName = row.Cells[0].Value?.ToString();
+//                string familyName = row.Cells[1].Value?.ToString();
+//                string typeName = row.Cells[2].Value?.ToString();
+//                if (!string.IsNullOrEmpty(blockName) && !string.IsNullOrEmpty(familyName) && !string.IsNullOrEmpty(typeName))
+//                {
+//                    blockMappings[blockName] = (selectedCategory, familyName, typeName);
+//                }
+//            }
 
-                        if (familySymbol == null) continue;
-                        if (!familySymbol.IsActive)
-                        {
-                            familySymbol.Activate();
-                            doc.Regenerate();
-                        }
+//            using (Transaction trans = new Transaction(doc, "Place Elements from CAD Blocks"))
+//            {
+//                trans.Start();
 
-                        var blockPosition = blockInstance.Transform.Origin;
-                        var blockRotation = blockInstance.Transform.BasisX.AngleTo(new XYZ(1, 0, 0));
+//                // Get all block references from the CAD link
+//                foreach (GeometryObject geoObj in geoElem)
+//                {
+//                    GeometryInstance instance = geoObj as GeometryInstance;
+//                    if (instance == null) continue;
+//                    foreach (GeometryObject instObj in instance.SymbolGeometry)
+//                    {
+//                        if (instObj is GeometryInstance blockInstance)
+//                        {
+//                            var blockName = blockInstance.Symbol.Name;
 
-                        XYZ placementPosition = new XYZ(blockPosition.X, blockPosition.Y, offset);
-                        FamilyInstance familyInstance = doc.Create.NewFamilyInstance(placementPosition, familySymbol, level, StructuralType.NonStructural);
+//                            if (blockMappings.TryGetValue(blockName, out var blockInfo))
+//                            {
+//                                var (category, familyName, typeName) = blockInfo;
 
-                        // Apply the rotation
-                        ElementTransformUtils.RotateElement(doc, familyInstance.Id, Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), blockRotation);
-                    }
-                }
+//                                var familySymbol = new FilteredElementCollector(doc)
+//                                    .OfCategory(category)
+//                                    .OfClass(typeof(FamilySymbol))
+//                                    .FirstOrDefault(e => (e as FamilySymbol).Family.Name == familyName && (e as FamilySymbol).Name == typeName) as FamilySymbol;
 
-                trans.Commit();
-            }
+//                                if (familySymbol == null) continue;
+//                                if (!familySymbol.IsActive)
+//                                {
+//                                    familySymbol.Activate();
+//                                    doc.Regenerate();
+//                                }
 
-            TaskDialog.Show("Success", "Successfully placed elements at block positions from the imported CAD file.");
-            return Result.Succeeded;
-        }
+//                                var blockPosition = blockInstance.Transform.Origin;
+//                                var blockRotation = blockInstance.Transform.BasisX.AngleTo(new XYZ(1, 0, 0));
 
-        class ImportInstanceSelectionFilter : ISelectionFilter
-        {
-            public bool AllowElement(Element elem)
-            {
-                return elem is ImportInstance;
-            }
+//                                XYZ placementPosition = new XYZ(blockPosition.X, blockPosition.Y, offset);
+//                                FamilyInstance familyInstance = doc.Create.NewFamilyInstance(placementPosition, familySymbol, level, StructuralType.NonStructural);
 
-            public bool AllowReference(Reference reference, XYZ position)
-            {
-                return false;
-            }
-        }
-    }
-}
+//                                // Apply the rotation
+//                                ElementTransformUtils.RotateElement(doc, familyInstance.Id, Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), blockRotation);
+//                            }
+//                        }
+//                    }
+//                }
+
+//                trans.Commit();
+//            }
+
+//            TaskDialog.Show("Success", "Successfully placed elements at block positions from the imported CAD file.");
+//            return Result.Succeeded;
+//        }
+
+//        class ImportInstanceSelectionFilter : ISelectionFilter
+//        {
+//            public bool AllowElement(Element elem)
+//            {
+//                return elem is ImportInstance;
+//            }
+
+//            public bool AllowReference(Reference reference, XYZ position)
+//            {
+//                return false;
+//            }
+//        }
+//    }
+
+//    public class MappingForm : Form
+//    {
+//        public ComboBox CategoryComboBox { get; private set; }
+//        public DataGridView MappingGridView { get; private set; }
+//        private Document _doc;
+
+//        public MappingForm(Document doc, List<string> blockNames, List<string> familyNames)
+//        {
+//            _doc = doc;
+//            this.Text = "Block to Family Mapping";
+//            this.Width = 800;
+//            this.Height = 500;
+
+//            CategoryComboBox = new ComboBox
+//            {
+//                Left = 10,
+//                Top = 10,
+//                Width = 300
+//            };
+//            CategoryComboBox.Items.AddRange(Enum.GetNames(typeof(BuiltInCategory)).ToArray());
+
+//            MappingGridView = new DataGridView
+//            {
+//                Left = 10,
+//                Top = 50,
+//                Width = 760,
+//                Height = 380,
+//                ColumnCount = 3
+//            };
+//            MappingGridView.Columns[0].Name = "Block Name";
+//            MappingGridView.Columns[0].ReadOnly = true;
+//            MappingGridView.Columns[1] = new DataGridViewComboBoxColumn()
+//            {
+//                Name = "Family Name",
+//                DataSource = familyNames
+//            };
+//            MappingGridView.Columns[2] = new DataGridViewComboBoxColumn()
+//            {
+//                Name = "Type Name"
+//            };
+
+//            foreach (var blockName in blockNames)
+//            {
+//                MappingGridView.Rows.Add(blockName);
+//            }
+
+//            this.Controls.Add(CategoryComboBox);
+//            this.Controls.Add(MappingGridView);
+
+//            var submitButton = new Button
+//            {
+//                Text = "Submit",
+//                Left = 350,
+//                Width = 100,
+//                Top = 440
+//            };
+//            submitButton.Click += (sender, e) => { this.DialogResult = DialogResult.OK; this.Close(); };
+
+//            this.Controls.Add(submitButton);
+
+//            MappingGridView.CellValueChanged += MappingGridView_CellValueChanged;
+//        }
+
+//        private void MappingGridView_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+//        {
+//            if (e.ColumnIndex == 1)
+//            {
+//                var familyName = MappingGridView.Rows[e.RowIndex].Cells[1].Value?.ToString();
+//                if (!string.IsNullOrEmpty(familyName))
+//                {
+//                    var typeNames = new FilteredElementCollector(_doc)
+//                        .OfClass(typeof(FamilySymbol))
+//                        .Where(fs => ((FamilySymbol)fs).Family.Name == familyName)
+//                        .Select(fs => ((FamilySymbol)fs).Name)
+//                        .ToList();
+//                    var typeNameCell = MappingGridView.Rows[e.RowIndex].Cells[2] as DataGridViewComboBoxCell;
+//                    typeNameCell.DataSource = typeNames;
+//                }
+//            }
+//        }
+//    }
+//}

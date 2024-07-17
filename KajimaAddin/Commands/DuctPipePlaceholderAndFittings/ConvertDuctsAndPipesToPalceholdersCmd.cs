@@ -280,7 +280,11 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
         private string GetSystemName(Document doc, ElementId systemId)
         {
             var systemElement = doc.GetElement(systemId);
-            return systemElement.Name;
+            if (systemElement != null)
+            {
+                return systemElement.Name;
+            }
+            return "Unknown System";
         }
     }
 }

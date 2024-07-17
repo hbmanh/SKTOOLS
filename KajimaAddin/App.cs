@@ -6,6 +6,7 @@ using SKToolsAddins.Commands.CopySetOfFilterFromViewTemp;
 using SKToolsAddins.Commands.CreateSpace;
 using SKToolsAddins.Commands.DeleteTypeOfTextNotesDontUse;
 using SKToolsAddins.Commands.FindDWGNotUseAndDel;
+using SKToolsAddins.Commands.PlaceElementsFromBlocksCad;
 using SKToolsAddins.Commands.SelectElements;
 using SKToolsAddins.Commands.SelectElementsVer1;
 using SKToolsAddins.Forms;
@@ -24,6 +25,7 @@ namespace SKToolsAddins
         private FindDWGNotUseAndDelWpfWindow m_FindDWGNotUseAndDelWpfWindow;
         private DeleteTypeOfTextNotesDontUseWpfWindow m_DeleteTypeOfTextNotesDontUseWpfWindow;
         private AutoCreatePileFromCadWpfWindow m_AutoCreatePileFromCadWpfWindow;
+        private PlaceElementsFromBlocksCadWpfWindow m_PlaceElementsFromBlocksCadWpfWindow;
         public Result OnShutdown(UIControlledApplication application)
         {
             if (m_CreateSpaceWpfWindow != null && m_CreateSpaceWpfWindow.IsVisible)
@@ -64,6 +66,11 @@ namespace SKToolsAddins
             if (m_AutoCreatePileFromCadWpfWindow != null && m_AutoCreatePileFromCadWpfWindow.IsVisible)
             {
                 m_AutoCreatePileFromCadWpfWindow.Close();
+            }
+
+            if (m_PlaceElementsFromBlocksCadWpfWindow != null && m_PlaceElementsFromBlocksCadWpfWindow.IsVisible)
+            {
+                m_PlaceElementsFromBlocksCadWpfWindow.Close();
             }
             return Result.Succeeded;
         }
@@ -159,6 +166,18 @@ namespace SKToolsAddins
                 ExternalEvent exEvent = ExternalEvent.Create(handler);
                 m_AutoCreatePileFromCadWpfWindow = new AutoCreatePileFromCadWpfWindow(exEvent, handler, viewModel);
                 m_AutoCreatePileFromCadWpfWindow.Show();
+            }
+        }
+
+        public void ShowPlaceElementsFromBlocksCadViewModel(UIApplication uiapp,
+            PlaceElementsFromBlocksCadViewModel viewModel)
+        {
+            if (m_PlaceElementsFromBlocksCadWpfWindow == null || !m_PlaceElementsFromBlocksCadWpfWindow.IsVisible)
+            {
+                PlaceElementsFromBlocksCadRequestHandler handler = new PlaceElementsFromBlocksCadRequestHandler(viewModel);
+                ExternalEvent exEvent = ExternalEvent.Create(handler);
+                m_PlaceElementsFromBlocksCadWpfWindow = new PlaceElementsFromBlocksCadWpfWindow(exEvent, handler, viewModel);
+                m_PlaceElementsFromBlocksCadWpfWindow.Show();
             }
         }
     }
