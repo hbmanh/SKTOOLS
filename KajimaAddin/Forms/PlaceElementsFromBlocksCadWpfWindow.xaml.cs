@@ -1,7 +1,6 @@
 ﻿using System.Windows;
 using Autodesk.Revit.UI;
 using SKToolsAddins.Commands.PlaceElementsFromBlocksCad;
-using SKToolsAddins.Utils;
 using SKToolsAddins.ViewModel;
 using RequestId = SKToolsAddins.Commands.PlaceElementsFromBlocksCad.RequestId;
 
@@ -11,6 +10,7 @@ namespace SKToolsAddins.Forms
     {
         private PlaceElementsFromBlocksCadRequestHandler m_Handler;
         private ExternalEvent m_ExEvent;
+
         public PlaceElementsFromBlocksCadWpfWindow(ExternalEvent exEvent,
             PlaceElementsFromBlocksCadRequestHandler handler,
             PlaceElementsFromBlocksCadViewModel viewModel)
@@ -20,32 +20,27 @@ namespace SKToolsAddins.Forms
             m_Handler = handler;
             m_ExEvent = exEvent;
 
-            this.LoadViewFromUri("/KajimaRevitAddins;componenet/Forms/PlaceElementsFromBlocksCadWpfWindow.xaml");
-
-            this.DataContext = viewModel;
+            DataContext = viewModel;
 
             OkBtn.Click += OkBtn_Click;
             CancelBtn.Click += CancelBtn_Click;
-
-
-
         }
+
         private void OkBtn_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = true;
-            Close();
+            MakeRequest(RequestId.OK);
+            this.Close();
         }
+
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = false;
             Close();
         }
 
-        private void MakeRequest(Commands.PlaceElementsFromBlocksCad.RequestId request)
+        private void MakeRequest(RequestId request)
         {
             m_Handler.Request.Make(request);
             m_ExEvent.Raise();
         }
- 
     }
 }

@@ -95,6 +95,13 @@ namespace SKToolsRibbon
 
             CADPanel.AddItem(replaceLineStyleBtn);
 
+            //CadLinkPlaceElementsFromBlocks
+            PushButtonData placeEleFromBlocksBtn = ribbonUtils.CreatePushButtonData("PlaceElementsFromBlocksCadCmd",
+                "Elements\nPlace", "SKToolsAddins.dll",
+                "SKToolsAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "ReplaceText.png",
+                "アドインの情報", null, null, null, null, null);
+            CADPanel.AddItem(placeEleFromBlocksBtn);
+
             // FindDWGNotUsed
             PushButtonData findDWGNotUsedBtn = ribbonUtils.CreatePushButtonData("FindDWGNotUsedAndDelCmd"
                 , "Import DWG\nDelete"

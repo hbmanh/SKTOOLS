@@ -1,10 +1,13 @@
-﻿using Autodesk.Revit.UI;
-using System.Linq;
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using Application = Autodesk.Revit.ApplicationServices.Application;
 using System.ComponentModel;
-using System.Diagnostics;
+using System.Linq;
+using Autodesk.Revit.ApplicationServices;
+using static SKToolsAddins.ViewModel.AutoCreatePileFromCadViewModel;
+using static SKToolsAddins.ViewModel.BlockMapping;
 
 namespace SKToolsAddins.ViewModel
 {
@@ -22,315 +25,233 @@ namespace SKToolsAddins.ViewModel
             ThisApp = UiApp.Application;
             ThisDoc = UiDoc.Document;
 
-            ViewTypes = new ObservableCollection<ViewType>(
-                new FilteredElementCollector(ThisDoc)
-                    .OfClass(typeof(View))
-                    .Cast<View>()
-                    .Where(v => v.IsTemplate && v.ViewType != ViewType.Schedule)
-                    .Select(v => v.ViewType )
-                    .Distinct()
-                    .OrderBy(v => v.ToString())
-                    .ToList());
-            SelViewType = ViewTypes.FirstOrDefault();
+            // Chọn file CAD link
+            var refLinkCad = UiDoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
+            var selectedCadLink = ThisDoc.GetElement(refLinkCad) as ImportInstance;
+            if (selectedCadLink == null)
+            {
+                TaskDialog.Show("Error", "No valid CAD link selected.");
+                return;
+            }
+            Categories = new ObservableCollection<Category>(new FilteredElementCollector(ThisDoc)
+                .OfClass(typeof(Family))
+                .Cast<Family>()
+                .Select(family => family.FamilyCategory)
+                .Where(c => c != null && c.CategoryType == CategoryType.Model)
+                .GroupBy(c => c.Id)
+                .Select(g => g.First())
+                .OrderBy(c => c.Name)
+                .ToList());
+            SelectedCategory = Categories.FirstOrDefault();
 
-            ViewsTypeTarget = new ObservableCollection<ViewType>(
-                new FilteredElementCollector(ThisDoc)
-                    .OfClass(typeof(View))
-                    .Cast<View>()
-                    .Where(v => v.ViewType != ViewType.Schedule)
-                    .Select(v => v.ViewType)
-                    .Distinct()
-                    .OrderBy(v => v.ToString())
-                    .ToList());
-            SelViewTypeTarget = ViewsTypeTarget.FirstOrDefault();
+            // Lấy danh sách block từ file CAD link
+            var blockNames = GetBlockNamesFromCadLink(selectedCadLink);
+            foreach (var blockName in blockNames)
+            {
+                BlockMappings.Add(new BlockMapping
+                {
+                    BlockName = blockName,
+                    CategoriesMapping = Categories,
+                    FamiliesMapping = Families,
+                    TypeSymbolsMapping = TypeSymbols
+                    
+                });
+            }
 
-            UpdateViewTemplate();
-            SelViewTemplate = ViewTemplates.FirstOrDefault();
-
-            UpdateFilters();
-            SelFilter = new ObservableCollection<FilterObj>();
-
-            UpdateViewTarget();
-            SelViewTarget = new ObservableCollection<View>();
         }
 
         #region Properties
 
-        private ObservableCollection<ViewType> _viewTypes { get; set; }
-        public ObservableCollection<ViewType> ViewTypes
+        private ObservableCollection<BlockMapping> _blockMappings = new ObservableCollection<BlockMapping>();
+        public ObservableCollection<BlockMapping> BlockMappings
         {
-            get { return _viewTypes; }
+            get { return _blockMappings; }
             set
             {
-                _viewTypes = value;
-                OnPropertyChanged(nameof(ViewTypes));
-            }
-        }
-        private ViewType _selViewType;
-        public ViewType SelViewType
-        {
-            get { return _selViewType; }
-            set
-            {
-                _selViewType = value;
-                OnPropertyChanged(nameof(SelViewType));
-                UpdateViewTemplate();
-            }
-        }
-        private ObservableCollection<ViewType> _viewsTypeTarget { get; set; }
-        public ObservableCollection<ViewType> ViewsTypeTarget
-        {
-            get { return _viewsTypeTarget; }
-            set
-            {
-                _viewsTypeTarget = value;
-                OnPropertyChanged(nameof(ViewsTypeTarget));
-            }
-        }
-        private ObservableCollection<View> _viewTemplates { get; set; }
-
-        public ObservableCollection<View> ViewTemplates
-        {
-            get { return _viewTemplates; }
-            set
-            {
-                _viewTemplates = value;
-                OnPropertyChanged(nameof(ViewTemplates));
+                _blockMappings = value;
+                OnPropertyChanged(nameof(BlockMappings));
             }
         }
 
-        private View _selViewTemplate;
-        public View SelViewTemplate
+        private ObservableCollection<Category> _categories;
+        public ObservableCollection<Category> Categories
         {
-            get { return _selViewTemplate; }
+            get { return _categories; }
             set
             {
-                _selViewTemplate = value;
-                OnPropertyChanged(nameof(SelViewTemplate));
-                UpdateFilters();
-                //UpdateViewTarget();
-            }
-        }
-        private ObservableCollection<FilterObj> _filters { get; set; }
-
-        public ObservableCollection<FilterObj> Filters
-        {
-            get { return _filters; }
-            set
-            {
-                _filters = value;
-                OnPropertyChanged(nameof(Filters));
-            }
-        }
-        private ObservableCollection<FilterObj> _selFilter;
-
-        public ObservableCollection<FilterObj> SelFilter
-        {
-            get { return _selFilter; }
-            set
-            {
-                _selFilter = value;
-                OnPropertyChanged(nameof(SelFilter));
-            }
-        }
-        private ObservableCollection<View> _viewTargets { get; set; }
-        public ObservableCollection<View> ViewTargets
-        {
-            get { return _viewTargets; }
-            set
-            {
-                _viewTargets = value;
-                OnPropertyChanged(nameof(ViewTargets));
+                _categories = value;
+                OnPropertyChanged(nameof(Categories));
             }
         }
 
-        private ObservableCollection<View> _selViewTarget;
-        public ObservableCollection<View> SelViewTarget
+        private Category _selectedCategory;
+        public Category SelectedCategory
         {
-            get { return _selViewTarget; }
+            get { return _selectedCategory; }
             set
             {
-                _selViewTarget = value;
-                OnPropertyChanged(nameof(SelViewTarget));
+                _selectedCategory = value;
+                OnPropertyChanged(nameof(SelectedCategory));
+                UpdateFamilySymbols();
+                UpdateTypeSymbols();
+            }
+        }
+        private ObservableCollection<Family> _families;
+        public ObservableCollection<Family> Families
+        {
+            get { return _families; }
+            set
+            {
+                _families = value;
+                OnPropertyChanged(nameof(Families));
+            }
+        }
+        private Family _selectedFamily;
+        public Family SelectedFamily
+        {
+            get { return _selectedFamily; }
+            set
+            {
+                _selectedFamily = value;
+                OnPropertyChanged(nameof(SelectedFamily));
+                UpdateTypeSymbols();
             }
         }
 
-        private ViewType _selViewTypeTarget;
-
-        public ViewType SelViewTypeTarget
+        private ObservableCollection<FamilySymbol> _typeSymbols;
+        public ObservableCollection<FamilySymbol> TypeSymbols
         {
-            get { return _selViewTypeTarget; }
+            get { return _typeSymbols; }
             set
             {
-                _selViewTypeTarget = value;
-                OnPropertyChanged(nameof(SelViewTypeTarget));
-                UpdateViewTarget();
-            }
-        }
-        public bool _allCopyBOX;
-
-        public bool AllCopyBOX
-        {
-            get { return _allCopyBOX; }
-            set
-            {
-                _allCopyBOX = value;
-                OnPropertyChanged(nameof(AllCopyBOX));
+                _typeSymbols = value;
+                OnPropertyChanged(nameof(TypeSymbols));
             }
         }
 
-        public bool _patternCopyBOX;
-
-        public bool PatternCopyBOX
+        private FamilySymbol _selectedTypeSymbol;
+        public FamilySymbol SelectedTypeSymbol
         {
-            get { return _patternCopyBOX; }
+            get { return _selectedTypeSymbol; }
             set
             {
-                _patternCopyBOX = value;
-                OnPropertyChanged(nameof(PatternCopyBOX));
+                _selectedTypeSymbol = value;
+                OnPropertyChanged(nameof(SelectedTypeSymbol));
+            }
+        }
+        public void UpdateFamilySymbols()
+        {
+            // Cập nhật danh sách Family Symbol dựa trên Category đã chọn
+            if (SelectedCategory != null)
+            {
+                var familySymbols = new FilteredElementCollector(ThisDoc)
+                    .OfClass(typeof(Family))
+                    .Cast<Family>()
+                    .Where(family => family.FamilyCategory.Id == SelectedCategory.Id)
+                    .OrderBy(family => family.Name)
+                    .ToList();
+                Families = new ObservableCollection<Family>(familySymbols);
+                SelectedFamily = Families[0];
             }
         }
 
-        public bool _cutSetCopyBOX;
-
-        public bool CutSetCopyBOX
+        public void UpdateTypeSymbols()
         {
-            get { return _cutSetCopyBOX; }
-            set
+            // Cập nhật danh sách Type Symbol dựa trên Family Symbol đã chọn
+            if (SelectedFamily != null)
             {
-                _cutSetCopyBOX = value;
-                OnPropertyChanged(nameof(CutSetCopyBOX));
+                var typeSymbols = new FilteredElementCollector(ThisDoc)
+                    .OfClass(typeof(FamilySymbol))
+                    .Cast<FamilySymbol>()
+                    .Where(fs => fs.Family.Id == SelectedFamily.Id)
+                    .OrderBy(fs => fs.Name)
+                    .ToList();
+            
+                TypeSymbols = new ObservableCollection<FamilySymbol>(typeSymbols);
+                SelectedTypeSymbol = TypeSymbols[0];
             }
         }
 
-        public class FilterObj : INotifyPropertyChanged
+        private List<string> GetBlockNamesFromCadLink(ImportInstance cadLink)
         {
-            public event PropertyChangedEventHandler PropertyChanged;
-            public FilterObj(Document doc,ElementId filterElementId)
-            {
-                FilterId = filterElementId;
-                FilterName = doc.GetElement(filterElementId).Name;
-            }
-            public bool IsMatch(View view)
-            {
-                return view.Name.Contains(this.FilterName);
-            }
-            private ElementId _filterId;
+            var blockNames = new List<string>();
+            GeometryElement geoElement = cadLink.get_Geometry(new Options());
 
-            public ElementId FilterId
+            foreach (GeometryObject geoObject in geoElement)
             {
-                get { return _filterId; }
-                set
+                GeometryInstance instance = geoObject as GeometryInstance;
+                if (instance != null)
                 {
-                    _filterId = value;
-                    OnPropertyChanged(nameof(FilterId));
-                
+                    foreach (GeometryObject instObj in instance.SymbolGeometry)
+                    {
+                        if (instObj is GeometryInstance blockInstance)
+                        {
+                            blockNames.Add(blockInstance.Symbol.Name);
+                        }
+                    }
                 }
             }
 
-            private string _filterName;
-
-            public string FilterName
-            {
-                get { return _filterName; }
-                set
-                {
-                    _filterName = value;
-                    OnPropertyChanged(nameof(FilterName));
-                }
-            }
-
-            protected void OnPropertyChanged(string propertyName)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            }
+            return blockNames.Distinct().ToList();
         }
+
         #endregion
+    }
 
-        private void UpdateViewTemplate()
+    public class BlockMapping : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public Document ThisDoc { get; set; } // Thêm thuộc tính này để lưu trữ ThisDoc
+
+        private string _blockName;
+        public string BlockName
         {
-            if (SelViewType != null)
+            get { return _blockName; }
+            set
             {
-                ViewTemplates = new ObservableCollection<View>(new FilteredElementCollector(ThisDoc)
-                    .OfClass(typeof(View))
-                    .Cast<View>()
-                    .Where(v => v.IsTemplate && v.ViewType == SelViewType)
-                    .OrderBy(v => v.Name)
-                    .ToList());
-
-                //var templatesForSelectedType = new FilteredElementCollector(ThisDoc)
-                //    .OfClass(typeof(View))
-                //    .Cast<View>()
-                //    .Where(v => v.IsTemplate /*&& v.ViewType == SelViewType.ViewFamily*/)
-                //    .ToList();
-
-
-                //if (templatesForSelectedType.Count > 0)
-                //{
-                //    Filters = new ObservableCollection<FilterObj>(
-                //        templatesForSelectedType[0].GetFilters()
-                //            .Select(id => new FilterObj(ThisDoc, id)).ToList());
-                //}
-                //else
-                //{
-                //    Filters.Clear();
-                //}
-            }
-        }
-        private void UpdateFilters()
-        {
-            if (SelViewTemplate != null)
-            {
-                Filters = new ObservableCollection<FilterObj>(SelViewTemplate.GetFilters().Select(id => new FilterObj(ThisDoc,id)).ToList());
+                _blockName = value;
+                OnPropertyChanged(nameof(BlockName));
             }
         }
 
-        private void UpdateViewTarget()
+        private ObservableCollection<Category> _categoriesMapping;
+        public ObservableCollection<Category> CategoriesMapping
         {
-            ViewTargets = new ObservableCollection<View>(new FilteredElementCollector(ThisDoc)
-                .OfClass(typeof(View))
-                .Cast<View>()
-                .Where(v => !v.IsTemplate && v.IsViewValidForTemplateCreation() && v.ViewType == SelViewTypeTarget)
-                .OrderBy(n => n.Name)
-                .ToList());
-
-            var viewColl = new FilteredElementCollector(ThisDoc)
-                .OfClass(typeof(View))
-                .Cast<View>()
-                .ToList();
-            foreach (var view in viewColl)
+            get { return _categoriesMapping; }
+            set
             {
-                Debug.WriteLine(view.Category);
+                _categoriesMapping = value;
+                OnPropertyChanged(nameof(CategoriesMapping));
             }
-
-            ///Test
-
-            //var viewColl = new FilteredElementCollector(ThisDoc)
-            //    .OfClass(typeof(View))
-            //    .Cast<View>()
-            //    .Where(v => !v.IsTemplate && v.IsViewValidForTemplateCreation() && v.ViewType == SelViewTypeTarget)
-            //    .OrderBy(n => n.Name)
-            //    .ToList();
-            //foreach (var view in viewColl)
-            //{
-            //    string[] viewGroup = view.Title.Split(':');
-            //}
         }
 
-        /// Get target view based on Selected View Template
-        //private void UpdateViewTarget()
-        //{
-        //    if (SelViewTemplate != null)
-        //    {
-        //        var targetType = SelViewTemplate.ViewType;
+        private ObservableCollection<Family> _familiesMapping;
+        public ObservableCollection<Family> FamiliesMapping
+        {
+            get { return _familiesMapping; }
+            set
+            {
+                _familiesMapping = value;
+                OnPropertyChanged(nameof(FamiliesMapping));
+            }
+        }
 
-        //        ViewTargets = new ObservableCollection<View>(new FilteredElementCollector(ThisDoc)
-        //            .OfClass(typeof(View))
-        //            .Cast<View>()
-        //            .Where(v => !v.IsTemplate && v.ViewType == targetType && v.IsViewValidForTemplateCreation())
-        //            .OrderBy(n => n.Name)
-        //            .ToList());
-        //    }
-        //}
+        private ObservableCollection<FamilySymbol> _typeSymbolsMapping;
+        public ObservableCollection<FamilySymbol> TypeSymbolsMapping
+        {
+            get { return _typeSymbolsMapping; }
+            set
+            {
+                _typeSymbolsMapping = value;
+                OnPropertyChanged(nameof(TypeSymbolsMapping));
+            }
+        }
+
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }
