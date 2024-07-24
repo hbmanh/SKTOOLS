@@ -325,6 +325,7 @@
     <Compile Include="Utils\MepUtils.cs" />
     <Compile Include="Utils\ModelComparisonUtils.cs" />
     <Compile Include="Utils\MultiSelect.cs" />
+    <Compile Include="Utils\MultiValueConverter.cs" />
     <Compile Include="Utils\ParamUtils.cs" />
     <Compile Include="Utils\PointUtils.cs" />
     <Compile Include="Utils\StringConversionUtils.cs" />
@@ -448,6 +449,9 @@
       <Version>0.102.2</Version>
     </PackageReference>
     <PackageReference Include="EPPlus" Version="5.8.4" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf">
+      <Version>1.1.122</Version>
+    </PackageReference>
     <!-- Các PackageReference khác nếu có -->
   </ItemGroup>
   <ItemGroup>

@@ -49,12 +49,15 @@ namespace SKToolsAddins.Commands.PlaceElementsFromBlocksCad
             return "フィルター色コピー";
         }
 
-        #region Copy Filter Option Data
+        #region Palace Elements
         public void CopyFilterOptionData(UIApplication uiapp, PlaceElementsFromBlocksCadViewModel viewModel)
         {
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
-            
+
+            var blocks = viewModel.BlockMappings;
+
+
         }
         #endregion
     }
