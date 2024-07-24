@@ -80,6 +80,15 @@ namespace SKToolsRibbon
                 , "アドインの情報", null, null, null, null, null);
             GENPanelNamePanel.AddItem(selectElementsBtn);
 
+            // Parameter Assignment from excel for Jasty
+            PushButtonData parameterAssigmentBtn = ribbonUtils.CreatePushButtonData("ParameterAssignmentCmd"
+                , "パラメーター\n作成"
+                , "SKToolsAddins.dll"
+                , "SKToolsAddins.Commands.ParameterAssignment.ParameterAssignmentCmd"
+                , "SelectElements.png"
+                , "", null, null, null, null, null);
+            GENPanelNamePanel.AddItem(parameterAssigmentBtn);
+
             //CadImportReplaceTextType
             PushButtonData replaceTextNotesBtn = ribbonUtils.CreatePushButtonData("ReplaceTextNoteFromCadExploreCmd",
                 "TextType\nReplace", "SKToolsAddins.dll",
