@@ -148,7 +148,7 @@
 //        public MappingForm(Document doc, List<string> blockNames, List<string> familyNames)
 //        {
 //            _doc = doc;
-//            this.Text = "Block to Family Mapping";
+//            this.Text = "Blocks to Family Mapping";
 //            this.Width = 800;
 //            this.Height = 500;
 
@@ -168,7 +168,7 @@
 //                Height = 380,
 //                ColumnCount = 3
 //            };
-//            MappingGridView.Columns[0].Name = "Block Name";
+//            MappingGridView.Columns[0].Name = "Blocks Name";
 //            MappingGridView.Columns[0].ReadOnly = true;
 //            MappingGridView.Columns[1] = new DataGridViewComboBoxColumn()
 //            {

@@ -19,7 +19,7 @@
             <StackPanel>
                 <DataGrid x:Name="BlockMappingGrid" Margin="10" AutoGenerateColumns="False" ItemsSource="{Binding BlockMappings}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Block"
+                        <DataGridTextColumn Header="Block Name"
                                             Binding="{Binding DisplayBlockName}"
                                             Width="*"/>
 
@@ -56,7 +56,6 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <!-- Offset Column -->
                         <DataGridTextColumn Header="Offset (mm)"
                                             Binding="{Binding Offset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             Width="100"/>

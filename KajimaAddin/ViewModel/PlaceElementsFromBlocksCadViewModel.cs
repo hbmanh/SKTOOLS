@@ -1,7 +1,6 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using DocumentFormat.OpenXml.Drawing;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -29,6 +28,7 @@ namespace SKToolsAddins.ViewModel
                 TaskDialog.Show("Error", "No valid CAD link selected.");
                 return;
             }
+            Level = UiDoc.ActiveView.GenLevel;
 
             Categories = new ObservableCollection<Category>(GetCategories(ThisDoc));
             SelectedCategory = Categories.FirstOrDefault();
@@ -37,10 +37,10 @@ namespace SKToolsAddins.ViewModel
             UpdateTypeSymbols();
 
             // Lấy danh sách block từ file CAD link
-            var blocks = GetBlockNamesFromCadLink(selectedCadLink);
-            foreach (var block in blocks)
+            var blocks = GetBlockNamesFromCadLink(selectedCadLink).GroupBy(b => b.Symbol.Name);
+            foreach (var blockGroup in blocks)
             {
-                BlockMappings.Add(new BlockMapping(block, ThisDoc, Categories, Families, TypeSymbols));
+                BlockMappings.Add(new BlockMapping(blockGroup, ThisDoc, Categories, Families, TypeSymbols));
             }
         }
 
@@ -60,6 +60,17 @@ namespace SKToolsAddins.ViewModel
                 OnPropertyChanged(nameof(SelectedCategory));
                 UpdateFamilies();
                 UpdateTypeSymbols();
+            }
+        }
+
+        private Level _level;
+        public Level Level
+        {
+            get { return _level; }
+            set
+            {
+                _level = value;
+                OnPropertyChanged(nameof(Level));
             }
         }
 
@@ -148,7 +159,7 @@ namespace SKToolsAddins.ViewModel
                 {
                     foreach (GeometryObject instObj in instance.SymbolGeometry)
                     {
-                        if (instObj is GeometryInstance blockInstance && blocks.All(b => b.Symbol.Name != blockInstance.Symbol.Name))
+                        if (instObj is GeometryInstance blockInstance)
                         {
                             blocks.Add(blockInstance);
                         }
@@ -168,11 +179,11 @@ namespace SKToolsAddins.ViewModel
 
         public Document ThisDoc { get; set; }
 
-        public BlockMapping(GeometryInstance block, Document doc, ObservableCollection<Category> categories, ObservableCollection<Family> families, ObservableCollection<FamilySymbol> typeSymbols)
+        public BlockMapping(IGrouping<string, GeometryInstance> blocks, Document doc, ObservableCollection<Category> categories, ObservableCollection<Family> families, ObservableCollection<FamilySymbol> typeSymbols)
         {
             ThisDoc = doc;
-            Block = block;
-            BlockName = block.Symbol.Name;
+            Blocks = blocks.ToList();
+            BlockName = blocks.First().Symbol.Name;
             CategoriesMapping = categories;
             FamiliesMapping = families;
             TypeSymbolsMapping = typeSymbols;
@@ -182,14 +193,14 @@ namespace SKToolsAddins.ViewModel
             UpdateTypeSymbolsMapping();
         }
 
-        private GeometryInstance _block;
-        public GeometryInstance Block
+        private List<GeometryInstance> _blocks;
+        public List<GeometryInstance> Blocks
         {
-            get { return _block; }
+            get { return _blocks; }
             set
             {
-                _block = value;
-                OnPropertyChanged(nameof(Block));
+                _blocks = value;
+                OnPropertyChanged(nameof(Blocks));
             }
         }
 
@@ -205,7 +216,6 @@ namespace SKToolsAddins.ViewModel
             }
         }
 
-        // New property to display the block name without the prefix
         public string DisplayBlockName
         {
             get
@@ -213,7 +223,6 @@ namespace SKToolsAddins.ViewModel
                 if (string.IsNullOrEmpty(BlockName))
                     return BlockName;
 
-                // Remove the prefix (e.g., "Debug.dwg.")
                 int prefixIndex = BlockName.LastIndexOf('.');
                 return prefixIndex >= 0 ? BlockName.Substring(prefixIndex + 1) : BlockName;
             }

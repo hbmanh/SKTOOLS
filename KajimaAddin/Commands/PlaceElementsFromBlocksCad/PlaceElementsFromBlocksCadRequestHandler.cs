@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using SKToolsAddins.Commands.PlaceElementsFromBlocksCad;
 using SKToolsAddins.ViewModel;
 using Document = Autodesk.Revit.DB.Document;
 
@@ -33,31 +33,89 @@ namespace SKToolsAddins.Commands.PlaceElementsFromBlocksCad
                 {
                     case RequestId.None:
                         break;
-                    case (RequestId.OK):
-                        CopyFilterOptionData(uiapp, ViewModel);
+                    case RequestId.OK:
+                        PlaceElements(uiapp, ViewModel);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("エラー", ex.Message);
+                TaskDialog.Show("Error", ex.Message);
             }
         }
 
         public string GetName()
         {
-            return "フィルター色コピー";
+            return "Place Elements from CAD Blocks";
         }
 
-        #region Palace Elements
-        public void CopyFilterOptionData(UIApplication uiapp, PlaceElementsFromBlocksCadViewModel viewModel)
+        #region Place Elements
+        private void PlaceElements(UIApplication uiapp, PlaceElementsFromBlocksCadViewModel viewModel)
         {
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            var blocks = viewModel.BlockMappings;
+            var blockMappings = viewModel.BlockMappings;
+            var level = viewModel.Level;
 
+            Dictionary<string, int> blockInstanceCounts = new Dictionary<string, int>();
 
+            using (Transaction trans = new Transaction(doc, "Place Elements from CAD Blocks"))
+            {
+                trans.Start();
+                foreach (var blockMapping in blockMappings)
+                {
+                    var blockGroups = blockMapping.Blocks;
+                    foreach (var block in blockGroups)
+                    {
+                        var category = blockMapping.SelectedCategoryMapping;
+                        var selectedType = blockMapping.SelectedTypeSymbolMapping;
+                        var offset = blockMapping.Offset / 304.8;
+
+                        var blockPosition = block.Transform.Origin;
+                        var blockRotation = block.Transform.BasisX.AngleTo(new XYZ(1, 0, 0));
+                        if (selectedType == null) continue;
+                        if (!selectedType.IsActive)
+                        {
+                            selectedType.Activate();
+                            doc.Regenerate();
+                        }
+                        XYZ placementPosition = new XYZ(blockPosition.X, blockPosition.Y, offset);
+                        FamilyInstance familyInstance = doc.Create.NewFamilyInstance(placementPosition, selectedType, level, StructuralType.NonStructural);
+
+                        // Apply the rotation
+                        ElementTransformUtils.RotateElement(doc, familyInstance.Id, Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), blockRotation);
+
+                        // Count the created instances for each block
+                        if (!blockInstanceCounts.ContainsKey(blockMapping.DisplayBlockName))
+                        {
+                            blockInstanceCounts[blockMapping.DisplayBlockName] = 0;
+                        }
+                        blockInstanceCounts[blockMapping.DisplayBlockName]++;
+                    }
+                    
+                }
+                trans.Commit();
+            }
+
+            // Show the result dialog
+            ShowResultDialog(blockInstanceCounts);
+        }
+
+        private void ShowResultDialog(Dictionary<string, int> blockInstanceCounts)
+        {
+            TaskDialog dialog = new TaskDialog("Placement Result");
+            dialog.MainInstruction = "Placement of Family Instances Complete";
+            dialog.MainContent = "The following Family Instances were created for each block:";
+
+            string details = "";
+            foreach (var kvp in blockInstanceCounts)
+            {
+                details += $"{kvp.Key}: {kvp.Value} instances\n";
+            }
+
+            dialog.ExpandedContent = details;
+            dialog.Show();
         }
         #endregion
     }

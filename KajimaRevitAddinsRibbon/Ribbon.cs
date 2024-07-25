@@ -80,14 +80,14 @@ namespace SKToolsRibbon
                 , "アドインの情報", null, null, null, null, null);
             GENPanelNamePanel.AddItem(selectElementsBtn);
 
-            // Parameter Assignment from excel for Jasty
-            PushButtonData parameterAssigmentBtn = ribbonUtils.CreatePushButtonData("ParameterAssignmentCmd"
-                , "パラメーター\n作成"
-                , "SKToolsAddins.dll"
-                , "SKToolsAddins.Commands.ParameterAssignment.ParameterAssignmentCmd"
-                , "SelectElements.png"
-                , "", null, null, null, null, null);
-            GENPanelNamePanel.AddItem(parameterAssigmentBtn);
+            //// Parameter Assignment from excel for Jasty
+            //PushButtonData parameterAssigmentBtn = ribbonUtils.CreatePushButtonData("ParameterAssignmentCmd"
+            //    , "パラメーター\n作成"
+            //    , "SKToolsAddins.dll"
+            //    , "SKToolsAddins.Commands.ParameterAssignment.ParameterAssignmentCmd"
+            //    , "SelectElements.png"
+            //    , "", null, null, null, null, null);
+            //GENPanelNamePanel.AddItem(parameterAssigmentBtn);
 
             //CadImportReplaceTextType
             PushButtonData replaceTextNotesBtn = ribbonUtils.CreatePushButtonData("ReplaceTextNoteFromCadExploreCmd",
@@ -107,8 +107,8 @@ namespace SKToolsRibbon
             //CadLinkPlaceElementsFromBlocks
             PushButtonData placeEleFromBlocksBtn = ribbonUtils.CreatePushButtonData("PlaceElementsFromBlocksCadCmd",
                 "Elements\nPlace", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "ReplaceText.png",
-                "アドインの情報", null, null, null, null, null);
+                "SKToolsAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png",
+                "", null, null, null, null, null);
             CADPanel.AddItem(placeEleFromBlocksBtn);
 
             // FindDWGNotUsed
