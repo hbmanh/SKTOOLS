@@ -31,6 +31,8 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
             var selectedElements = uidoc.Selection.GetElementIds();
             var mepCurves = new List<MEPCurve>();
+            List<FamilyInstance> ductFittings = new List<FamilyInstance>();
+            List<FamilyInstance> pipeFittings = new List<FamilyInstance>();
 
             if (selectedElements.Count > 0)
             {
@@ -48,6 +50,17 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     .Where(d => d.ReferenceLevel.Id == level.Id)
                     .ToList();
                 mepCurves.AddRange(selectedPipes);
+
+                ductFittings = selectedElements
+                    .Select(id => doc.GetElement(id))
+                    .OfType<FamilyInstance>()
+                    .ToList();
+
+                pipeFittings = selectedElements
+                    .Select(id => doc.GetElement(id))
+                    .OfType<FamilyInstance>()
+                    .ToList();
+
             }
             else
             {
@@ -69,6 +82,21 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     .Where(d => d.ReferenceLevel.Id == level.Id)
                     .ToList();
                 mepCurves.AddRange(pipes);
+
+                ductFittings = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_DuctFitting)
+                    .OfClass(typeof(FamilyInstance))
+                    .ToElements()
+                    .Cast<FamilyInstance>()
+                    .ToList();
+
+                pipeFittings = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_PipeFitting)
+                    .OfClass(typeof(FamilyInstance))
+                    .ToElements()
+                    .Cast<FamilyInstance>()
+                    .ToList();
+
             }
 
             // Hiển thị hộp thoại nhập để lấy cao độ system
@@ -77,25 +105,13 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             using (Transaction trans = new Transaction(doc))
             {
                 trans.Start("Convert Pipes and Ducts to Placeholders");
-                var ductFittings = new FilteredElementCollector(doc)
-                    .OfCategory(BuiltInCategory.OST_DuctFitting)
-                    .OfClass(typeof(FamilyInstance))
-                    .ToElements()
-                    .Cast<FamilyInstance>()
-                    .ToList();
+                
                 foreach (var ductFitting in ductFittings)
                 {
                     var ductFittingName = ductFitting.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsValueString();
                     ductFitting.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS).Set(ductFittingName);
                 }
 
-                // Lưu trữ thông tin hệ thống của fittings
-                var pipeFittings = new FilteredElementCollector(doc)
-                    .OfCategory(BuiltInCategory.OST_PipeFitting)
-                    .OfClass(typeof(FamilyInstance))
-                    .ToElements()
-                    .Cast<FamilyInstance>()
-                    .ToList();
                 foreach (var pipeFitting in pipeFittings)
                 {
                     var pipeFittingName = pipeFitting.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsValueString();

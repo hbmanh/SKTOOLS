@@ -363,7 +363,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                 //double dist = 10000 / 304.8;
                 if (level == null) continue;
                 Solid arcBlockCheckIntersection = centerPoint.CreateCylinderUpAndDnByLevel(doc, radius, 1, level);
-                arcBlockCheckIntersection.BakeSolidToDirectShape(doc);
+                //arcBlockCheckIntersection.BakeSolidToDirectShape(doc);
                 var customSolid = new CustomSolid(arcBlockCheckIntersection);
                 customSolids.Add(customSolid);
             }
