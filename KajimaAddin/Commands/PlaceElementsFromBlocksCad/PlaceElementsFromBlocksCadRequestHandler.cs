@@ -70,17 +70,29 @@ namespace SKToolsAddins.Commands.PlaceElementsFromBlocksCad
                     {
                         var category = blockMapping.SelectedCategoryMapping;
                         var selectedType = blockMapping.SelectedTypeSymbolMapping;
-                        var offset = blockMapping.Offset / 304.8;
+                        double offset = blockMapping.Offset / 304.8;
 
                         var blockPosition = block.Transform.Origin;
                         var blockRotation = block.Transform.BasisX.AngleTo(new XYZ(1, 0, 0));
+
                         if (selectedType == null) continue;
                         if (!selectedType.IsActive)
                         {
                             selectedType.Activate();
                             doc.Regenerate();
                         }
-                        XYZ placementPosition = new XYZ(blockPosition.X, blockPosition.Y, offset);
+
+                        // If category is detail item, do not apply offset
+                        XYZ placementPosition;
+                        if (category != null && category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents)
+                        {
+                            placementPosition = blockPosition;
+                        }
+                        else
+                        {
+                            placementPosition = new XYZ(blockPosition.X, blockPosition.Y, offset);
+                        }
+
                         FamilyInstance familyInstance = doc.Create.NewFamilyInstance(placementPosition, selectedType, level, StructuralType.NonStructural);
 
                         // Apply the rotation
@@ -93,7 +105,7 @@ namespace SKToolsAddins.Commands.PlaceElementsFromBlocksCad
                         }
                         blockInstanceCounts[blockMapping.DisplayBlockName]++;
                     }
-                    
+
                 }
                 trans.Commit();
             }

@@ -106,7 +106,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
 
                 foreach (var splitCurve in splitCurves)
                 {
-                    SetOffsetsForSplitCurve(splitCurve, offsets);
+                    SetOffsetsAndSizeForSplitCurve(splitCurve, offsets);
 
                     var connectors = splitCurve.ConnectorManager.Connectors.Cast<Connector>().ToList();
                     foreach (var connector in connectors)
@@ -130,7 +130,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
             }
         }
 
-        private void SetOffsetsForSplitCurve(MEPCurve splitCurve, Dictionary<string, double> offsets)
+        private void SetOffsetsAndSizeForSplitCurve(MEPCurve splitCurve, Dictionary<string, double> offsets)
         {
             switch (splitCurve)
             {
@@ -139,6 +139,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     if (ductSystemType != null && offsets.TryGetValue(ductSystemType, out double ductOffset))
                     {
                         duct.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(ductOffset));
+                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM).Set(75 / 304.8);
                     }
                     break;
                 case Pipe pipe:
@@ -146,6 +147,7 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     if (pipeSystemType != null && offsets.TryGetValue(pipeSystemType, out double pipeOffset))
                     {
                         pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(pipeOffset));
+                        pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(75 / 304.8);
                     }
                     break;
             }
