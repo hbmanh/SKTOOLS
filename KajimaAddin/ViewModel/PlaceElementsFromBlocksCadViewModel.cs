@@ -18,7 +18,7 @@ namespace SKToolsAddins.ViewModel
         {
             UiApp = uiApp;
             UiDoc = UiApp.ActiveUIDocument;
-            ThisDoc = UiDoc.Document;
+            ThisDoc = UiDoc.ActiveView.Document;
 
             // Chọn file CAD link
             var refLinkCad = UiDoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
