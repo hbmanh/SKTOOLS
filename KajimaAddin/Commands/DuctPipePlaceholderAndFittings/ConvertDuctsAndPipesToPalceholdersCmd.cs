@@ -83,14 +83,14 @@ namespace SKToolsAddins.Commands.DuctPipePlaceholderAndFittings
                     .ToList();
                 mepCurves.AddRange(pipes);
 
-                ductFittings = new FilteredElementCollector(doc)
+                ductFittings = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
                     .OfCategory(BuiltInCategory.OST_DuctFitting)
                     .OfClass(typeof(FamilyInstance))
                     .ToElements()
                     .Cast<FamilyInstance>()
                     .ToList();
 
-                pipeFittings = new FilteredElementCollector(doc)
+                pipeFittings = new FilteredElementCollector(doc, uidoc.ActiveView.Id)
                     .OfCategory(BuiltInCategory.OST_PipeFitting)
                     .OfClass(typeof(FamilyInstance))
                     .ToElements()

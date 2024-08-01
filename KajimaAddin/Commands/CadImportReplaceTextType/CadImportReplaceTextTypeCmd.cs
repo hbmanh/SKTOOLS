@@ -47,7 +47,7 @@ namespace SKToolsAddins.Commands.CadImportReplaceTextType
             using (var form = new Form())
             {
                 form.Text = "CHỌN TEXT FONT VÀ WIDTH:";
-                form.Size = new System.Drawing.Size(300, 160);
+                form.Size = new System.Drawing.Size(300, 200);
                 form.FormBorderStyle = FormBorderStyle.FixedSingle;
                 form.MaximizeBox = false;
 
@@ -57,6 +57,7 @@ namespace SKToolsAddins.Commands.CadImportReplaceTextType
 
                 var fontTextBox = new TextBox();
                 fontTextBox.Dock = DockStyle.Top;
+                fontTextBox.Text = "游ゴシック"; // Default font
 
                 var widthLabel = new Label();
                 widthLabel.Text = "Width (Default = 100):";
@@ -65,18 +66,30 @@ namespace SKToolsAddins.Commands.CadImportReplaceTextType
                 var widthTextBox = new TextBox();
                 widthTextBox.Dock = DockStyle.Top;
 
-                var button = new Button();
-                button.Text = "OK";
-                button.Width = 80;
-                button.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-                button.Click += (sender, e) =>
+                var cancelButton = new Button();
+                cancelButton.Text = "Cancel";
+                cancelButton.Width = 80;
+                cancelButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+                cancelButton.Click += (sender, e) =>
                 {
-                    userInputFontName = fontTextBox.Text;
-                    double.TryParse(widthTextBox.Text, out userInputWidth);
+                    form.DialogResult = DialogResult.Cancel;
                     form.Close();
                 };
 
-                form.Controls.Add(button);
+                var okButton = new Button();
+                okButton.Text = "OK";
+                okButton.Width = 80;
+                okButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+                okButton.Click += (sender, e) =>
+                {
+                    userInputFontName = fontTextBox.Text;
+                    double.TryParse(widthTextBox.Text, out userInputWidth);
+                    form.DialogResult = DialogResult.OK;
+                    form.Close();
+                };
+
+                form.Controls.Add(okButton);
+                form.Controls.Add(cancelButton);
                 form.Controls.Add(widthTextBox);
                 form.Controls.Add(widthLabel);
                 form.Controls.Add(fontTextBox);
@@ -87,9 +100,13 @@ namespace SKToolsAddins.Commands.CadImportReplaceTextType
                 fontTextBox.Location = new System.Drawing.Point(10, 30);
                 widthLabel.Location = new System.Drawing.Point(10, 60);
                 widthTextBox.Location = new System.Drawing.Point(10, 80);
-                button.Location = new System.Drawing.Point(form.ClientSize.Width - button.Width - 10, form.ClientSize.Height - button.Height - 10);
+                cancelButton.Location = new System.Drawing.Point(form.ClientSize.Width - cancelButton.Width - 10, form.ClientSize.Height - cancelButton.Height - 10);
+                okButton.Location = new System.Drawing.Point(form.ClientSize.Width - cancelButton.Width - okButton.Width - 20, form.ClientSize.Height - okButton.Height - 10);
 
-                form.ShowDialog();
+                if (form.ShowDialog() == DialogResult.Cancel)
+                {
+                    return Result.Cancelled;
+                }
             }
 
             if (groupedTextNotes.Any())
@@ -109,30 +126,36 @@ namespace SKToolsAddins.Commands.CadImportReplaceTextType
                         string baseName = textNoteTypeName;
                         int suffix = 1;
 
-                        while (true)
-                        {
-                            var existingType = new FilteredElementCollector(doc)
-                                .OfClass(typeof(TextNoteType))
-                                .Cast<TextNoteType>()
-                                .FirstOrDefault(t => t.Name.Equals(textNoteTypeName));
+                        //while (true)
+                        //{
+                        //    var existingType = new FilteredElementCollector(doc)
+                        //        .OfClass(typeof(TextNoteType))
+                        //        .Cast<TextNoteType>()
+                        //        .FirstOrDefault(t => t.Name.Equals(textNoteTypeName));
 
-                            if (existingType == null)
-                            {
-                                break;
-                            }
+                        //    if (existingType == null)
+                        //    {
+                        //        break;
+                        //    }
 
-                            textNoteTypeName = $"{baseName}_{suffix}";
-                            suffix++;
-                        }
+                        //    textNoteTypeName = $"{baseName}_{suffix}";
+                        //    suffix++;
+                        //}
 
-                        var exitsTextNoteTypeNameId = new FilteredElementCollector(doc)
+                        var existingType = new FilteredElementCollector(doc)
+                            .OfClass(typeof(TextNoteType))
+                            .Cast<TextNoteType>()
+                            .FirstOrDefault(t => t.Name.Equals(textNoteTypeName));
+                        textNoteTypeName = $"{baseName}";
+
+                        var exitsTextNoteTypeName = new FilteredElementCollector(doc)
                             .OfClass(typeof(TextNoteType))
                             .Cast<TextNoteType>()
                             .FirstOrDefault(t => t.Name.Equals(textNoteTypeName))?.Id;
 
-                        if (exitsTextNoteTypeNameId != null)
+                        if (exitsTextNoteTypeName != null)
                         {
-                            TextNoteType exitsTextNoteType = doc.GetElement(exitsTextNoteTypeNameId) as TextNoteType;
+                            TextNoteType exitsTextNoteType = doc.GetElement(exitsTextNoteTypeName) as TextNoteType;
                             // Đổi Type của các Text Notes trong nhóm
                             foreach (var textNote in group)
                             {

@@ -54,7 +54,7 @@ namespace SKToolsAddins.ViewModel
         public List<Element> AllEleBasedOnFilterBy
         {
             get { return _allEleBasedOnFilterBy; }
-            set {_allEleBasedOnFilterBy = value; OnPropertyChanged(nameof(AllEleBasedOnFilterBy));}
+            set { _allEleBasedOnFilterBy = value; OnPropertyChanged(nameof(AllEleBasedOnFilterBy)); }
         }
 
         private List<string> _filterBy;
@@ -62,7 +62,7 @@ namespace SKToolsAddins.ViewModel
         public List<string> FilterBy
         {
             get { return _filterBy; }
-            set { _filterBy = value; OnPropertyChanged(nameof(FilterBy));}
+            set { _filterBy = value; OnPropertyChanged(nameof(FilterBy)); }
         }
 
         private string _selFilterBy;
@@ -85,7 +85,7 @@ namespace SKToolsAddins.ViewModel
         {
             get { return _levels; }
             set
-            {_levels = value;OnPropertyChanged(nameof(Levels));}
+            { _levels = value; OnPropertyChanged(nameof(Levels)); }
         }
 
         private Level _selLevel;
@@ -106,7 +106,7 @@ namespace SKToolsAddins.ViewModel
         public ObservableCollection<Category> Categories
         {
             get { return _categories; }
-            set {_categories = value;OnPropertyChanged(nameof(Categories));}
+            set { _categories = value; OnPropertyChanged(nameof(Categories)); }
         }
         private Category _selCategory;
 
@@ -126,7 +126,7 @@ namespace SKToolsAddins.ViewModel
         public ObservableCollection<Parameter> Parameters
         {
             get { return _parameters; }
-            set {_parameters = value;OnPropertyChanged(nameof(Parameters));}
+            set { _parameters = value; OnPropertyChanged(nameof(Parameters)); }
         }
 
         private Parameter _selParameter;
@@ -147,22 +147,22 @@ namespace SKToolsAddins.ViewModel
         public bool IsLevelEnable
         {
             get { return _isLevelEnable; }
-            set {_isLevelEnable = value;OnPropertyChanged(nameof(IsLevelEnable));}
+            set { _isLevelEnable = value; OnPropertyChanged(nameof(IsLevelEnable)); }
         }
-      
+
         private List<string> _stringRules;
 
         public List<string> StringRules
         {
             get { return _stringRules; }
-            set{_stringRules = value;OnPropertyChanged(nameof(StringRules)); }
+            set { _stringRules = value; OnPropertyChanged(nameof(StringRules)); }
         }
         private string _selStringRule;
 
         public string SelStringRule
         {
             get { return _selStringRule; }
-            set {_selStringRule = value; OnPropertyChanged(nameof(SelStringRule));}
+            set { _selStringRule = value; OnPropertyChanged(nameof(SelStringRule)); }
         }
 
         private ObservableCollection<object> _paramValues;
@@ -171,7 +171,7 @@ namespace SKToolsAddins.ViewModel
         {
             get { return _paramValues; }
             set
-            {_paramValues = value; OnPropertyChanged(nameof(ParamValues));}
+            { _paramValues = value; OnPropertyChanged(nameof(ParamValues)); }
         }
 
         private object _selParamValue;
@@ -191,7 +191,7 @@ namespace SKToolsAddins.ViewModel
         public ObservableCollection<Element> EleToPreview
         {
             get { return _eleToPreview; }
-            set {_eleToPreview = value; OnPropertyChanged(nameof(EleToPreview));}
+            set { _eleToPreview = value; OnPropertyChanged(nameof(EleToPreview)); }
         }
 
         private Element _selEleToPreview;
@@ -199,7 +199,7 @@ namespace SKToolsAddins.ViewModel
         public Element SelEleToPreview
         {
             get { return _selEleToPreview; }
-            set { _selEleToPreview = value; OnPropertyChanged(nameof(SelEleToPreview));}
+            set { _selEleToPreview = value; OnPropertyChanged(nameof(SelEleToPreview)); }
         }
 
 
@@ -369,32 +369,32 @@ namespace SKToolsAddins.ViewModel
             switch (rule)
             {
                 case "等しい":
-                    return parameterValue == SelParamValue; 
+                    return parameterValue == SelParamValue;
                 case "等しくない":
                     return parameterValue != SelParamValue;
                 case "より大きい":
-                    if (double.TryParse(parameterValue, out double value1) 
+                    if (double.TryParse(parameterValue, out double value1)
                         && double.TryParse(SelParamValue.ToString(), out double value2))
                     {
                         return value1 > value2;
                     }
                     return false;
                 case "以上":
-                    if (double.TryParse(parameterValue, out double value3) 
+                    if (double.TryParse(parameterValue, out double value3)
                         && double.TryParse(SelParamValue.ToString(), out double value4))
                     {
                         return value3 >= value4;
                     }
                     return false;
                 case "より小さい":
-                    if (double.TryParse(parameterValue, out double value5) 
+                    if (double.TryParse(parameterValue, out double value5)
                         && double.TryParse(SelParamValue.ToString(), out double value6))
                     {
                         return value5 < value6;
                     }
                     return false;
                 case "以下":
-                    if (double.TryParse(parameterValue, out double value7) 
+                    if (double.TryParse(parameterValue, out double value7)
                         && double.TryParse(SelParamValue.ToString(), out double value8))
                     {
                         return value7 <= value8;
