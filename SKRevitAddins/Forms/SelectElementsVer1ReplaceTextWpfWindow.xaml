@@ -1,0 +1,48 @@
+﻿<Window x:Class="SKRevitAddins.Forms.SelectElementsVer1ReplaceTextWpfWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        Width="350" Height="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="Select Elements and Replace Text" Topmost="true">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <GroupBox Name="groupA" Grid.Row="0" Margin="10,5,10,5">
+            <StackPanel Orientation="Vertical" Margin="5">
+                <StackPanel Orientation="Horizontal" Margin="5">
+                    <TextBlock Margin="34,0,0,0" Text="Keywords :"/>
+                    <TextBox x:Name="keywordsbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding Keywords}" VerticalAlignment="Top" Width="150" Height="20"/>
+                </StackPanel>
+                <!--<StackPanel Name="bylevelGroup" Orientation="Horizontal" Margin="5">
+                    <TextBlock Margin="34,0,0,0">By Level :</TextBlock>
+                    <ComboBox SelectionChanged="bylevel_SelectionChanged" Name="bylevel" Width="120" Margin="10,0,0,0"/>
+                </StackPanel>-->
+            </StackPanel>
+        </GroupBox>
+        <GroupBox Name="groupB" Grid.Row="1" Margin="10,5,10,5">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="5">
+                    <TextBlock Margin="34,0,0,0" Text="KeyTarget :"/>
+                    <TextBox x:Name="keytargetbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding KeyTarget}" VerticalAlignment="Top" Width="150" Height="20"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <Border Name="groupD" Grid.Row="3" Margin="10,10,10,5" CornerRadius="2" BorderBrush="LightGray"
+            BorderThickness="0.5">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
+                <Button Click="Numbering_Click" Name="OkBtn" Margin="25,5,5,5" Content="OK" Width="80"
+                HorizontalAlignment="Center" Background="WhiteSmoke"/>
+                <Button Click="CancelBtn_Click" Name="CancelBtn" Margin="35,5,5,5" Content="Cancel" Width="80"
+                HorizontalAlignment="Center" Background="WhiteSmoke"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

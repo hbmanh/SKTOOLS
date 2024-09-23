@@ -1,0 +1,253 @@
+﻿<Window x:Class="SKRevitAddins.Forms.ChangeBwTypeAndInsWpfWindow"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:utils="clr-namespace:SKRevitAddins.Utils"
+      mc:Ignorable="d" 
+      Title="タイプ⇔インスタンスの切り替え" 
+      WindowStartupLocation="CenterScreen" 
+      Height="525" 
+      Width="780" 
+      ResizeMode="NoResize" 
+      ShowInTaskbar="True" 
+      Topmost="True">
+
+    <StackPanel Margin="0,10,0,10">
+        <Grid Height="464" Margin="0,0,0,0" HorizontalAlignment="Left">
+            <TabControl HorizontalAlignment="Left" Height="464"  Width="740" VerticalAlignment="Center" Margin="10,0,0,0">
+                <TabItem Header="ファミリーパラメータオプション" Height="20" VerticalAlignment="Top">
+                    <Grid Height="460" HorizontalAlignment="Left" Width="730" VerticalAlignment="Top">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="106*"/>
+                            <ColumnDefinition Width="259*"/>
+                        </Grid.ColumnDefinitions>
+                        <GroupBox Header="インスタンスパラメータリスト" 
+                                  VerticalAlignment="Top" HorizontalAlignment="Left" 
+                                  Width="200" Height="340" Margin="33,50,0,0" Grid.Column="1" >
+                            <ListBox  
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                ItemsSource="{Binding InsFamParas}"
+                                DisplayMemberPath="ParamName"
+                                utils:MultiSelect.BindableSelectedItems="{Binding SelInsFamParas, Mode=OneWay}"
+                                Height="310" SelectionMode="Multiple" Width="185" />
+                        </GroupBox>
+                        <GroupBox Header="タイプパラメータリスト" 
+                                  Width="200" 
+                                  Height="340" 
+                                  Margin="0,50,10,0"
+                                  HorizontalAlignment="Right" 
+                                  VerticalAlignment="Top" Grid.Column="1">
+                            <ListBox HorizontalAlignment="Left" 
+                                     VerticalAlignment="Top"
+                                     Width="185" 
+                                     Height="310" 
+                                     SelectionMode="Multiple"
+                                     ItemsSource="{Binding TypFamParas}"
+                                     DisplayMemberPath="ParamName"
+                                     utils:MultiSelect.BindableSelectedItems="{Binding SelTypFamParas, Mode=OneWay}" />
+                        </GroupBox>
+                        <Button x:Name="InsToTypFamBtn"
+                                Content="►" 
+                                Click="InsToTypFamBtn_Click" 
+                                Command="{Binding InsToTypFamICommand}" 
+                                FontSize="14" 
+                                FontWeight="Bold" 
+                                Width="58" 
+                                Height="25" 
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Top" 
+                                Margin="243,200,0,0" Grid.Column="1" />
+                        <Button x:Name="TypeToInsFamBtn"
+                                Content="◄" 
+                                Click="TypeToInsFamBtn_Click" 
+                                Command="{Binding TypToInsFamICommand}" 
+                                FontSize="14" 
+                                FontWeight="Bold" 
+                                Width="58" 
+                                Height="26" 
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Top" 
+                                Margin="243,250,0,0" Grid.Column="1" />
+                        <TextBlock
+                                   FontSize="14" 
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Top" 
+                                   Margin="5,15,0,0"
+                                   Width="90">
+                            <Run Language="ja-jp" Text="ファミリー"/>
+                            <Run Text="カテゴリ"/>
+                        </TextBlock>
+                        <ComboBox 
+                            ItemsSource="{Binding Categories}"
+                            SelectedItem="{Binding SelFamCategory}"
+                            DisplayMemberPath="Name"
+                            IsEditable="True"
+                            IsTextSearchEnabled="True"
+                            IsEnabled="True"
+                            FontSize="12" 
+                            x:Name="cb"
+                            HorizontalAlignment="Left" VerticalAlignment="Top" 
+                            Margin="109,13,0,0" Width="180" Grid.ColumnSpan="2">
+                        </ComboBox>
+                        <GroupBox Header="ファミリーリスト" 
+                                  Width="200" 
+                                  Height="340" 
+                                  Margin="10,50,0,0" 
+                                  HorizontalAlignment="Left" 
+                                  VerticalAlignment="Top">
+                            <ListBox 
+                                     Width="185" 
+                                     Height="310" 
+                                     SelectionMode="Multiple" 
+                                     HorizontalAlignment="Left" 
+                                     VerticalAlignment="Top"
+                                     ItemsSource="{Binding FamFamilies}" 
+                                     DisplayMemberPath="Name" 
+                                     SelectionChanged="ListBox_SelectionChanged" 
+                                     utils:MultiSelect.BindableSelectedItems="{Binding SelFamFamilies, Mode=OneWay}" />
+                        </GroupBox>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="プロジェクトパラメータオプション" Height="20" VerticalAlignment="Top">
+                    <Grid Height="460" Width="730" VerticalAlignment="Top" HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="106*"/>
+                            <ColumnDefinition Width="259*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <GroupBox Header="インスタンスパラメータリスト" 
+                                  Width="200" 
+                                  Height="340" 
+                                  Margin="33,50,0,0" 
+                                  Grid.Column="1"
+                                  VerticalAlignment="Top" 
+                                  HorizontalAlignment="Left">
+                            <ListBox 
+                                x:Name="ProInsParamLb"
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Top"
+                                Width="185" 
+                                Height="310" 
+                                SelectionMode="Multiple"
+                                ItemsSource="{Binding InsProParas}"
+                                DisplayMemberPath="ParamName"
+                                utils:MultiSelect.BindableSelectedItems="{Binding SelInsProParas, Mode=OneWay}" />
+                        </GroupBox>
+
+                        <GroupBox Header="タイプパラメータリスト" 
+                                  Width="200" 
+                                  Height="340" 
+                                  Margin="0,50,10,0" 
+                                  Grid.Column="1"
+                                  VerticalAlignment="Top" 
+                                  HorizontalAlignment="Right">
+                            <ListBox HorizontalAlignment="Left" 
+                                     VerticalAlignment="Top"
+                                     Width="185" 
+                                     Height="310" 
+                                     SelectionMode="Multiple"
+                                     ItemsSource="{Binding TypProParas}"
+                                     DisplayMemberPath="ParamName"
+                                     utils:MultiSelect.BindableSelectedItems="{Binding SelTypProParas, Mode=OneWay}" />
+                        </GroupBox>
+
+
+                        <Button x:Name="InsToTypProBtn"
+                                Content="►" 
+                                Click="InsToTypProBtn_Click" 
+                                Command="{Binding InsToTypProICommand}" 
+                                FontSize="14" 
+                                FontWeight="Bold" 
+                                Width="58" 
+                                Height="25"
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Top"
+                                Margin="243,200,0,0" 
+                                Grid.Column="1" />
+
+
+                        <Button x:Name="TypeToInsProBtn"
+                                Content="◄" 
+                                Click="TypeToInsFamBtn_Click" 
+                                Command="{Binding TypToInsProICommand}" 
+                                FontSize="14" 
+                                FontWeight="Bold" 
+                                Width="58" 
+                                Height="26"
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Top"
+                                Margin="243,250,0,0" 
+                                Grid.Column="1" />
+
+                        <TextBlock FontSize="14" 
+                                   HorizontalAlignment="Left" 
+                                   VerticalAlignment="Top" 
+                                   Margin="5,15,0,0"
+                                   Width="90">
+                            <Run Language="ja-jp" Text="ファミリー"/>
+                            <Run Text="カテゴリ"/>
+                        </TextBlock>
+
+                        <ComboBox ItemsSource="{Binding Categories}"
+                                  SelectedItem="{Binding SelProCategory}"
+                                  DisplayMemberPath="Name"
+                                  IsEditable="True"
+                                  IsTextSearchEnabled="True"
+                                  IsEnabled="True"
+                                  FontSize="12"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Top"
+                                  Margin="109,13,0,0"
+                                  Width="180"
+                                  Grid.ColumnSpan="2">
+                        </ComboBox>
+
+
+                        <GroupBox Header="ファミリーリスト"
+                                  Width="200"
+                                  Height="340"
+                                  Margin="10,50,0,0"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Top">
+                            <ListBox 
+                                x:Name="ProFamLb"
+                                Width="185"
+                                Height="310"
+                                SelectionMode="Multiple"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                ItemsSource="{Binding ProFamilies}"
+                                DisplayMemberPath="Name"
+                                utils:MultiSelect.BindableSelectedItems="{Binding SelProFamilies, Mode=OneWay}" 
+                                IsEnabled="False"/>
+                        </GroupBox>
+
+                    </Grid>
+                </TabItem>
+
+            </TabControl>
+            <Button x:Name="CreateBtn"
+                    Content="OK" 
+                    FontSize="14" 
+                    Height="30" 
+                    Width="80"
+                    HorizontalAlignment="Right" 
+                    VerticalAlignment="Bottom" 
+                    Margin="0,0,125,10" 
+                    Click="CreateBtn_Click" />
+
+            <Button x:Name="CancelBtn"
+                    Content="キャンセル" 
+                    IsCancel="True" 
+                    FontSize="14" 
+                    Height="30" 
+                    Width="80"
+                    HorizontalAlignment="Right" 
+                    VerticalAlignment="Bottom" 
+                    Margin="0,0,15,10" 
+                    Click="CancelBtn_Click" />
+        </Grid>
+    </StackPanel>
+</Window>
