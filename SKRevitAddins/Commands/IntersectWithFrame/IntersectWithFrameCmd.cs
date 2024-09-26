@@ -91,10 +91,43 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                     Solid solid = solids.UnionSolidList();
                     //solid.BakeSolidToDirectShape(doc);
                     solidsIntersection.Add(solid);
+                    //var surroundingFaces = GetSurroundingFaces(solid);
+                    //foreach (Face face in surroundingFaces)
+                    //{
+                    //    var directShape = CreateDirectShapeFromFrameFace(doc, solid, face, solidsIntersection);
+                    //    if (directShape != null)
+                    //    {
+                    //        directShapes.Add(directShape);
+                    //    }
+
+                    //    foreach (var pipeOrDuct in pipesAndDucts)
+                    //    {
+                    //        var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                    //        if (pipeOrDuctCurve == null)
+                    //            continue;
+
+                    //        if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                    //        {
+                    //            if (!intersectionData.ContainsKey(pipeOrDuct.Id))
+                    //            {
+                    //                intersectionData[pipeOrDuct.Id] = new List<XYZ>();
+                    //            }
+
+                    //            foreach (IntersectionResult intersectionResult in resultArray)
+                    //            {
+                    //                intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
+                    //            }
+                    //        }
+                    //    }
+                    //}
+                }
+
+                foreach (var solid in solidsIntersection)
+                {
                     var surroundingFaces = GetSurroundingFaces(solid);
                     foreach (Face face in surroundingFaces)
                     {
-                        var directShape = CreateDirectShapeFromFrameFace(doc, solid, face);
+                        var directShape = CreateDirectShapeFromFrameFace(doc, solid, face, solidsIntersection);
                         if (directShape != null)
                         {
                             directShapes.Add(directShape);
@@ -121,6 +154,7 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                         }
                     }
                 }
+
                 //var unionSolid = solidsToUnion.UnionSolidList();
                 //unionSolid.BakeSolidToDirectShape(doc);
                 //var surroundingFaces = GetSurroundingFaces(unionSolid);
@@ -456,8 +490,8 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             return area;
         }
 
-     
-        private DirectShape CreateDirectShapeFromFrameFace(Document doc, Solid solid, Face face)
+
+        private DirectShape CreateDirectShapeFromFrameFace(Document doc, Solid solid, Face face, List<Solid> framingSolids)
         {
             // Get BoundingBoxUV 
             BoundingBoxUV boundingBox = face.GetBoundingBox();
@@ -471,18 +505,16 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             double heightMargin = frameHeight / 4;
             double widthMargin = frameHeight / 2;
 
-            // Xác định biên theo chiều dài dầm
+            // Xác định biên
             UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
             UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
 
-            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho V
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U, V
             if (adjustedMin.V >= adjustedMax.V)
             {
                 adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
                 adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
             }
-
-            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U
             if (adjustedMin.U >= adjustedMax.U)
             {
                 adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
@@ -505,13 +537,40 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             // extrusion direction dựa trên pháp tuyến của face
             XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
 
+            // Tạo khối directShapeSolid ban đầu
             Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
-            DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-            directShape.SetShape(new GeometryObject[] { directShapeSolid });
-            directShape.SetName("Beam Intersection Zone");
 
-            return directShape;
+            // Kiểm tra giao cắt với các solid khác (các dầm khác)
+            foreach (var framingSolid in framingSolids)
+            {
+                if (framingSolid != null && framingSolid.Volume > 0)
+                {
+                    try
+                    {
+                        // Loại bỏ phần giao nhau giữa directShapeSolid và dầm khác
+                        directShapeSolid = BooleanOperationsUtils.ExecuteBooleanOperation(directShapeSolid, framingSolid, BooleanOperationsType.Difference);
+                    }
+                    catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+                    {
+                        continue;
+                    }
+                }
+            }
+
+            // Nếu solid vẫn còn sau khi trừ đi các phần giao cắt
+            if (directShapeSolid != null && directShapeSolid.Volume > 0)
+            {
+                DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+                directShape.SetShape(new GeometryObject[] { directShapeSolid });
+                directShape.SetName("Beam Intersection Zone");
+
+                return directShape;
+            }
+
+            // Trả về null nếu khối đã bị loại bỏ hoàn toàn bởi giao cắt
+            return null;
         }
+
 
         // Check if a point is within a direct shape
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
