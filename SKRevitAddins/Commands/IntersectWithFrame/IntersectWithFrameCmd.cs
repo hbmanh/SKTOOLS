@@ -451,7 +451,7 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             double beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
 
             double heightMargin = beamHeight / 4;
-            double widthMargin = beamHeight;
+            double widthMargin = beamHeight / 2;
 
             UV adjustedMin = new UV(min.U + widthMargin, min.V + widthMargin);
             UV adjustedMax = new UV(max.U - widthMargin, max.V - widthMargin);
@@ -468,27 +468,49 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                 adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
             }
 
-            List<Curve> profile = new List<Curve>
+            // Kiểm tra độ dài của từng đoạn thẳng trước khi tạo
+            double shortCurveTolerance = doc.Application.ShortCurveTolerance;
+
+            List<Curve> profile = new List<Curve>();
+
+            // Tạo từng đường thẳng và kiểm tra độ dài
+            XYZ p1 = face.Evaluate(adjustedMin);
+            XYZ p2 = face.Evaluate(new UV(adjustedMin.U, adjustedMax.V));
+            if (p1.DistanceTo(p2) > shortCurveTolerance)
+                profile.Add(Line.CreateBound(p1, p2));
+
+            XYZ p3 = face.Evaluate(adjustedMax);
+            if (p2.DistanceTo(p3) > shortCurveTolerance)
+                profile.Add(Line.CreateBound(p2, p3));
+
+            XYZ p4 = face.Evaluate(new UV(adjustedMax.U, adjustedMin.V));
+            if (p3.DistanceTo(p4) > shortCurveTolerance)
+                profile.Add(Line.CreateBound(p3, p4));
+
+            if (p4.DistanceTo(p1) > shortCurveTolerance)
+                profile.Add(Line.CreateBound(p4, p1));
+
+            // Chỉ tiếp tục nếu tất cả các đoạn thẳng được tạo thành công
+            if (profile.Count == 4)
             {
-                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
-            };
+                CurveLoop curveLoop = CurveLoop.Create(profile);
+                List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
 
-            CurveLoop curveLoop = CurveLoop.Create(profile);
-            List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
+                XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
 
-            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
+                // Tạo Solid cho DirectShape với chiều dài extrusion là 10mm
+                Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8); // 10mm chuyển đổi sang đơn vị nội bộ
 
-            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8); // 10mm chuyển đổi sang đơn vị nội bộ
+                DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+                directShape.SetShape(new GeometryObject[] { directShapeSolid });
+                directShape.SetName("Beam Intersection Zone");
 
-            DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-            directShape.SetShape(new GeometryObject[] { directShapeSolid });
-            directShape.SetName("Beam Intersection Zone");
+                return directShape;
+            }
 
-            return directShape;
+            return null;
         }
+
 
 
         // Check if a point is within a direct shape
