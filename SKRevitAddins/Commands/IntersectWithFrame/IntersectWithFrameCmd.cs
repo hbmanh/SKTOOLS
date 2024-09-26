@@ -523,18 +523,17 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
 
             // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
             List<Curve> profile = new List<Curve>
-    {
-        Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-        Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-        Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
-        Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
-    };
+            {
+                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
+                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
+                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
+                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
+            };
 
             // Tạo CurveLoop từ profile
             CurveLoop curveLoop = CurveLoop.Create(profile);
             List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
 
-            // extrusion direction dựa trên pháp tuyến của face
             XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
 
             // Tạo khối directShapeSolid ban đầu
@@ -556,7 +555,6 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                 }
             }
 
-            // Nếu solid vẫn còn sau khi trừ đi các phần giao cắt
             if (directShapeSolid != null && directShapeSolid.Volume > 0)
             {
                 DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
