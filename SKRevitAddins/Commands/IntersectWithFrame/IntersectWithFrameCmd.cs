@@ -88,12 +88,13 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                         continue;
 
                     List<Solid> solids = GetSolidsFromGeometry(framingGeometry);
-                    Solid solid = TSolidUtils.UnionSolidList(solids);
+                    Solid solid = solids.UnionSolidList();
+                    //solid.BakeSolidToDirectShape(doc);
                     solidsIntersection.Add(solid);
                     var surroundingFaces = GetSurroundingFaces(solid);
                     foreach (Face face in surroundingFaces)
                     {
-                        var directShape = CreateDirectShapeForBeamFace(doc, solid, face);
+                        var directShape = CreateDirectShapeFromFrameFace(doc, solid, face);
                         if (directShape != null)
                         {
                             directShapes.Add(directShape);
@@ -125,7 +126,7 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                 //var surroundingFaces = GetSurroundingFaces(unionSolid);
                 //foreach (Face face in surroundingFaces)
                 //{
-                //    var directShape = CreateDirectShapeForBeamFace(doc, unionSolid, face);
+                //    var directShape = CreateDirectShapeFromFrameFace(doc, unionSolid, face);
                 //    if (directShape != null)
                 //    {
                 //        directShapes.Add(directShape);
@@ -410,13 +411,28 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
 
         private List<Face> GetSurroundingFaces(Solid solid)
         {
+            //var faces = solid.GetSolidVerticalFaces();
+
+            //var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
+
+            //var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
+
+            //var remainingFaces = sortedFaceAreas.Skip(2).Select(f => f.Face).ToList();
+
+            //return remainingFaces;
+
             var faces = solid.GetSolidVerticalFaces();
 
             var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
 
             var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
 
-            var remainingFaces = sortedFaceAreas.Skip(2).Select(f => f.Face).ToList();
+            double minArea = sortedFaceAreas.First().Area;
+
+            var remainingFaces = sortedFaceAreas
+                .Where(f => f.Area > minArea)  
+                .Select(f => f.Face)           
+                .ToList();
 
             return remainingFaces;
         }
@@ -440,78 +456,62 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             return area;
         }
 
-        // Create direct shape for a beam face
-        private DirectShape CreateDirectShapeForBeamFace(Document doc, Solid solid, Face face)
+     
+        private DirectShape CreateDirectShapeFromFrameFace(Document doc, Solid solid, Face face)
         {
+            // Get BoundingBoxUV 
             BoundingBoxUV boundingBox = face.GetBoundingBox();
             UV min = boundingBox.Min;
             UV max = boundingBox.Max;
 
+            // get BoundingBoxXYZ of solid to calc frameHeight
             BoundingBoxXYZ solidBoundingBox = solid.GetBoundingBox();
-            double beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
+            double frameHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
 
-            double heightMargin = beamHeight / 4;
-            double widthMargin = beamHeight / 2;
+            double heightMargin = frameHeight / 4;
+            double widthMargin = frameHeight / 2;
 
-            UV adjustedMin = new UV(min.U + widthMargin, min.V + widthMargin);
-            UV adjustedMax = new UV(max.U - widthMargin, max.V - widthMargin);
+            // Xác định biên theo chiều dài dầm
+            UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
+            UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
 
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho V
             if (adjustedMin.V >= adjustedMax.V)
             {
                 adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
                 adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
             }
 
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U
             if (adjustedMin.U >= adjustedMax.U)
             {
                 adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
                 adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
             }
 
-            // Kiểm tra độ dài của từng đoạn thẳng trước khi tạo
-            double shortCurveTolerance = doc.Application.ShortCurveTolerance;
-
-            List<Curve> profile = new List<Curve>();
-
-            // Tạo từng đường thẳng và kiểm tra độ dài
-            XYZ p1 = face.Evaluate(adjustedMin);
-            XYZ p2 = face.Evaluate(new UV(adjustedMin.U, adjustedMax.V));
-            if (p1.DistanceTo(p2) > shortCurveTolerance)
-                profile.Add(Line.CreateBound(p1, p2));
-
-            XYZ p3 = face.Evaluate(adjustedMax);
-            if (p2.DistanceTo(p3) > shortCurveTolerance)
-                profile.Add(Line.CreateBound(p2, p3));
-
-            XYZ p4 = face.Evaluate(new UV(adjustedMax.U, adjustedMin.V));
-            if (p3.DistanceTo(p4) > shortCurveTolerance)
-                profile.Add(Line.CreateBound(p3, p4));
-
-            if (p4.DistanceTo(p1) > shortCurveTolerance)
-                profile.Add(Line.CreateBound(p4, p1));
-
-            // Chỉ tiếp tục nếu tất cả các đoạn thẳng được tạo thành công
-            if (profile.Count == 4)
+            // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
+            List<Curve> profile = new List<Curve>
             {
-                CurveLoop curveLoop = CurveLoop.Create(profile);
-                List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
+                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
+                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
+                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
+                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
+            };
 
-                XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
+            // Tạo CurveLoop từ profile
+            CurveLoop curveLoop = CurveLoop.Create(profile);
+            List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
 
-                // Tạo Solid cho DirectShape với chiều dài extrusion là 10mm
-                Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8); // 10mm chuyển đổi sang đơn vị nội bộ
+            // extrusion direction dựa trên pháp tuyến của face
+            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
 
-                DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-                directShape.SetShape(new GeometryObject[] { directShapeSolid });
-                directShape.SetName("Beam Intersection Zone");
+            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
+            DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+            directShape.SetShape(new GeometryObject[] { directShapeSolid });
+            directShape.SetName("Beam Intersection Zone");
 
-                return directShape;
-            }
-
-            return null;
+            return directShape;
         }
-
-
 
         // Check if a point is within a direct shape
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
