@@ -49,24 +49,24 @@ namespace SKToolsRibbon
 
             // Create Space
             //PushButtonData createSpaceBtn = ribbonUtils.CreatePushButtonData("CreateSpaceCmd",
-            //    "スペース\n作成", "SKToolsAddins.dll",
-            //    "SKToolsAddins.Commands.CreateSpace.CreateSpaceCmd", "CreateSpace.png",
+            //    "スペース\n作成", "SKRevitAddins.dll",
+            //    "SKRevitAddins.Commands.CreateSpace.CreateSpaceCmd", "CreateSpace.png",
             //    "アドインの情報", null, null, null, null, null);
 
             //createSpacePanel.AddItem(createSpaceBtn);
 
             //// ChangeBwTypAndInsPara
             //PushButtonData changeParaBtn = ribbonUtils.CreatePushButtonData("ChangeBwTypAndInsParaCmd",
-            //    "パラメーター\n変更", "SKToolsAddins.dll",
-            //    "SKToolsAddins.Commands.ChangeBwTypeAndIns.ChangeBwTypeAndInsCmd", "ChangeBwTypAndInsPara.png",
+            //    "パラメーター\n変更", "SKRevitAddins.dll",
+            //    "SKRevitAddins.Commands.ChangeBwTypeAndIns.ChangeBwTypeAndInsCmd", "ChangeBwTypAndInsPara.png",
             //    "アドインの情報", null, null, null, null, null);
 
             //changeParaPanel.AddItem(changeParaBtn);
 
             // CopySetOfFilterFromViewTemp
             PushButtonData copySetOfFilterFromViewTempBtn = ribbonUtils.CreatePushButtonData("CopySetOfFilterFromViewTempCmd",
-                "Filter\nCopy", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.CopySetOfFilterFromViewTemp.CopySetOfFilterFromViewTempCmd", "CopySetOfFilterFromViewTemp.png",
+                "Filter\nCopy", "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.CopySetOfFilterFromViewTemp.CopySetOfFilterFromViewTempCmd", "CopySetOfFilterFromViewTemp.png",
                 "アドインの情報", null, null, null, null, null);
 
             GENPanelNamePanel.AddItem(copySetOfFilterFromViewTempBtn);
@@ -74,8 +74,8 @@ namespace SKToolsRibbon
             // SelectElements
             PushButtonData selectElementsBtn = ribbonUtils.CreatePushButtonData("SelectElementsVer1Cmd"
                 , "Elements\nNumbering"
-                , "SKToolsAddins.dll"
-                , "SKToolsAddins.Commands.SelectElementsVer1.SelectElementsVer1Cmd"
+                , "SKRevitAddins.dll"
+                , "SKRevitAddins.Commands.SelectElementsVer1.SelectElementsVer1Cmd"
                 , "SelectElements.png"
                 , "アドインの情報", null, null, null, null, null);
             GENPanelNamePanel.AddItem(selectElementsBtn);
@@ -83,51 +83,51 @@ namespace SKToolsRibbon
             //// Parameter Assignment from excel for Jasty
             //PushButtonData parameterAssigmentBtn = ribbonUtils.CreatePushButtonData("ParameterAssignmentCmd"
             //    , "パラメーター\n作成"
-            //    , "SKToolsAddins.dll"
-            //    , "SKToolsAddins.Commands.ParameterAssignment.ParameterAssignmentCmd"
+            //    , "SKRevitAddins.dll"
+            //    , "SKRevitAddins.Commands.ParameterAssignment.ParameterAssignmentCmd"
             //    , "SelectElements.png"
             //    , "", null, null, null, null, null);
             //GENPanelNamePanel.AddItem(parameterAssigmentBtn);
 
             //CadImportReplaceTextType
             PushButtonData replaceTextNotesBtn = ribbonUtils.CreatePushButtonData("ReplaceTextNoteFromCadExploreCmd",
-                "TextType\nReplace", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png",
+                "TextType\nChange", "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png",
                 "アドインの情報", null, null, null, null, null);
-            CADPanel.AddItem(replaceTextNotesBtn);
+            GENPanelNamePanel.AddItem(replaceTextNotesBtn);
 
-            //CadImportReplaceLineStyle
-            PushButtonData replaceLineStyleBtn = ribbonUtils.CreatePushButtonData("ReplaceLineStyleFromCadExploreCmd",
-                "LineStyle\nReplace", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.CadImportReplaceLineStyle.CadImportReplaceLineStyleCmd", "ReplaceLine.png",
-                "アドインの情報", null, null, null, null, null);
+            ////CadImportReplaceLineStyle
+            //PushButtonData replaceLineStyleBtn = ribbonUtils.CreatePushButtonData("ReplaceLineStyleFromCadExploreCmd",
+            //    "LineStyle\nReplace", "SKRevitAddins.dll",
+            //    "SKRevitAddins.Commands.CadImportReplaceLineStyle.CadImportReplaceLineStyleCmd", "ReplaceLine.png",
+            //    "アドインの情報", null, null, null, null, null);
 
-            CADPanel.AddItem(replaceLineStyleBtn);
+            //CADPanel.AddItem(replaceLineStyleBtn);
 
             //CadLinkPlaceElementsFromBlocks
             PushButtonData placeEleFromBlocksBtn = ribbonUtils.CreatePushButtonData("PlaceElementsFromBlocksCadCmd",
-                "Elements\nPlace", "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png",
-                "", null, null, null, null, null);
+                "ElementsFrBlocks\nCreate", "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png",
+                "Creeate elements from Blocks", null, null, null, null, null);
             CADPanel.AddItem(placeEleFromBlocksBtn);
 
             // FindDWGNotUsed
             PushButtonData findDWGNotUsedBtn = ribbonUtils.CreatePushButtonData("FindDWGNotUsedAndDelCmd"
                 , "Import DWG\nDelete"
-                , "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.FindDWGNotUsedAndDel.FindDWGNotUsedAndDelCmd"
+                , "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.FindDWGNotUsedAndDel.FindDWGNotUsedAndDelCmd"
                 , "FindDWGNotUsed.png"
-                , "アドインの情報"
+                , "Find DWG and Delete"
                 , null, null, null, null, null);
             CADPanel.AddItem(findDWGNotUsedBtn);
 
             // Create Pile From Cad
             PushButtonData createPileFromCadBtn = ribbonUtils.CreatePushButtonData("AutoCreatePileFromCadCmd"
-                , "Piles DWG\n Import"
-                , "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.AutoCreatePileFromCad.AutoCreatePileFromCadCmd"
-                , "ReplaceLine.png"
-                , "アドインの情報"
+                , "PilesFrDWG\n Create"
+                , "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.AutoCreatePileFromCad.AutoCreatePileFromCadCmd"
+                , "PileFCADCreate.png"
+                , "Create Pile From DWG"
                 , null, null, null, null, null);
             CADPanel.AddItem(createPileFromCadBtn);
 
@@ -135,17 +135,17 @@ namespace SKToolsRibbon
 
             PushButtonData createDuctAndPipeFromCadBtn = ribbonUtils.CreatePushButtonData("PlaceDuctsAndPipesBaseonCadCmd"
                 , "Duct・Pipes\n Create"
-                , "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.DuctPipePlaceholderAndFittings.PlaceDuctsAndPipesBaseonCadCmd"
+                , "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.PlaceDuctsAndPipesBaseonCadCmd"
                 , "PlaceDuctsAndPipesBaseonCad.png"
-                , null
+                , "Create Duct/ Pipes from DWG"
                 , null, null, null, null, null);
             mepAddinsPanel.AddItem(createDuctAndPipeFromCadBtn);
 
             PushButtonData convertDuctsAndPipesToPalceholdersBtn = ribbonUtils.CreatePushButtonData("ConvertDuctsAndPipesToPlaceholdersCmd"
                 , "Duct・Pipes\n Convert"
-                , "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.DuctPipePlaceholderAndFittings.ConvertDuctsAndPipesToPlaceholdersCmd"
+                , "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.ConvertDuctsAndPipesToPlaceholdersCmd"
                 , "ConvertDuctsAndPipesToPalceholders.png"
                 , null
                 , null, null, null, null, null);
@@ -153,8 +153,8 @@ namespace SKToolsRibbon
 
             PushButtonData ConvertPlaceholdersToDuctsAndPipesBtn = ribbonUtils.CreatePushButtonData("ConvertPlaceholdersToDuctsAndPipesCmd"
                 , "Placeholders\n Convert"
-                , "SKToolsAddins.dll",
-                "SKToolsAddins.Commands.DuctPipePlaceholderAndFittings.ConvertPlaceholdersToDuctsAndPipesCmd"
+                , "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.ConvertPlaceholdersToDuctsAndPipesCmd"
                 , "ConvertPlaceholdersToDuctsAndPipes.png"
                 , null
                 , null, null, null, null, null);

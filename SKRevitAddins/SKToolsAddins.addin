@@ -10,9 +10,9 @@
 	</AddIn>
   <AddIn Type="Application">
     <Name>Shinken Application</Name>
-    <Assembly>C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\2022\dll\SKToolsAddins.dll</Assembly>
+    <Assembly>C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\2022\dll\SKRevitAddins.dll</Assembly>
     <AddInId>27D11A12-D51D-4A29-A005-5EDA5B9BF82A</AddInId>
-    <FullClassName>SKToolsAddins.App</FullClassName>
+    <FullClassName>SKRevitAddins.App</FullClassName>
 	<VendorId>Shinken</VendorId>
 	<VendorDescription>Shinken</VendorDescription>
   </AddIn>

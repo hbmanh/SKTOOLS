@@ -5,6 +5,8 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
+using UnitUtils = Autodesk.Revit.DB.UnitUtils;
 
 namespace SKRevitAddins.Commands.IntersectWithFrame
 {
@@ -49,7 +51,6 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             return Result.Succeeded;
         }
 
-        // Retrieve linked documents
         private List<Document> GetLinkedDocuments(Document doc)
         {
             return new FilteredElementCollector(doc)
@@ -60,7 +61,6 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                 .ToList();
         }
 
-        // Retrieve elements of specified type and category
         private List<Element> GetElementsOfType<T>(Document doc, BuiltInCategory? category = null) where T : Element
         {
             var collector = new FilteredElementCollector(doc)
@@ -79,6 +79,8 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
             {
                 trans.Start();
+
+                var solidsIntersection = new List<Solid>();
                 foreach (var framing in structuralFramings)
                 {
                     var framingGeometry = framing.get_Geometry(new Options());
@@ -86,40 +88,69 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                         continue;
 
                     List<Solid> solids = GetSolidsFromGeometry(framingGeometry);
-
-                    foreach (Solid solid in solids)
+                    Solid solid = TSolidUtils.UnionSolidList(solids);
+                    solidsIntersection.Add(solid);
+                    var surroundingFaces = GetSurroundingFaces(solid);
+                    foreach (Face face in surroundingFaces)
                     {
-                        var surroundingFaces = GetSurroundingFaces(solid);
-                        foreach (Face face in surroundingFaces)
+                        var directShape = CreateDirectShapeForBeamFace(doc, solid, face);
+                        if (directShape != null)
                         {
-                            var directShape = CreateDirectShapeForBeamFace(doc, solid, face);
-                            if (directShape != null)
-                            {
-                                directShapes.Add(directShape);
-                            }
+                            directShapes.Add(directShape);
+                        }
 
-                            foreach (var pipeOrDuct in pipesAndDucts)
-                            {
-                                var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
-                                if (pipeOrDuctCurve == null)
-                                    continue;
+                        foreach (var pipeOrDuct in pipesAndDucts)
+                        {
+                            var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                            if (pipeOrDuctCurve == null)
+                                continue;
 
-                                if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                            if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                            {
+                                if (!intersectionData.ContainsKey(pipeOrDuct.Id))
                                 {
-                                    if (!intersectionData.ContainsKey(pipeOrDuct.Id))
-                                    {
-                                        intersectionData[pipeOrDuct.Id] = new List<XYZ>();
-                                    }
+                                    intersectionData[pipeOrDuct.Id] = new List<XYZ>();
+                                }
 
-                                    foreach (IntersectionResult intersectionResult in resultArray)
-                                    {
-                                        intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
-                                    }
+                                foreach (IntersectionResult intersectionResult in resultArray)
+                                {
+                                    intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
                                 }
                             }
                         }
                     }
                 }
+                //var unionSolid = solidsToUnion.UnionSolidList();
+                //unionSolid.BakeSolidToDirectShape(doc);
+                //var surroundingFaces = GetSurroundingFaces(unionSolid);
+                //foreach (Face face in surroundingFaces)
+                //{
+                //    var directShape = CreateDirectShapeForBeamFace(doc, unionSolid, face);
+                //    if (directShape != null)
+                //    {
+                //        directShapes.Add(directShape);
+                //    }
+
+                //    foreach (var pipeOrDuct in pipesAndDucts)
+                //    {
+                //        var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                //        if (pipeOrDuctCurve == null)
+                //            continue;
+
+                //        if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                //        {
+                //            if (!intersectionData.ContainsKey(pipeOrDuct.Id))
+                //            {
+                //                intersectionData[pipeOrDuct.Id] = new List<XYZ>();
+                //            }
+
+                //            foreach (IntersectionResult intersectionResult in resultArray)
+                //            {
+                //                intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
+                //            }
+                //        }
+                //    }
+                //}
                 trans.Commit();
             }
         }
@@ -377,26 +408,17 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             return solids;
         }
 
-        // Get surrounding faces excluding top and bottom faces
         private List<Face> GetSurroundingFaces(Solid solid)
         {
-            var faces = solid.Faces.Cast<Face>().Where(face => !IsTopOrBottomFace(face)).ToList();
+            var faces = solid.GetSolidVerticalFaces();
 
             var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
 
             var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
 
-            sortedFaceAreas.RemoveAt(0);
-            sortedFaceAreas.RemoveAt(0);
+            var remainingFaces = sortedFaceAreas.Skip(2).Select(f => f.Face).ToList();
 
-            return sortedFaceAreas.Select(f => f.Face).ToList();
-        }
-
-        // Check if a face is the top or bottom face
-        private bool IsTopOrBottomFace(Face face)
-        {
-            XYZ normal = face.ComputeNormal(new UV(0.5, 0.5));
-            return Math.Abs(normal.Z) > 0.9; // Assuming Z direction is vertical
+            return remainingFaces;
         }
 
         // Get area of a face
@@ -421,38 +443,31 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
         // Create direct shape for a beam face
         private DirectShape CreateDirectShapeForBeamFace(Document doc, Solid solid, Face face)
         {
-            // Lấy BoundingBoxUV của mặt
             BoundingBoxUV boundingBox = face.GetBoundingBox();
             UV min = boundingBox.Min;
             UV max = boundingBox.Max;
 
-            // Lấy BoundingBoxXYZ của khối solid để tính chiều cao của dầm
             BoundingBoxXYZ solidBoundingBox = solid.GetBoundingBox();
             double beamHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
 
-            // Xác định khoảng cách biên cần thiết từ top và bottom của dầm
             double heightMargin = beamHeight / 4;
             double widthMargin = beamHeight;
 
-            // Điều chỉnh các giá trị min và max của BoundingBoxUV để tạo khoảng cách biên cần thiết
             UV adjustedMin = new UV(min.U + widthMargin, min.V + widthMargin);
             UV adjustedMax = new UV(max.U - widthMargin, max.V - widthMargin);
 
-            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho V
             if (adjustedMin.V >= adjustedMax.V)
             {
                 adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
                 adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
             }
 
-            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U
             if (adjustedMin.U >= adjustedMax.U)
             {
                 adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
                 adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
             }
 
-            // Tạo các đường bao quanh (profile) cho mặt bằng cách sử dụng các giá trị UV đã điều chỉnh
             List<Curve> profile = new List<Curve>
             {
                 Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
@@ -461,17 +476,13 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                 Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
             };
 
-            // Tạo CurveLoop từ profile
             CurveLoop curveLoop = CurveLoop.Create(profile);
             List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
 
-            // Tính toán hướng đùn (extrusion direction) dựa trên pháp tuyến của mặt
             XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
 
-            // Tạo khối solid cho DirectShape bằng cách đùn CurveLoop
             Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8); // 10mm chuyển đổi sang đơn vị nội bộ
 
-            // Tạo DirectShape trong tài liệu Revit
             DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
             directShape.SetShape(new GeometryObject[] { directShapeSolid });
             directShape.SetName("Beam Intersection Zone");
@@ -498,24 +509,34 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             return directShapes.Any(ds => IsPointWithinDirectShape(point, ds));
         }
 
-        // Apply filter to direct shapes and set color to green
+        // Apply filter to direct shapes and set color
         private void ApplyFilterToDirectShapes(Document doc, View view, List<DirectShape> directShapes)
         {
             using (Transaction trans = new Transaction(doc, "Apply Filter to Direct Shapes"))
             {
                 trans.Start();
 
-                // Create a filter for direct shapes
-                ElementCategoryFilter directShapeFilter = new ElementCategoryFilter(BuiltInCategory.OST_GenericModel);
-                ParameterFilterElement parameterFilter = ParameterFilterElement.Create(doc, "DirectShape Filter", new List<ElementId> { new ElementId(BuiltInCategory.OST_GenericModel) });
+                ParameterFilterElement parameterFilter = new FilteredElementCollector(doc)
+                    .OfClass(typeof(ParameterFilterElement))
+                    .Cast<ParameterFilterElement>()
+                    .FirstOrDefault(f => f.Name == "DirectShape Filter");
 
-                // Apply the filter to the active view
-                view.AddFilter(parameterFilter.Id);
+                if (parameterFilter == null)
+                {
+                    ElementCategoryFilter directShapeFilter = new ElementCategoryFilter(BuiltInCategory.OST_GenericModel);
+                    parameterFilter = ParameterFilterElement.Create(doc, "DirectShape Filter", new List<ElementId> { new ElementId(BuiltInCategory.OST_GenericModel) });
+                    view.AddFilter(parameterFilter.Id); 
+                }
+                else if (!view.IsFilterApplied(parameterFilter.Id)) 
+                {
+                    view.AddFilter(parameterFilter.Id); 
+                }
+
                 ElementId solidFillPatternId = null;
-
                 List<FillPatternElement> fillPatternList = new FilteredElementCollector(doc)
                     .WherePasses(new ElementClassFilter(typeof(FillPatternElement))).
                     ToElements().Cast<FillPatternElement>().ToList();
+
                 foreach (FillPatternElement fp in fillPatternList)
                 {
                     if (fp.GetFillPattern().IsSolidFill)
@@ -525,11 +546,9 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                     }
                 }
 
-                // Set the color to green for the direct shapes
                 OverrideGraphicSettings overrideSettings = new OverrideGraphicSettings();
-                view.SetFilterOverrides(parameterFilter.Id, overrideSettings.SetSurfaceForegroundPatternColor(new Color(0, 255, 0)));
-                view.SetFilterOverrides(parameterFilter.Id, overrideSettings.SetSurfaceForegroundPatternId(solidFillPatternId));
-
+                overrideSettings.SetSurfaceForegroundPatternColor(new Color(0, 255, 0));
+                overrideSettings.SetSurfaceForegroundPatternId(solidFillPatternId);
 
                 foreach (var directShape in directShapes)
                 {
@@ -539,5 +558,7 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
                 trans.Commit();
             }
         }
+
+
     }
 }

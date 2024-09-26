@@ -231,7 +231,6 @@
     <Compile Include="Utils\ListUtils.cs" />
     <Compile Include="Utils\MEPCurveUtils.cs" />
     <Compile Include="Utils\MepUtils.cs" />
-    <Compile Include="Utils\ModelComparisonUtils.cs" />
     <Compile Include="Utils\MultiSelect.cs" />
     <Compile Include="Utils\MultiValueConverter.cs" />
     <Compile Include="Utils\ParamUtils.cs" />
