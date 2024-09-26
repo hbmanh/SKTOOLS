@@ -523,12 +523,12 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
 
             // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
             List<Curve> profile = new List<Curve>
-            {
-                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
-            };
+    {
+        Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
+        Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
+        Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
+        Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
+    };
 
             // Tạo CurveLoop từ profile
             CurveLoop curveLoop = CurveLoop.Create(profile);
@@ -540,20 +540,19 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             // Tạo khối directShapeSolid ban đầu
             Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
 
-            // Kiểm tra giao cắt với các solid khác (các dầm khác)
-            foreach (var framingSolid in framingSolids)
+            // Hợp nhất tất cả các framingSolid thành một khối
+            Solid mergedFramingSolid = framingSolids.UnionSolidList();
+
+            // Kiểm tra nếu mergedFramingSolid có giao cắt với directShapeSolid trước khi thực hiện Boolean Difference
+            if (mergedFramingSolid != null && directShapeSolid != null && mergedFramingSolid.Volume > 0 && directShapeSolid.Volume > 0)
             {
-                if (framingSolid != null && framingSolid.Volume > 0)
+                try
                 {
-                    try
-                    {
-                        // Loại bỏ phần giao nhau giữa directShapeSolid và dầm khác
-                        directShapeSolid = BooleanOperationsUtils.ExecuteBooleanOperation(directShapeSolid, framingSolid, BooleanOperationsType.Difference);
-                    }
-                    catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-                    {
-                        continue;
-                    }
+                    directShapeSolid = BooleanOperationsUtils.ExecuteBooleanOperation(directShapeSolid, mergedFramingSolid, BooleanOperationsType.Difference);
+                }
+                catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+                {
+                    // Xử lý nếu phép toán boolean không hợp lệ
                 }
             }
 
@@ -570,7 +569,6 @@ namespace SKRevitAddins.Commands.IntersectWithFrame
             // Trả về null nếu khối đã bị loại bỏ hoàn toàn bởi giao cắt
             return null;
         }
-
 
         // Check if a point is within a direct shape
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
