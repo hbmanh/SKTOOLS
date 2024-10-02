@@ -159,6 +159,15 @@ namespace SKToolsRibbon
                 , null
                 , null, null, null, null, null);
             mepAddinsPanel.AddItem(ConvertPlaceholdersToDuctsAndPipesBtn);
+
+            PushButtonData PermissibleRangeFramePunchingBtn = ribbonUtils.CreatePushButtonData("IntersectWithFrameCmd"
+                , "Permissible Range\n Check"
+                , "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.PermissibleRangeFramePunching.PermissibleRangeFramePunchingCmd"
+                , "PermissibleRangeFramePunching.png"
+                , null
+                , null, null, null, null, null);
+            mepAddinsPanel.AddItem(PermissibleRangeFramePunchingBtn);
         }
     }
 }

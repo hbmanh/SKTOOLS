@@ -18,9 +18,9 @@
         <GroupBox Name="groupA" Grid.Row="0" Margin="10,5,10,5">
             <StackPanel Orientation="Vertical" Margin="5">
                 <StackPanel Orientation="Horizontal" Margin="5">
-                    <TextBlock Margin="34,0,0,0">Filter By :</TextBlock>
+                    <TextBlock Margin="0,0,0,0" Width="80" >Funcion :</TextBlock>
                     <ComboBox 
-                        Name="selectionType" Width="150"
+                        Name="selectionType" Width="180"
                         Margin="10,0,0,0"
                         ItemsSource="{Binding FilterBy}"
                         SelectedItem="{Binding SelFilterBy}" />
@@ -34,19 +34,19 @@
         <GroupBox Name="groupB" Grid.Row="1" Margin="10,5,10,5">
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="5">
-                    <TextBlock Margin="34,0,0,0">Category :</TextBlock>
+                    <TextBlock Margin="0,0,0,0" Width="80" >Category :</TextBlock>
                     <ComboBox 
-                        Name="bycate" Width="150" Margin="10,0,0,0"
+                        Name="bycate" Width="180" Margin="10,0,0,0"
                         ItemsSource="{Binding Categories}"
                         SelectedItem="{Binding SelCategory}"
                         IsEditable="True"
                         IsTextSearchEnabled="True"
                         DisplayMemberPath="Name"/>
                 </StackPanel>
-                <StackPanel Name="pnamegroup" Orientation="Horizontal" Margin="5">
-                    <TextBlock Name="pnametext" Margin="-7,0,0,0">Param Name :</TextBlock>
+                <StackPanel Orientation="Horizontal" Margin="5">
+                    <TextBlock Margin="0,0,0,0" Width="80"  >Param Name :</TextBlock>
                     <ComboBox 
-                        Name="byparams" Width="150" Margin="10,0,0,0"
+                        x:Name="byparams" Width="180" Margin="10,0,0,0"
                         ItemsSource="{Binding Parameters}"
                         SelectedItem="{Binding SelParameter}"
                         IsEditable="True"
@@ -54,16 +54,16 @@
                         DisplayMemberPath="Definition.Name"/>
                 </StackPanel>
                 <StackPanel Name="prulegroup" Orientation="Horizontal" Margin="5">
-                    <TextBlock Margin="29,0,0,0">Filter Rule :</TextBlock>
+                    <TextBlock Margin="0,0,0,0" Width="80">Filter Rule :</TextBlock>
                     <ComboBox 
-                        Name="rule" Width="150" Margin="10,0,0,0"
+                        Name="rule" Width="180" Margin="10,0,0,0"
                         ItemsSource="{Binding StringRules}"
                         SelectedItem="{Binding SelStringRule}"/>
                 </StackPanel>
                 <StackPanel Name="pvalgroup" Orientation="Horizontal" Margin="5">
-                    <TextBlock Margin="-5,3,0,0">Param Value :</TextBlock>
+                    <TextBlock Margin="0,0,0,0" Width="80">Param Value :</TextBlock>
                     <ComboBox  
-                        Name="pvalue" Margin="11,0,0,0" Width="150"
+                        Name="pvalue" Margin="10,0,0,0" Width="180"
                         ItemsSource="{Binding ParamValues}"
                         SelectedItem="{Binding SelParamValue}"
                         IsEditable="True"
@@ -74,7 +74,7 @@
         <GroupBox Name="groupC" Grid.Row="2" Margin="10,5,10,5">
             <StackPanel>
                 <StackPanel Name="previewDisplay">
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Margin="5">
                         <TextBlock Margin="5,0,0,5" Text="Review:" HorizontalAlignment="Center"/>
                         <Expander Margin="10,0,0,0">
                             <StackPanel Orientation="Vertical">

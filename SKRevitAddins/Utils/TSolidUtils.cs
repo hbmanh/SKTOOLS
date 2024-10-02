@@ -1727,6 +1727,31 @@ namespace SKRevitAddins.Utils
             }
             return union;
         }
-        
+        public static double GetSolidHeight(this Solid solid)
+        {
+            if (solid == null || solid.Volume == 0)
+            {
+                return 0.0;
+            }
+
+            // Get the top and bottom planar faces
+            PlanarFace topFace = solid.GetTopPlanarFace();
+            PlanarFace bottomFace = solid.GetBottomPlanarFace();
+
+            // Ensure both top and bottom faces exist
+            if (topFace == null || bottomFace == null)
+            {
+                return 0.0;
+            }
+
+            // Calculate the height as the difference between top and bottom face Z values
+            double topZ = topFace.Origin.Z;
+            double bottomZ = bottomFace.Origin.Z;
+
+            double height = topZ - bottomZ;
+
+            return Math.Abs(height); // Return the absolute value to avoid negative height
+        }
+
     }
 }

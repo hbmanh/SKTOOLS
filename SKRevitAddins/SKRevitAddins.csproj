@@ -156,11 +156,11 @@
     <Compile Include="Commands\CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
-    <Compile Include="Commands\IntersectWithFrame\IntersectWithFrameCmd.cs" />
-    <Compile Include="Commands\IntersectWithFrame\IntersectInvalidPipesDuctsForm.cs">
+    <Compile Include="Commands\PermissibleRangeFramePunching\PermissibleRangeFramePunchingCmdTest.cs" />
+    <Compile Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\IntersectWithFrame\IntersectInvalidPipesDuctsForm.Designer.cs">
+    <Compile Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.Designer.cs">
       <DependentUpon>IntersectInvalidPipesDuctsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Commands\ParameterAssignment\ParameterAssignmentForm .cs">
@@ -391,7 +391,7 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Commands\IntersectWithFrame\IntersectInvalidPipesDuctsForm.resx">
+    <EmbeddedResource Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.resx">
       <DependentUpon>IntersectInvalidPipesDuctsForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Commands\ParameterAssignment\ParameterAssignmentForm .resx">
