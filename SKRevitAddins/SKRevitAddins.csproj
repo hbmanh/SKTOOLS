@@ -156,7 +156,7 @@
     <Compile Include="Commands\CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
-    <Compile Include="Commands\PermissibleRangeFramePunching\PermissibleRangeFramePunchingCmdTest.cs" />
+    <Compile Include="Commands\PermissibleRangeFramePunching\PermissibleRangeFramePunchingCmd.cs" />
     <Compile Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -11,7 +11,7 @@ using UnitUtils = Autodesk.Revit.DB.UnitUtils;
 namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
 {
     [Transaction(TransactionMode.Manual)]
-    public class PermissibleRangeFramePunchingCmdTest : IExternalCommand
+    public class PermissibleRangeFramePunchingCmd : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -41,8 +41,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
 
             PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
 
-            if (errorMessages.Any())
-                CreateErrorSchedules(doc, errorMessages);
+            if (errorMessages.Any()) CreateErrorSchedules(doc, errorMessages);
 
             TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
 
