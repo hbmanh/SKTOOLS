@@ -1,14 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using SKRevitAddins.Utils;
+using Curve = Autodesk.Revit.DB.Curve;
+using Face = Autodesk.Revit.DB.Face;
+using Line = Autodesk.Revit.DB.Line;
+using Solid = Autodesk.Revit.DB.Solid;
+using Transaction = Autodesk.Revit.DB.Transaction;
 using UnitUtils = Autodesk.Revit.DB.UnitUtils;
 
-namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
+namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 {
     [Transaction(TransactionMode.Manual)]
     public class PermissibleRangeFramePunchingCmd : IExternalCommand
@@ -23,17 +29,27 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
             var linkedDocs = GetLinkedDocuments(doc);
             var pipesAndDucts = GetElementsOfType<MEPCurve>(doc).Where(e => e.Document.ActiveView.Id == activeView.Id).ToList();
             var structuralFramings = new List<Element>();
-            foreach (var linkedDoc in linkedDocs)
-            {
-                structuralFramings.AddRange(GetElementsOfType<FamilyInstance>(linkedDoc, BuiltInCategory.OST_StructuralFraming));
-            }
 
             var intersectionData = new Dictionary<ElementId, List<XYZ>>();
             var errorMessages = new Dictionary<ElementId, HashSet<string>>();
             var sleevePlacements = new Dictionary<ElementId, List<(XYZ, double)>>();
             var directShapes = new List<DirectShape>();
+            List<FrameObj> frameObjs = new List<FrameObj>();
+            List<Solid> expandedFramingSolids = new List<Solid>();
+            Solid unionExpandedFramingSolids = null;
+            foreach (var linkedDoc in linkedDocs)
+            {
+                structuralFramings.AddRange(GetElementsOfType<FamilyInstance>(linkedDoc, BuiltInCategory.OST_StructuralFraming));
+            }
 
-            ProcessIntersections(doc, structuralFramings, pipesAndDucts, intersectionData, directShapes);
+            foreach (var framing in structuralFramings)
+            {
+                FrameObj frameObj = new FrameObj(framing);
+                frameObjs.Add(frameObj);
+                ProcessIntersections(doc, frameObj, pipesAndDucts, intersectionData, directShapes);
+                //expandedFramingSolids.Add(frameObj.FramingSolidExpand);
+                //unionExpandedFramingSolids = expandedFramingSolids.UnionSolidList();
+            }
 
             var sleeveSymbol = GetSleeveSymbol(doc, ref message);
             if (sleeveSymbol == null)
@@ -73,79 +89,42 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
         }
 
         // Process intersections between structural framings and pipes/ducts
-        private void ProcessIntersections(Document doc, List<Element> structuralFramings, List<Element> pipesAndDucts, Dictionary<ElementId, List<XYZ>> intersectionData, List<DirectShape> directShapes)
+        private void ProcessIntersections(Document doc, FrameObj frame, List<Element> pipesAndDucts, Dictionary<ElementId, List<XYZ>> intersectionData, List<DirectShape> directShapes)
         {
             using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
             {
                 trans.Start();
-                    
-                var solidsIntersection = new List<Solid>();
-                List<Solid> expandedFramingSolids = new List<Solid>();
-
-                foreach (var framing in structuralFramings)
-                {
-                    var framingGeometry = framing.get_Geometry(new Options());
-                    if (framingGeometry == null)
-                        continue;
-
-                    List<Solid> solids = GetSolidsFromGeometry(framingGeometry);
-                    Solid solid = solids.UnionSolidList();
-                    //solid.BakeSolidToDirectShape(doc);
-                    solidsIntersection.Add(solid);
-
-                    // Get the bounding box of the solid
-                    BoundingBoxXYZ newBoundingBox = solid.GetBoundingBox();
-                    XYZ minPoint = newBoundingBox.Min;
-                    XYZ maxPoint = newBoundingBox.Max;
-
-                    var widthMargin = (maxPoint.Z - minPoint.Z) / 2;
-
-                    // Mở rộng các tọa độ Max theo phương X, Y, Z mà không thay đổi Min
-                    XYZ expandedMin = new XYZ(minPoint.X - widthMargin, minPoint.Y - widthMargin, minPoint.Z - widthMargin);
-                    XYZ expandedMax = new XYZ(maxPoint.X + widthMargin, maxPoint.Y + widthMargin, maxPoint.Z + widthMargin);
-
-                    // Tạo solid mới từ bounding box mở rộng
-                    Solid expandedSolid = CreateSolidFromBoundingBox(expandedMin, expandedMax);
-                    //expandedSolid.BakeSolidToDirectShape(doc);
-                    expandedFramingSolids.Add(expandedSolid);
-                }
-
-                // Union the expanded solids
-                Solid mergedExpandedFramingSolid = expandedFramingSolids.UnionSolidList();
                 //mergedExpandedFramingSolid.BakeSolidToDirectShape(doc);
-
-                // Tiếp tục quá trình tạo DirectShape với mergedExpandedFramingSolid...
-                foreach (var solid in solidsIntersection)
+                var surroundingFaces = GetSurroundingFaces(frame.FramingSolid);
+                foreach (Face face in surroundingFaces)
                 {
-                    var surroundingFaces = GetSurroundingFaces(solid);
-                    foreach (Face face in surroundingFaces)
+                    //var directShape = CreateDirectShapeFromFrameFace(doc, frame, face, mergedExpandedFramingSolid);
+                    var directShape = CreateDirectShapeFromFrameFace(doc, frame, face);
+                    if (directShape != null)
                     {
-                        var directShape = CreateDirectShapeFromFrameFace(doc, solid, face, mergedExpandedFramingSolid);
-                        if (directShape != null)
-                        {
-                            directShapes.Add(directShape);
-                        }
-                        foreach (var pipeOrDuct in pipesAndDucts)
-                        {
-                            var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
-                            if (pipeOrDuctCurve == null)
-                                continue;
+                        directShapes.Add(directShape);
+                    }
+                    foreach (var pipeOrDuct in pipesAndDucts)
+                    {
+                        var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                        if (pipeOrDuctCurve == null)
+                            continue;
 
-                            if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                        if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                        {
+                            if (!intersectionData.ContainsKey(pipeOrDuct.Id))
                             {
-                                if (!intersectionData.ContainsKey(pipeOrDuct.Id))
-                                {
-                                    intersectionData[pipeOrDuct.Id] = new List<XYZ>();
-                                }
+                                intersectionData[pipeOrDuct.Id] = new List<XYZ>();
+                            }
 
-                                foreach (IntersectionResult intersectionResult in resultArray)
-                                {
-                                    intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
-                                }
+                            foreach (IntersectionResult intersectionResult in resultArray)
+                            {
+                                intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
                             }
                         }
                     }
                 }
+                // Tiếp tục quá trình tạo DirectShape với mergedExpandedFramingSolid...
 
                 trans.Commit();
             }
@@ -384,7 +363,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
         }
 
         // Get solids from geometry element
-        private List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
+        private static List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
         {
             List<Solid> solids = new List<Solid>();
 
@@ -404,18 +383,8 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
             return solids;
         }
 
-        private List<Face> GetSurroundingFaces(Solid solid)
+        private static List<Face> GetSurroundingFaces(Solid solid)
         {
-            //var faces = solid.GetSolidVerticalFaces();
-
-            //var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
-
-            //var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
-
-            //var remainingFaces = sortedFaceAreas.Skip(2).Select(f => f.Face).ToList();
-
-            //return remainingFaces;
-
             var faces = solid.GetSolidVerticalFaces();
 
             var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
@@ -433,7 +402,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
         }
 
         // Get area of a face
-        private double GetFaceArea(Face face)
+        private static double GetFaceArea(Face face)
         {
             Mesh mesh = face.Triangulate();
             double area = 0;
@@ -451,68 +420,112 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
             return area;
         }
 
+        //private DirectShape CreateDirectShapeFromFrameFace(Document doc, FrameObj frameObj, Face face)
+        //{
+        //    // Get BoundingBoxUV 
+        //    BoundingBoxUV boundingBox = face.GetBoundingBox();
+        //    UV min = boundingBox.Min;
+        //    UV max = boundingBox.Max;
 
-        private DirectShape CreateDirectShapeFromFrameFace(Document doc, Solid solid, Face face, Solid mergedExpandedFramingSolid)
+        //    // get BoundingBoxXYZ of solid to calc frameHeight
+        //    BoundingBoxXYZ solidBoundingBox = frameObj.FramingSolid.GetBoundingBox();
+
+        //    double heightMargin = frameObj.FramingHeight / 4;
+        //    double widthMargin = frameObj.FramingHeight / 2;
+
+        //    // Xác định biên
+        //    UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
+        //    UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
+
+        //    // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U, V
+        //    if (adjustedMin.V >= adjustedMax.V)
+        //    {
+        //        adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
+        //        adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
+        //    }
+        //    if (adjustedMin.U >= adjustedMax.U)
+        //    {
+        //        adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
+        //        adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
+        //    }
+
+        //    // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
+        //    List<Curve> profile = new List<Curve>
+        //    {
+        //        Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
+        //        Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
+        //        Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
+        //        Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
+        //    };
+
+        //    // Tạo CurveLoop từ profile
+        //    CurveLoop curveLoop = CurveLoop.Create(profile);
+        //    List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
+        //    XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
+
+        //    // Tạo khối directShapeSolid ban đầu
+        //    Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
+
+        //    //// Kiểm tra nếu mergedExpandedFramingSolid có giao cắt với directShapeSolid trước khi thực hiện Boolean Difference
+        //    //if (mergeSolid != null && directShapeSolid != null && mergeSolid.Volume > 0 && directShapeSolid.Volume > 0)
+        //    //{
+        //    //    try
+        //    //    {
+        //    //        directShapeSolid = BooleanOperationsUtils.ExecuteBooleanOperation(directShapeSolid, mergeSolid, BooleanOperationsType.Difference);
+        //    //    }
+        //    //    catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+        //    //    {
+        //    //        // Xử lý nếu phép toán boolean không hợp lệ
+        //    //    }
+        //    //}
+
+        //    if (directShapeSolid != null && directShapeSolid.Volume > 0)
+        //    {
+        //        DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+        //        directShape.SetShape(new GeometryObject[] { directShapeSolid });
+        //        directShape.SetName("Beam Intersection Zone");
+
+        //        return directShape;
+        //    }
+
+        //    // Trả về null nếu khối đã bị loại bỏ hoàn toàn bởi giao cắt
+        //    return null;
+        //}
+        private DirectShape CreateDirectShapeFromFrameFace(Document doc, FrameObj frameObj, Face face)
         {
-            // Get BoundingBoxUV 
-            BoundingBoxUV boundingBox = face.GetBoundingBox();
-            UV min = boundingBox.Min;
-            UV max = boundingBox.Max;
+            // Ensure the face is a PlanarFace before proceeding
+            PlanarFace planarFace = face as PlanarFace;
+            if (planarFace == null)
+                return null;
 
-            // get BoundingBoxXYZ of solid to calc frameHeight
-            BoundingBoxXYZ solidBoundingBox = solid.GetBoundingBox();
-            double frameHeight = solidBoundingBox.Max.Z - solidBoundingBox.Min.Z;
+            // Get the face's edges as curve loops
+            IList<CurveLoop> faceEdges = planarFace.GetEdgesAsCurveLoops();
+            if (faceEdges == null || faceEdges.Count == 0)
+                return null;
 
+            double frameHeight = frameObj.FramingHeight;
             double heightMargin = frameHeight / 4;
             double widthMargin = frameHeight / 2;
 
-            // Xác định biên
-            UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
-            UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
+            // Apply offset to the first curve loop to create a smaller profile
+            CurveLoop offsetLoop = CurveLoop.CreateViaOffset(faceEdges.First(), - widthMargin, planarFace.FaceNormal);
+            List<CurveLoop> curveLoops = new List<CurveLoop> { offsetLoop };
+            XYZ extrusionDirection = planarFace.FaceNormal;
 
-            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U, V
-            if (adjustedMin.V >= adjustedMax.V)
+            // Create the direct shape solid using the offset loop and the frame height
+            Solid directShapeSolid = null;
+            try
             {
-                adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
-                adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
+                // Extrude the curve loop along the face normal direction with a fixed height
+                directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
             }
-            if (adjustedMin.U >= adjustedMax.U)
+            catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {
-                adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
-                adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
-            }
-
-            // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
-            List<Curve> profile = new List<Curve>
-            {
-                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
-            };
-
-            // Tạo CurveLoop từ profile
-            CurveLoop curveLoop = CurveLoop.Create(profile);
-            List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
-
-            XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
-
-            // Tạo khối directShapeSolid ban đầu
-            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
-
-            // Kiểm tra nếu mergedExpandedFramingSolid có giao cắt với directShapeSolid trước khi thực hiện Boolean Difference
-            if (mergedExpandedFramingSolid != null && directShapeSolid != null && mergedExpandedFramingSolid.Volume > 0 && directShapeSolid.Volume > 0)
-            {
-                try
-                {
-                    directShapeSolid = BooleanOperationsUtils.ExecuteBooleanOperation(directShapeSolid, mergedExpandedFramingSolid, BooleanOperationsType.Difference);
-                }
-                catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-                {
-                    // Xử lý nếu phép toán boolean không hợp lệ
-                }
+                TaskDialog.Show("Error", $"Extrusion failed: {ex.Message}");
+                return null;
             }
 
+            // Check if the resulting solid is valid
             if (directShapeSolid != null && directShapeSolid.Volume > 0)
             {
                 DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
@@ -522,31 +535,39 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
                 return directShape;
             }
 
-            // Trả về null nếu khối đã bị loại bỏ hoàn toàn bởi giao cắt
+            // Return null if the solid has been completely removed or is invalid
             return null;
         }
 
-        // Hàm tạo Solid từ BoundingBox
-        private Solid CreateSolidFromBoundingBox(XYZ minPoint, XYZ maxPoint)
+        // Manually validate the CurveLoop
+        private bool IsCurveLoopValid(CurveLoop curveLoop)
         {
-            // Tạo các đường bao của mặt đáy và mặt trên từ các điểm của bounding box
-            List<Curve> bottomProfile = new List<Curve>
-            { 
-                Line.CreateBound(new XYZ(minPoint.X, minPoint.Y, minPoint.Z), new XYZ(minPoint.X, maxPoint.Y, minPoint.Z)), 
-                Line.CreateBound(new XYZ(minPoint.X, maxPoint.Y, minPoint.Z), new XYZ(maxPoint.X, maxPoint.Y, minPoint.Z)), 
-                Line.CreateBound(new XYZ(maxPoint.X, maxPoint.Y, minPoint.Z), new XYZ(maxPoint.X, minPoint.Y, minPoint.Z)), 
-                Line.CreateBound(new XYZ(maxPoint.X, minPoint.Y, minPoint.Z), new XYZ(minPoint.X, minPoint.Y, minPoint.Z))
-            };
+            if (curveLoop == null || curveLoop.Count() == 0)
+                return false;
 
-            CurveLoop bottomLoop = CurveLoop.Create(bottomProfile);
-            List<CurveLoop> loops = new List<CurveLoop> { bottomLoop };
+            XYZ lastEndPoint = null;
 
-            // Tạo solid từ extrusion với chiều cao
-            double extrusionHeight = maxPoint.Z - minPoint.Z;
+            foreach (Curve curve in curveLoop)
+            {
+                if (curve == null)
+                    return false;
 
-            var solid = loops.ExtrudeCurveLoopUpAndDn(extrusionHeight);
+                // Get the start and end points of the current curve
+                XYZ startPoint = curve.GetEndPoint(0);
+                XYZ endPoint = curve.GetEndPoint(1);
 
-            return solid;
+                // Check if the curve's start point matches the end point of the previous curve (if any)
+                if (lastEndPoint != null && !startPoint.IsAlmostEqualTo(lastEndPoint))
+                {
+                    return false; // The loop is not continuous
+                }
+
+                // Set the end point of the current curve as the last end point
+                lastEndPoint = endPoint;
+            }
+
+            // Finally, check if the last end point matches the start point of the first curve (the loop must be closed)
+            return lastEndPoint.IsAlmostEqualTo(curveLoop.First().GetEndPoint(0));
         }
 
         // Check if a point is within a direct shape
@@ -616,7 +637,52 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunchingCmd
                 trans.Commit();
             }
         }
+        public class FrameObj
+        {
+            public Element FramingObj { get; set; }
+            public GeometryElement FramingGeometryObject { get; set; }
+            public Solid FramingSolid { get; set; }
+            public double FramingHeight { get; set; }
+            private List<Face> framingFaces { get; set; }
 
+            public FrameObj(Element frameObj)
+            {
+                FramingObj = frameObj;
+                FramingGeometryObject = frameObj.get_Geometry(new Options());
+                if (FramingGeometryObject == null) return;
+                List<Solid> solids = GetSolidsFromGeometry(FramingGeometryObject);
+                FramingSolid = solids.UnionSolidList();
+                FramingHeight = FramingSolid.GetSolidHeight();
+                framingFaces = GetSurroundingFaces(FramingSolid);
+            }
+
+            //private Solid ExpandSolidByOffset(Solid originalSolid, double offsetAmount)
+            //{
+            //    if (originalSolid == null || originalSolid.Volume == 0)
+            //        return null;
+
+            //    // Initialize a list to hold the new solids created from the offset faces
+            //    List<Solid> expandedSolids = new List<Solid>();
+
+            //    foreach (Face face in originalSolid.Faces)
+            //    {
+            //        PlanarFace planarFace = face as PlanarFace;
+            //        if (planarFace == null) continue;
+
+            //        IList<CurveLoop> faceEdges = planarFace.GetEdgesAsCurveLoops();
+            //        if (faceEdges == null || faceEdges.Count == 0) continue;
+            //        CurveLoop offsetLoop = CurveLoop.CreateViaOffset(faceEdges.First(), offsetAmount, planarFace.FaceNormal);
+            //        List<CurveLoop> curveLoops = new List<CurveLoop> { offsetLoop };
+            //        Solid extrudedSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, planarFace.FaceNormal, offsetAmount);
+
+            //        if (extrudedSolid != null)
+            //        {
+            //            expandedSolids.Add(extrudedSolid);
+            //        }
+            //    }
+            //    return expandedSolids.UnionSolidList();
+            //}
+        }
 
     }
 }
