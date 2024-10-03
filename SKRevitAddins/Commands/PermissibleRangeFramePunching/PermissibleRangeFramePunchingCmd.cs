@@ -41,28 +41,29 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             {
                 structuralFramings.AddRange(GetElementsOfType<FamilyInstance>(linkedDoc, BuiltInCategory.OST_StructuralFraming));
             }
-
-            foreach (var framing in structuralFramings)
+            using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
             {
-                FrameObj frameObj = new FrameObj(framing);
-                frameObjs.Add(frameObj);
-                ProcessIntersections(doc, frameObj, pipesAndDucts, intersectionData, directShapes);
-                //expandedFramingSolids.Add(frameObj.FramingSolidExpand);
-                //unionExpandedFramingSolids = expandedFramingSolids.UnionSolidList();
+                trans.Start();
+                foreach (var framing in structuralFramings)
+                {
+                    FrameObj frameObj = new FrameObj(framing);
+                    frameObjs.Add(frameObj);
+                    ProcessIntersections(doc, frameObj, pipesAndDucts, intersectionData, directShapes);
+                }
+
+                var sleeveSymbol = GetSleeveSymbol(doc, ref message);
+                if (sleeveSymbol == null)
+                    return Result.Failed;
+
+                PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
+
+                if (errorMessages.Any()) CreateErrorSchedules(doc, errorMessages);
+
+                TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
+
+                ApplyFilterToDirectShapes(doc, activeView, directShapes);
+                trans.Commit();
             }
-
-            var sleeveSymbol = GetSleeveSymbol(doc, ref message);
-            if (sleeveSymbol == null)
-                return Result.Failed;
-
-            PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
-
-            if (errorMessages.Any()) CreateErrorSchedules(doc, errorMessages);
-
-            TaskDialog.Show("Intersections", $"Placed {intersectionData.Count} スリーブ_SK instances at intersections.");
-
-            ApplyFilterToDirectShapes(doc, activeView, directShapes);
-
             return Result.Succeeded;
         }
 
@@ -91,42 +92,33 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
         // Process intersections between structural framings and pipes/ducts
         private void ProcessIntersections(Document doc, FrameObj frame, List<Element> pipesAndDucts, Dictionary<ElementId, List<XYZ>> intersectionData, List<DirectShape> directShapes)
         {
-            using (Transaction trans = new Transaction(doc, "Place Sleeves and Create Direct Shapes"))
+            var surroundingFaces = GetSurroundingFaces(frame.FramingSolid);
+            foreach (Face face in surroundingFaces)
             {
-                trans.Start();
-                //mergedExpandedFramingSolid.BakeSolidToDirectShape(doc);
-                var surroundingFaces = GetSurroundingFaces(frame.FramingSolid);
-                foreach (Face face in surroundingFaces)
+                var directShape = CreateDirectShapeFromFrameFace(doc, frame, face);
+                if (directShape != null)
                 {
-                    //var directShape = CreateDirectShapeFromFrameFace(doc, frame, face, mergedExpandedFramingSolid);
-                    var directShape = CreateDirectShapeFromFrameFace(doc, frame, face);
-                    if (directShape != null)
-                    {
-                        directShapes.Add(directShape);
-                    }
-                    foreach (var pipeOrDuct in pipesAndDucts)
-                    {
-                        var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
-                        if (pipeOrDuctCurve == null)
-                            continue;
+                    directShapes.Add(directShape);
+                }
+                foreach (var pipeOrDuct in pipesAndDucts)
+                {
+                    var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
+                    if (pipeOrDuctCurve == null)
+                        continue;
 
-                        if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                    if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) == SetComparisonResult.Overlap)
+                    {
+                        if (!intersectionData.ContainsKey(pipeOrDuct.Id))
                         {
-                            if (!intersectionData.ContainsKey(pipeOrDuct.Id))
-                            {
-                                intersectionData[pipeOrDuct.Id] = new List<XYZ>();
-                            }
+                            intersectionData[pipeOrDuct.Id] = new List<XYZ>();
+                        }
 
-                            foreach (IntersectionResult intersectionResult in resultArray)
-                            {
-                                intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
-                            }
+                        foreach (IntersectionResult intersectionResult in resultArray)
+                        {
+                            intersectionData[pipeOrDuct.Id].Add(intersectionResult.XYZPoint);
                         }
                     }
                 }
-                // Tiếp tục quá trình tạo DirectShape với mergedExpandedFramingSolid...
-
-                trans.Commit();
             }
         }
 
@@ -140,75 +132,66 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 .Cast<FamilySymbol>()
                 .FirstOrDefault(symbol => symbol.FamilyName == "スリーブ_SK");
 
-            if (sleeveSymbol == null)
+            if (sleeveSymbol != null)
             {
-                message = "The スリーブ_SK family could not be found.";
-                return null;
-            }
-
-            if (!sleeveSymbol.IsActive)
-            {
+                if (sleeveSymbol.IsActive) return sleeveSymbol;
                 sleeveSymbol.Activate();
                 doc.Regenerate();
+
+                return sleeveSymbol;
             }
 
-            return sleeveSymbol;
+            message = "The スリーブ_SK family could not be found.";
+            return null;
         }
 
         // Place sleeves at intersection points
         private void PlaceSleeves(Document doc, FamilySymbol sleeveSymbol, Dictionary<ElementId, List<XYZ>> intersectionData, List<Element> structuralFramings, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, Dictionary<ElementId, HashSet<string>> errorMessages, List<DirectShape> directShapes)
         {
-            using (Transaction trans = new Transaction(doc, "Place Sleeves"))
+            foreach (var entry in intersectionData)
             {
-                trans.Start();
+                var pipeOrDuct = doc.GetElement(entry.Key);
+                var points = entry.Value;
 
-                foreach (var entry in intersectionData)
+                for (int i = 0; i < points.Count; i += 2)
                 {
-                    var pipeOrDuct = doc.GetElement(entry.Key);
-                    var points = entry.Value;
-
-                    for (int i = 0; i < points.Count; i += 2)
+                    if (i + 1 < points.Count)
                     {
-                        if (i + 1 < points.Count)
+                        XYZ point1 = points[i];
+                        XYZ point2 = points[i + 1];
+                        XYZ midpoint = (point1 + point2) / 2;
+                        XYZ direction = (point2 - point1).Normalize();
+
+                        double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
+                        double sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters);
+                        double beamHeight = GetBeamHeight(point1, structuralFramings);
+
+                        HashSet<string> errors = ValidateSleevePlacement(sleeveDiameter, beamHeight, midpoint, sleevePlacements, entry.Key);
+
+                        if (errors.Count > 0)
                         {
-                            XYZ point1 = points[i];
-                            XYZ point2 = points[i + 1];
-                            XYZ midpoint = (point1 + point2) / 2;
-                            XYZ direction = (point2 - point1).Normalize();
-
-                            double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
-                            double sleeveDiameter = pipeDiameter + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters);
-                            double beamHeight = GetBeamHeight(point1, structuralFramings);
-
-                            HashSet<string> errors = ValidateSleevePlacement(sleeveDiameter, beamHeight, midpoint, sleevePlacements, entry.Key);
-
-                            if (errors.Count > 0)
+                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
                             {
-                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                                {
-                                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                                }
-                                errorMessages[pipeOrDuct.Id].UnionWith(errors);
-                                continue;
+                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
                             }
-
-                            // Kiểm tra nếu pipe/duct không nằm hoàn toàn trong phạm vi direct shape sẽ không được tạo ra
-                            if (!IsPointWithinAnyDirectShape(point1, directShapes) || !IsPointWithinAnyDirectShape(point2, directShapes))
-                            {
-                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                                {
-                                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                                }
-                                errorMessages[pipeOrDuct.Id].Add("Pipe/Duct does not fully lie within the permissible direct shape boundaries.");
-                                continue;
-                            }
-
-                            PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
+                            errorMessages[pipeOrDuct.Id].UnionWith(errors);
+                            continue;
                         }
+
+                        // Kiểm tra nếu pipe/duct không nằm hoàn toàn trong phạm vi direct shape sẽ không được tạo ra
+                        if (!IsPointWithinAnyDirectShape(point1, directShapes) || !IsPointWithinAnyDirectShape(point2, directShapes))
+                        {
+                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                            {
+                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                            }
+                            errorMessages[pipeOrDuct.Id].Add("Pipe/Duct không nằm hoàn toàn trong phạm vi được phép xuyên dầm.");
+                            continue;
+                        }
+
+                        PlaceSleeveInstance(doc, sleeveSymbol, midpoint, direction, point1, point2, sleeveDiameter, sleevePlacements, entry.Key, pipeOrDuct, directShapes, errorMessages);
                     }
                 }
-
-                trans.Commit();
             }
         }
 
@@ -292,50 +275,54 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
         private void CreateErrorSchedule(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages, string scheduleName, BuiltInCategory category)
         {
-            using (Transaction trans = new Transaction(doc, "Create Error Schedule"))
+            // Check and delete existing schedule with the same name
+            var existingSchedule = new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewSchedule))
+                .Cast<ViewSchedule>()
+                .FirstOrDefault(sch => sch.Name.Equals(scheduleName));
+
+            if (existingSchedule != null)
             {
-                trans.Start();
+                doc.Delete(existingSchedule.Id); // Delete the existing schedule
+            }
 
-                ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, new ElementId(category));
+            // Create a new schedule
+            ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, new ElementId(category));
+            schedule.Name = scheduleName;
 
-                schedule.Name = scheduleName;
+            SchedulableField markField = schedule.Definition.GetSchedulableFields().First(sf => sf.GetName(doc) == "Mark");
+            SchedulableField commentField = schedule.Definition.GetSchedulableFields().First(sf => sf.GetName(doc) == "Comments");
 
-                SchedulableField markField = schedule.Definition.GetSchedulableFields().First(sf => sf.GetName(doc) == "Mark");
-                SchedulableField commentField = schedule.Definition.GetSchedulableFields().First(sf => sf.GetName(doc) == "Comments");
+            schedule.Definition.AddField(ScheduleFieldType.Instance, markField.ParameterId);
+            schedule.Definition.AddField(ScheduleFieldType.Instance, commentField.ParameterId);
 
-                schedule.Definition.AddField(ScheduleFieldType.Instance, markField.ParameterId);
-                schedule.Definition.AddField(ScheduleFieldType.Instance, commentField.ParameterId);
+            int markIndex = 1;
+            foreach (var kvp in errorMessages)
+            {
+                Element element = doc.GetElement(kvp.Key);
+                if (element.Category.Id.IntegerValue != (int)category)
+                    continue;
 
-                int markIndex = 1;
-                foreach (var kvp in errorMessages)
+                Parameter markParam = element.LookupParameter("Mark");
+                if (markParam != null && kvp.Value.Any())
                 {
-                    Element element = doc.GetElement(kvp.Key);
-                    if (element.Category.Id.IntegerValue != (int)category)
-                        continue;
-
-                    Parameter markParam = element.LookupParameter("Mark");
-                    if (markParam != null && kvp.Value.Any())
-                    {
-                        markParam.Set(markIndex.ToString());
-                        markIndex++;
-                    }
-
-                    Parameter commentParam = element.LookupParameter("Comments");
-                    if (commentParam != null)
-                    {
-                        commentParam.Set(string.Join(", ", kvp.Value));
-                    }
+                    markParam.Set(markIndex.ToString());
+                    markIndex++;
                 }
 
-                // Apply filter to remove elements without errors
-                ScheduleFilter filter = new ScheduleFilter(schedule.Definition.GetField(0).FieldId, ScheduleFilterType.Equal, "");
-                schedule.Definition.AddFilter(filter);
-
-                trans.Commit();
+                Parameter commentParam = element.LookupParameter("Comments");
+                if (commentParam != null)
+                {
+                    commentParam.Set(string.Join(", ", kvp.Value));
+                }
             }
+
+            // Apply filter to remove elements without errors
+            ScheduleFilter filter = new ScheduleFilter(schedule.Definition.GetField(0).FieldId, ScheduleFilterType.NotEqual, "");
+            schedule.Definition.AddFilter(filter);
         }
 
-        // Get beam height from structural framings
+
         private double GetBeamHeight(XYZ point, List<Element> structuralFramings)
         {
             foreach (var framing in structuralFramings)
@@ -420,154 +407,69 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             return area;
         }
 
-        //private DirectShape CreateDirectShapeFromFrameFace(Document doc, FrameObj frameObj, Face face)
-        //{
-        //    // Get BoundingBoxUV 
-        //    BoundingBoxUV boundingBox = face.GetBoundingBox();
-        //    UV min = boundingBox.Min;
-        //    UV max = boundingBox.Max;
-
-        //    // get BoundingBoxXYZ of solid to calc frameHeight
-        //    BoundingBoxXYZ solidBoundingBox = frameObj.FramingSolid.GetBoundingBox();
-
-        //    double heightMargin = frameObj.FramingHeight / 4;
-        //    double widthMargin = frameObj.FramingHeight / 2;
-
-        //    // Xác định biên
-        //    UV adjustedMin = new UV(min.U + widthMargin, min.V + heightMargin);
-        //    UV adjustedMax = new UV(max.U - widthMargin, max.V - heightMargin);
-
-        //    // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U, V
-        //    if (adjustedMin.V >= adjustedMax.V)
-        //    {
-        //        adjustedMin = new UV(adjustedMin.U, min.V + (max.V - min.V) / 4);
-        //        adjustedMax = new UV(adjustedMax.U, max.V - (max.V - min.V) / 4);
-        //    }
-        //    if (adjustedMin.U >= adjustedMax.U)
-        //    {
-        //        adjustedMin = new UV(min.U + (max.U - min.U) / 4, adjustedMin.V);
-        //        adjustedMax = new UV(max.U - (max.U - min.U) / 4, adjustedMax.V);
-        //    }
-
-        //    // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
-        //    List<Curve> profile = new List<Curve>
-        //    {
-        //        Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-        //        Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-        //        Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
-        //        Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
-        //    };
-
-        //    // Tạo CurveLoop từ profile
-        //    CurveLoop curveLoop = CurveLoop.Create(profile);
-        //    List<CurveLoop> curveLoops = new List<CurveLoop> { curveLoop };
-        //    XYZ extrusionDirection = face.ComputeNormal(UV.Zero);
-
-        //    // Tạo khối directShapeSolid ban đầu
-        //    Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
-
-        //    //// Kiểm tra nếu mergedExpandedFramingSolid có giao cắt với directShapeSolid trước khi thực hiện Boolean Difference
-        //    //if (mergeSolid != null && directShapeSolid != null && mergeSolid.Volume > 0 && directShapeSolid.Volume > 0)
-        //    //{
-        //    //    try
-        //    //    {
-        //    //        directShapeSolid = BooleanOperationsUtils.ExecuteBooleanOperation(directShapeSolid, mergeSolid, BooleanOperationsType.Difference);
-        //    //    }
-        //    //    catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-        //    //    {
-        //    //        // Xử lý nếu phép toán boolean không hợp lệ
-        //    //    }
-        //    //}
-
-        //    if (directShapeSolid != null && directShapeSolid.Volume > 0)
-        //    {
-        //        DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-        //        directShape.SetShape(new GeometryObject[] { directShapeSolid });
-        //        directShape.SetName("Beam Intersection Zone");
-
-        //        return directShape;
-        //    }
-
-        //    // Trả về null nếu khối đã bị loại bỏ hoàn toàn bởi giao cắt
-        //    return null;
-        //}
         private DirectShape CreateDirectShapeFromFrameFace(Document doc, FrameObj frameObj, Face face)
         {
-            // Ensure the face is a PlanarFace before proceeding
             PlanarFace planarFace = face as PlanarFace;
             if (planarFace == null)
                 return null;
 
-            // Get the face's edges as curve loops
-            IList<CurveLoop> faceEdges = planarFace.GetEdgesAsCurveLoops();
-            if (faceEdges == null || faceEdges.Count == 0)
-                return null;
+            // Get the corners of the face
+            BoundingBoxUV bboxUV = planarFace.GetBoundingBox();
+            UV minUV = bboxUV.Min;
+            UV maxUV = bboxUV.Max;
 
+            // Calculate frame height and apply margins
             double frameHeight = frameObj.FramingHeight;
-            double heightMargin = frameHeight / 4;
-            double widthMargin = frameHeight / 2;
+            double widthMargin = frameHeight / 2; // Width margin
+            double heightMargin = frameHeight / 4; // Height margin
 
-            // Apply offset to the first curve loop to create a smaller profile
-            CurveLoop offsetLoop = CurveLoop.CreateViaOffset(faceEdges.First(), - widthMargin, planarFace.FaceNormal);
-            List<CurveLoop> curveLoops = new List<CurveLoop> { offsetLoop };
+            // Transform UV corners to XYZ using face.Evaluate method
+            XYZ pt1 = planarFace.Evaluate(minUV);
+            XYZ pt2 = planarFace.Evaluate(new UV(maxUV.U, minUV.V));
+            XYZ pt3 = planarFace.Evaluate(maxUV);
+            XYZ pt4 = planarFace.Evaluate(new UV(minUV.U, maxUV.V));
+
+            //    // Xác định biên
+            UV adjustedMin = new UV(minUV.U + widthMargin, minUV.V + heightMargin);
+            UV adjustedMax = new UV(maxUV.U - widthMargin, maxUV.V - heightMargin);
+
+            // Nếu điều chỉnh vượt ra ngoài biên, thì đặt lại giá trị hợp lý cho U, V
+            if (adjustedMin.V >= adjustedMax.V)
+            {
+                adjustedMin = new UV(adjustedMin.U, minUV.V + (maxUV.V - minUV.V) / 4);
+                adjustedMax = new UV(adjustedMax.U, maxUV.V - (maxUV.V - minUV.V) / 4);
+            }
+            if (adjustedMin.U >= adjustedMax.U)
+            {
+                adjustedMin = new UV(minUV.U + (maxUV.U - minUV.U) / 4, adjustedMin.V);
+                adjustedMax = new UV(maxUV.U - (maxUV.U - minUV.U) / 4, adjustedMax.V);
+            }
+
+            // Tạo profile cho face bằng cách sử dụng các giá trị UV mới
+            List<Curve> profile = new List<Curve> 
+            {
+                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
+                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
+                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
+                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
+            };
+
+           
+            CurveLoop newCurveLoop = CurveLoop.Create(profile);
+
+            // Extrusion direction typically normal to the face
             XYZ extrusionDirection = planarFace.FaceNormal;
+            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { newCurveLoop }, extrusionDirection, 10.0 / 304.8);
 
-            // Create the direct shape solid using the offset loop and the frame height
-            Solid directShapeSolid = null;
-            try
-            {
-                // Extrude the curve loop along the face normal direction with a fixed height
-                directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(curveLoops, extrusionDirection, 10.0 / 304.8);
-            }
-            catch (Autodesk.Revit.Exceptions.ArgumentException ex)
-            {
-                TaskDialog.Show("Error", $"Extrusion failed: {ex.Message}");
-                return null;
-            }
-
-            // Check if the resulting solid is valid
             if (directShapeSolid != null && directShapeSolid.Volume > 0)
             {
                 DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
                 directShape.SetShape(new GeometryObject[] { directShapeSolid });
                 directShape.SetName("Beam Intersection Zone");
-
                 return directShape;
             }
 
-            // Return null if the solid has been completely removed or is invalid
             return null;
-        }
-
-        // Manually validate the CurveLoop
-        private bool IsCurveLoopValid(CurveLoop curveLoop)
-        {
-            if (curveLoop == null || curveLoop.Count() == 0)
-                return false;
-
-            XYZ lastEndPoint = null;
-
-            foreach (Curve curve in curveLoop)
-            {
-                if (curve == null)
-                    return false;
-
-                // Get the start and end points of the current curve
-                XYZ startPoint = curve.GetEndPoint(0);
-                XYZ endPoint = curve.GetEndPoint(1);
-
-                // Check if the curve's start point matches the end point of the previous curve (if any)
-                if (lastEndPoint != null && !startPoint.IsAlmostEqualTo(lastEndPoint))
-                {
-                    return false; // The loop is not continuous
-                }
-
-                // Set the end point of the current curve as the last end point
-                lastEndPoint = endPoint;
-            }
-
-            // Finally, check if the last end point matches the start point of the first curve (the loop must be closed)
-            return lastEndPoint.IsAlmostEqualTo(curveLoop.First().GetEndPoint(0));
         }
 
         // Check if a point is within a direct shape
@@ -591,50 +493,43 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
         // Apply filter to direct shapes and set color
         private void ApplyFilterToDirectShapes(Document doc, View view, List<DirectShape> directShapes)
         {
-            using (Transaction trans = new Transaction(doc, "Apply Filter to Direct Shapes"))
+            ParameterFilterElement parameterFilter = new FilteredElementCollector(doc)
+                .OfClass(typeof(ParameterFilterElement))
+                .Cast<ParameterFilterElement>()
+                .FirstOrDefault(f => f.Name == "DirectShape Filter");
+
+            if (parameterFilter == null)
             {
-                trans.Start();
+                ElementCategoryFilter directShapeFilter = new ElementCategoryFilter(BuiltInCategory.OST_GenericModel);
+                parameterFilter = ParameterFilterElement.Create(doc, "DirectShape Filter", new List<ElementId> { new ElementId(BuiltInCategory.OST_GenericModel) });
+                view.AddFilter(parameterFilter.Id);
+            }
+            else if (!view.IsFilterApplied(parameterFilter.Id))
+            {
+                view.AddFilter(parameterFilter.Id);
+            }
 
-                ParameterFilterElement parameterFilter = new FilteredElementCollector(doc)
-                    .OfClass(typeof(ParameterFilterElement))
-                    .Cast<ParameterFilterElement>()
-                    .FirstOrDefault(f => f.Name == "DirectShape Filter");
+            ElementId solidFillPatternId = null;
+            List<FillPatternElement> fillPatternList = new FilteredElementCollector(doc)
+                .WherePasses(new ElementClassFilter(typeof(FillPatternElement))).
+                ToElements().Cast<FillPatternElement>().ToList();
 
-                if (parameterFilter == null)
+            foreach (FillPatternElement fp in fillPatternList)
+            {
+                if (fp.GetFillPattern().IsSolidFill)
                 {
-                    ElementCategoryFilter directShapeFilter = new ElementCategoryFilter(BuiltInCategory.OST_GenericModel);
-                    parameterFilter = ParameterFilterElement.Create(doc, "DirectShape Filter", new List<ElementId> { new ElementId(BuiltInCategory.OST_GenericModel) });
-                    view.AddFilter(parameterFilter.Id); 
+                    solidFillPatternId = fp.Id;
+                    break;
                 }
-                else if (!view.IsFilterApplied(parameterFilter.Id)) 
-                {
-                    view.AddFilter(parameterFilter.Id); 
-                }
+            }
 
-                ElementId solidFillPatternId = null;
-                List<FillPatternElement> fillPatternList = new FilteredElementCollector(doc)
-                    .WherePasses(new ElementClassFilter(typeof(FillPatternElement))).
-                    ToElements().Cast<FillPatternElement>().ToList();
+            OverrideGraphicSettings overrideSettings = new OverrideGraphicSettings();
+            overrideSettings.SetSurfaceForegroundPatternColor(new Color(0, 255, 0));
+            overrideSettings.SetSurfaceForegroundPatternId(solidFillPatternId);
 
-                foreach (FillPatternElement fp in fillPatternList)
-                {
-                    if (fp.GetFillPattern().IsSolidFill)
-                    {
-                        solidFillPatternId = fp.Id;
-                        break;
-                    }
-                }
-
-                OverrideGraphicSettings overrideSettings = new OverrideGraphicSettings();
-                overrideSettings.SetSurfaceForegroundPatternColor(new Color(0, 255, 0));
-                overrideSettings.SetSurfaceForegroundPatternId(solidFillPatternId);
-
-                foreach (var directShape in directShapes)
-                {
-                    view.SetElementOverrides(directShape.Id, overrideSettings);
-                }
-
-                trans.Commit();
+            foreach (var directShape in directShapes)
+            {
+                view.SetElementOverrides(directShape.Id, overrideSettings);
             }
         }
         public class FrameObj
