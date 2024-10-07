@@ -284,7 +284,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                                     {
                                         errorMessages[pipeOrDuct.Id] = new HashSet<string>();
                                     }
-                                    errorMessages[pipeOrDuct.Id].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*1.5");
+                                    errorMessages[pipeOrDuct.Id].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*3/2");
                                     tooClose = true; // Set tooClose to true
                                     break;
                                 }
