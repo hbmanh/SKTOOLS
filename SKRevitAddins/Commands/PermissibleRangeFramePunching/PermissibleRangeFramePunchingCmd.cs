@@ -70,8 +70,8 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 CreateErrorSchedules(doc, errorMessages);
             }
 
-            // Show a message to the user
-            TaskDialog.Show("Thông báo:", $"Đã đặt {intersectionData.Count} Sleeves. Vui lòng kiểm tra lại.");
+            //// Show a message to the user
+            //TaskDialog.Show("Thông báo:", $"Đã đặt {intersectionData.Count} Sleeves. Vui lòng kiểm tra lại.");
 
             // Apply filters to the direct shapes
             ApplyFilterToDirectShapes(doc, activeView, directShapes);
@@ -81,7 +81,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
         private void ProcessIntersections(Document doc, List<Element> structuralFramings, List<MEPCurve> pipesAndDucts, Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> intersectionData, List<DirectShape> directShapes)
         {
-            using (Transaction trans = new Transaction(doc, "Create Permissible Beam Penetration Range"))
+            using (Transaction trans = new Transaction(doc, "Tạo phạm vi cho phép xuyên dầm"))
             {
                 trans.Start();
 
@@ -208,15 +208,10 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             return null;
         }
 
-        private void PlaceSleeves(
-            Document doc,
-            FamilySymbol sleeveSymbol,
-            Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> intersectionData,
-            List<Element> structuralFramings,
-            Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements,
-            Dictionary<ElementId, HashSet<string>> errorMessages,
-            List<DirectShape> directShapes)
+        private void PlaceSleeves(Document doc, FamilySymbol sleeveSymbol, Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> intersectionData, List<Element> structuralFramings, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, Dictionary<ElementId, HashSet<string>> errorMessages, List<DirectShape> directShapes)
         {
+            int successfulSleevesCount = 0; // Biến đếm số lượng Sleeve đặt thành công
+
             using (Transaction trans = new Transaction(doc, "Đặt Sleeve"))
             {
                 trans.Start();
@@ -244,21 +239,63 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                         double sleeveDiameter = pipeDiameter + UnitUtils.MmToFeet(50);
                         double frameHeight = frameObj.FramingHeight;
 
-                        // Kiểm tra điều kiện khi đặt Sleeve
-                        var errors = ValidateSleevePlacement(sleeveDiameter, frameHeight, midpoint, sleevePlacements, mepCurveId);
+                        // Perform checks before creating the sleeve instance
 
-                        if (errors.Count > 0)
+                        // Check if sleeve is outside allowable size
+                        if (sleeveDiameter > UnitUtils.MmToFeet(750))
                         {
-                            // Cảnh báo lỗi
                             if (!errorMessages.ContainsKey(pipeOrDuct.Id))
                             {
                                 errorMessages[pipeOrDuct.Id] = new HashSet<string>();
                             }
-                            errorMessages[pipeOrDuct.Id].Add($"Lỗi: {frameId.IntegerValue}: {string.Join("; ", errors)}");
-                            continue;
+                            errorMessages[pipeOrDuct.Id].Add("OD > 750mm");
+                            continue;  // Skip creation if the sleeve is too large
                         }
 
-                        // Create the sleeve instance at the midpoint
+                        if (sleeveDiameter > frameHeight / 3)
+                        {
+                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                            {
+                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                            }
+                            errorMessages[pipeOrDuct.Id].Add("OD > H/3");
+                            continue;  // Skip creation if the sleeve is too large for the frame
+                        }
+
+                        // Check if the new sleeve is too close to any previously placed sleeves in all placements
+                        bool tooClose = false;
+                        foreach (var sleevePlacement in sleevePlacements)
+                        {
+                            foreach (var previousSleeve in sleevePlacement.Value)
+                            {
+                                XYZ previousMidpoint = previousSleeve.Item1;
+                                double previousOD = previousSleeve.Item2;
+
+                                // Calculate the minimum allowed distance between the sleeves
+                                double minDistance = (sleeveDiameter + previousOD) * 1.5;
+
+                                // Calculate the actual distance between the current and previous midpoint
+                                double actualDistance = midpoint.DistanceTo(previousMidpoint);
+
+                                // Compare the actual distance to the minimum allowed distance
+                                if (actualDistance < minDistance)
+                                {
+                                    if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                                    {
+                                        errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                                    }
+                                    errorMessages[pipeOrDuct.Id].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*1.5");
+                                    tooClose = true; // Set tooClose to true
+                                    break;
+                                }
+                            }
+                            if (tooClose) break; // Stop checking if too close
+                        }
+
+                        // Skip creating the sleeve if it's too close to another sleeve
+                        if (tooClose) continue;
+
+                        // Create the sleeve instance after all checks have passed
                         FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
 
                         // Rotate the sleeve to align with the pipe/duct direction
@@ -286,51 +323,24 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                         }
                         sleevePlacements[mepCurveId].Add((midpoint, sleeveDiameter));
 
-                        // Check if the sleeve is within any direct shape
-                        bool isWithinDirectShape = directShapes.Any(ds => IsPointWithinDirectShape(midpoint, ds));
-                        if (!isWithinDirectShape)
+                        // Increase the count for successfully placed sleeves
+                        successfulSleevesCount++;
+
+                        // Check if the sleeve is within both direct shapes
+                        bool isWithinDirectShapes = directShapes.All(ds => IsPointWithinDirectShape(midpoint, ds));
+                        if (isWithinDirectShapes) continue;
+                        if (!errorMessages.ContainsKey(pipeOrDuct.Id))
                         {
-                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            {
-                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                            }
-                            errorMessages[pipeOrDuct.Id].Add("Sleeve nằm ngoài phạm vi cho phép xuyên dầm.");
+                            errorMessages[pipeOrDuct.Id] = new HashSet<string>();
                         }
+                        errorMessages[pipeOrDuct.Id].Add("Sleeve nằm ngoài phạm vi cho phép xuyên dầm.");
                     }
                 }
                 trans.Commit();
             }
-        }
 
-        private HashSet<string> ValidateSleevePlacement(double sleeveDiameter, double frameHeight, XYZ midpoint, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, ElementId pipeOrDuctId)
-        {
-            HashSet<string> errors = new HashSet<string>();
-
-            if (sleeveDiameter > UnitUtils.MmToFeet(750))
-            {
-                errors.Add("OD > 750mm");
-            }
-
-            if (sleeveDiameter > frameHeight / 3)
-            {
-                errors.Add("OD > H/3");
-            }
-
-            if (!sleevePlacements.ContainsKey(pipeOrDuctId))
-            {
-                sleevePlacements[pipeOrDuctId] = new List<(XYZ, double)>();
-            }
-
-            foreach (var (otherMidpoint, otherDiameter) in sleevePlacements[pipeOrDuctId])
-            {
-                double minDistance = (sleeveDiameter + otherDiameter) * 1.5;
-                if (midpoint.DistanceTo(otherMidpoint) < minDistance)
-                {
-                    errors.Add($"Khoảng cách giữa hai Sleeve < (OD1 + OD2)*1.5");
-                    break;
-                }
-            }
-            return errors;
+            // Update TaskDialog to show the number of successful sleeves
+            TaskDialog.Show("Thông báo:", $"Đã đặt {successfulSleevesCount} Sleeves thỏa điều kiện. Vui lòng kiểm tra lại.");
         }
 
         private void CreateErrorSchedules(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages)
@@ -340,11 +350,8 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 subtx.Start();
 
                 // List of schedule names and categories for pipes and ducts
-                var schedules = new List<(string scheduleName, BuiltInCategory category)>
-                {
-                    ("PipeErrorSchedule", BuiltInCategory.OST_PipeCurves),
-                    ("DuctErrorSchedule", BuiltInCategory.OST_DuctCurves)
-                };
+                var schedules = new List<(string scheduleName, BuiltInCategory category)> 
+                { ("PipeErrorSchedule", BuiltInCategory.OST_PipeCurves), ("DuctErrorSchedule", BuiltInCategory.OST_DuctCurves) };
 
                 foreach (var (scheduleName, category) in schedules)
                 {
@@ -383,6 +390,28 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                         commentScheduleField = schedule.Definition.AddField(commentField);
                     }
 
+                    // Clear old Mark and Comments values
+                    var elementsToClear = new FilteredElementCollector(doc)
+                        .OfCategory(category)
+                        .WhereElementIsNotElementType()
+                        .ToList();
+
+                    foreach (var element in elementsToClear)
+                    {
+                        Parameter markParam = element.LookupParameter("Mark");
+                        if (markParam != null)
+                        {
+                            markParam.Set(string.Empty);
+                        }
+
+                        Parameter commentParam = element.LookupParameter("Comments");
+                        if (commentParam != null)
+                        {
+                            commentParam.Set(string.Empty);
+                        }
+                    }
+
+                    // Set new values for Mark and Comments based on errorMessages
                     int markIndex = 1;
                     foreach (var kvp in errorMessages)
                     {
@@ -406,10 +435,12 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
                     // Apply filter to remove elements without errors
                     if (markScheduleField == null) continue;
+
                     // Use ScheduleFilter.Create method for string comparison
                     ScheduleFilter filter = new ScheduleFilter(schedule.Definition.GetField(0).FieldId, ScheduleFilterType.NotEqual, "");
                     schedule.Definition.AddFilter(filter);
                 }
+
                 subtx.Commit();
             }
         }
