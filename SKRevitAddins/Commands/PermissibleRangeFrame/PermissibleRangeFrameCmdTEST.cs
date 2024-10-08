@@ -8,7 +8,7 @@ using Autodesk.Revit.UI;
 using SKRevitAddins.Utils;
 using UnitUtils = SKRevitAddins.Utils.UnitUtils;
 
-namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
+namespace SKRevitAddins.Commands.PermissibleRangeFrame
 {
     [Transaction(TransactionMode.Manual)]
     public class PermissibleRangeFrameCmdTEST : IExternalCommand
