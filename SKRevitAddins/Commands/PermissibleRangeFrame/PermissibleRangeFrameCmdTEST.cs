@@ -87,7 +87,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
                     var frameObj = new FrameObj(frame);
 
                     // Get surrounding faces of the frame
-                    var surroundingFaces = GetSurroundingFaces(frameObj.FramingSolid);
+                    var surroundingFaces = GetSurroundingFacesOfFrame(frameObj.FramingSolid);
 
                     // Create DirectShapes from the faces and add to directShapes list
                     foreach (Face face in surroundingFaces)
@@ -155,14 +155,28 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
                 adjustedMax = new UV(maxUV.U - heightMargin, adjustedMax.V);
             }
 
-            // Create profile for the face using new UV values
-            List<Curve> profile = new List<Curve>
+            // Create profile for the face using new UV values, but only if the length is greater than Revit's tolerance
+            List<Curve> profile = new List<Curve>();
+
+            // Helper function to check curve length before creation
+            Func<XYZ, XYZ, bool> isValidCurve = (start, end) => start.DistanceTo(end) > doc.Application.ShortCurveTolerance;
+
+            XYZ corner1 = face.Evaluate(adjustedMin);
+            XYZ corner2 = face.Evaluate(new UV(adjustedMin.U, adjustedMax.V));
+            XYZ corner3 = face.Evaluate(adjustedMax);
+            XYZ corner4 = face.Evaluate(new UV(adjustedMax.U, adjustedMin.V));
+
+            // Check each edge length before adding it to the profile
+            if (isValidCurve(corner1, corner2)) profile.Add(Line.CreateBound(corner1, corner2));
+            if (isValidCurve(corner2, corner3)) profile.Add(Line.CreateBound(corner2, corner3));
+            if (isValidCurve(corner3, corner4)) profile.Add(Line.CreateBound(corner3, corner4));
+            if (isValidCurve(corner4, corner1)) profile.Add(Line.CreateBound(corner4, corner1));
+
+            // If there are fewer than 3 valid curves, return null as the profile is invalid
+            if (profile.Count < 3)
             {
-                Line.CreateBound(face.Evaluate(adjustedMin), face.Evaluate(new UV(adjustedMin.U, adjustedMax.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMin.U, adjustedMax.V)), face.Evaluate(adjustedMax)),
-                Line.CreateBound(face.Evaluate(adjustedMax), face.Evaluate(new UV(adjustedMax.U, adjustedMin.V))),
-                Line.CreateBound(face.Evaluate(new UV(adjustedMax.U, adjustedMin.V)), face.Evaluate(adjustedMin))
-            };
+                return null; // Not enough curves to create a valid loop
+            }
 
             CurveLoop newCurveLoop = CurveLoop.Create(profile);
 
@@ -172,12 +186,15 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
 
             Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { newCurveLoop }, extrusionDirection, extrusionDistance);
 
-            if (directShapeSolid == null || !(directShapeSolid.Volume > 0)) return null;
-            DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-            directShape.SetShape(new GeometryObject[] { directShapeSolid });
-            directShape.Name = "Phạm vi cho phép xuyên dầm";
-            return directShape;
+            if (directShapeSolid != null && directShapeSolid.Volume > 0)
+            {
+                DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+                directShape.SetShape(new GeometryObject[] { directShapeSolid });
+                directShape.Name = "Phạm vi cho phép xuyên dầm";
+                return directShape;
+            }
 
+            return null;
         }
 
         private FamilySymbol GetSleeveSymbol(Document doc, ref string message)
@@ -517,22 +534,90 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
             }
         }
 
-        private static List<Face> GetSurroundingFaces(Solid solid)
+        //private static List<Face> GetSurroundingFacesOfFrame(Solid solid)
+        //{
+        //    var faces = solid.GetSolidVerticalFaces();
+
+        //    // Calculate the area for each face
+        //    var faceAreas = faces.Select(face => new { Face = face, Area = face.Area }).ToList();
+
+        //    // Get the minimum area
+        //    double minArea = faceAreas.Min(f => f.Area);
+
+        //    // Filter out all faces that have the minimum area
+        //    var remainingFaces = faceAreas
+        //        .Select(f => f.Face)
+        //        .Where(f => f.Area > minArea)  // Remove all faces with the minimum area
+        //        .ToList();
+
+        //    return remainingFaces;
+        //}
+
+        //private static List<Face> GetSurroundingFacesOfFrame(Solid solid)
+        //{
+        //    var faces = solid.GetSolidVerticalFaces();
+
+        //    var faceAreas = faces.Select(face =>
+        //    {
+        //        Mesh mesh = face.Triangulate();
+        //        double area = 0;
+        //        int numTriangles = mesh.NumTriangles;
+        //        for (int i = 0; i < numTriangles; i++)
+        //        {
+        //            MeshTriangle triangle = mesh.get_Triangle(i);
+        //            XYZ p0 = triangle.get_Vertex(0);
+        //            XYZ p1 = triangle.get_Vertex(1);
+        //            XYZ p2 = triangle.get_Vertex(2);
+        //            area += 0.5 * ((p1 - p0).CrossProduct(p2 - p0)).GetLength();
+        //        }
+        //        return new { Face = face, Area = area };
+        //    }).ToList();
+
+        //    // Get the minimum area
+        //    double minArea = faceAreas.Min(f => f.Area);
+
+        //    // Filter out all faces that have the minimum area
+        //    var remainingFaces = faceAreas
+        //        .Where(f => f.Area > minArea)  // Remove all faces with the minimum area
+        //        .Select(f => f.Face)
+        //        .ToList();
+
+        //    return remainingFaces;
+        //}
+
+        private static List<Face> GetSurroundingFacesOfFrame(Solid solid)
         {
             var faces = solid.GetSolidVerticalFaces();
 
-            var faceAreas = faces.Select(face => new { Face = face, Area = face.Area }).ToList();
+            var faceAreas = faces.Select(face =>
+            {
+                Mesh mesh = face.Triangulate();
+                double area = 0;
+                int numTriangles = mesh.NumTriangles;
+                for (int i = 0; i < numTriangles; i++)
+                {
+                    MeshTriangle triangle = mesh.get_Triangle(i);
+                    XYZ p0 = triangle.get_Vertex(0);
+                    XYZ p1 = triangle.get_Vertex(1);
+                    XYZ p2 = triangle.get_Vertex(2);
+                    area += 0.5 * ((p1 - p0).CrossProduct(p2 - p0)).GetLength();
+                }
+                return new { Face = face, Area = area };
+            }).ToList();
 
-            var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
+            // Get the minimum area
+            double minArea = faceAreas.Min(f => f.Area);
 
-            double minArea = sortedFaceAreas.First().Area;
-
-            var remainingFaces = sortedFaceAreas
-                .Where(f => f.Area > minArea)
+            // Filter out all faces that have the minimum area
+            var remainingFaces = faceAreas
+                .Where(f => f.Area > minArea)  // Remove all faces with the minimum area
                 .Select(f => f.Face)
                 .ToList();
+
             return remainingFaces;
         }
+
+
 
         private class FrameObj
         {
