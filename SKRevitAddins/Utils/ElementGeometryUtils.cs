@@ -82,7 +82,24 @@ namespace SKRevitAddins.Utils
             }
             return solids;
         }
+        public static List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
+        {
+            List<Solid> solids = new List<Solid>();
 
+            foreach (GeometryObject geomObj in geometryElement)
+            {
+                if (geomObj is Solid solid && solid.Volume > 0)
+                {
+                    solids.Add(solid);
+                }
+                else if (geomObj is GeometryInstance geomInstance)
+                {
+                    GeometryElement instanceGeometry = geomInstance.GetInstanceGeometry();
+                    solids.AddRange(GetSolidsFromGeometry(instanceGeometry));
+                }
+            }
+            return solids;
+        }
         public static List<Solid> GetAllSolidsAdvance(this Element instance, bool transformedSolid = false, View view = null)
         {
             List<Solid> solidList = new List<Solid>();
@@ -167,8 +184,6 @@ namespace SKRevitAddins.Utils
 
             return solidList;
         }
-
-
 
         public static List<Solid> GetOriginalSolids(this FamilyInstance instance, bool transformedSolid = false, View view = null)
         {

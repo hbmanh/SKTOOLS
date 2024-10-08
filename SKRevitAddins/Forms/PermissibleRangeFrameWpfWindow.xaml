@@ -7,19 +7,19 @@
         mc:Ignorable="d" 
         Title="Auto check permissible range for drilling " 
         Width="900" 
-        Height="430" 
+        Height="450" 
         WindowStartupLocation="CenterScreen" 
         ResizeMode="NoResize" 
         ShowInTaskbar="True" 
         Topmost="True">
 
     <StackPanel Margin="10,10,10,9">
-        <Grid Height="380" Margin="0,0,0,0">
+        <Grid Height="410" Margin="0,0,0,0">
             <GroupBox Header="Conditions for Permissible Range" 
                       FontSize="14" 
                       HorizontalAlignment="Left" 
                       VerticalAlignment="Top" 
-                      Height="370" 
+                      Height="400" 
                       Width="283">
                 <StackPanel>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
@@ -46,38 +46,36 @@
                       FontSize="14" 
                       HorizontalAlignment="Left" 
                       VerticalAlignment="Center" 
-                      Height="365" 
+                      Height="390" 
                       Width="352" 
                       Margin="288,0,0,0">
                 <StackPanel>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
-                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="A Input:"/></TextBlock>
-                            <TextBox x:Name="Abox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding A}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="a Input:"/></TextBlock>
+                            <TextBox x:Name="abox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding a}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
-                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="B Input:"/></TextBlock>
-                            <TextBox x:Name="Bbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding B}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="b Input:"/></TextBlock>
+                            <TextBox x:Name="bbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding b}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
-                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="C Input:"/></TextBlock>
-                            <TextBox x:Name="Cbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding C}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="c Input:"/></TextBlock>
+                            <TextBox x:Name="cbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding c}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
-                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="D Input:"/></TextBlock>
-                            <TextBox x:Name="Dbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding D}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="d Input:"/></TextBlock>
+                            <TextBox x:Name="dbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding d}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <Image Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\SleeveConditions.png" 
-                           Width="332" 
-                           Height="155" 
-                           HorizontalAlignment="Center" />
+                           />
                 </StackPanel>
             </GroupBox>
 

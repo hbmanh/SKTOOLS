@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -43,6 +44,18 @@ namespace SKRevitAddins.ViewModel
         }
 
         #region Properties
+        /// <summary>
+        /// Assign value of conditions
+        /// </summary>
+
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double A { get; set; }
+        public double B { get; set; }
+        public double C { get; set; }
+        public double D { get; set; }
+
+
         private ImportInstance _selectedCadLink;
         public ImportInstance SelectedCadLink
         {
@@ -93,6 +106,30 @@ namespace SKRevitAddins.ViewModel
             set { _offset = value; OnPropertyChanged(nameof(Offset)); }
         }
         public Document Doc { get; set; }
+        public class FrameObj : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler PropertyChanged;
+            public FrameObj(Element frameObj)
+            {
+                FramingObj = frameObj;
+                FramingGeometryObject = frameObj.get_Geometry(new Options());
+                if (FramingGeometryObject == null) return;
+                List<Solid> solids = ElementGeometryUtils.GetSolidsFromGeometry(FramingGeometryObject);
+                FramingSolid = solids.UnionSolidList();
+                FramingHeight = FramingSolid.GetSolidHeight();
+            }
+            public Element FramingObj { get; private set; }
+            public GeometryElement FramingGeometryObject { get; private set; }
+            public Solid FramingSolid { get; private set; }
+            public double FramingHeight { get; private set; }
+
+            protected void OnPropertyChanged(string propertyName)
+            {
+                if (PropertyChanged != null) // if there is any subscribers 
+                    PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            }
+
+        }
         public class ImportInstanceSelectionFilter : ISelectionFilter
         {
             public bool AllowElement(Element elem)

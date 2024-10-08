@@ -172,15 +172,12 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
             Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { newCurveLoop }, extrusionDirection, extrusionDistance);
 
-            if (directShapeSolid != null && directShapeSolid.Volume > 0)
-            {
-                DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-                directShape.SetShape(new GeometryObject[] { directShapeSolid });
-                directShape.Name = "Phạm vi cho phép xuyên dầm";
-                return directShape;
-            }
+            if (directShapeSolid == null || !(directShapeSolid.Volume > 0)) return null;
+            DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
+            directShape.SetShape(new GeometryObject[] { directShapeSolid });
+            directShape.Name = "Phạm vi cho phép xuyên dầm";
+            return directShape;
 
-            return null;
         }
 
         private FamilySymbol GetSleeveSymbol(Document doc, ref string message)
@@ -194,11 +191,9 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
             if (sleeveSymbol != null)
             {
-                if (!sleeveSymbol.IsActive)
-                {
-                    sleeveSymbol.Activate();
-                    doc.Regenerate();
-                }
+                if (sleeveSymbol.IsActive) return sleeveSymbol;
+                sleeveSymbol.Activate();
+                doc.Regenerate();
                 return sleeveSymbol;
             }
             message = "Không tìm thấy Family スリーブ_SK.";
@@ -275,16 +270,14 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                                 double actualDistance = midpoint.DistanceTo(previousMidpoint);
 
                                 // Compare the actual distance to the minimum allowed distance
-                                if (actualDistance < minDistance)
+                                if (!(actualDistance < minDistance)) continue;
+                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
                                 {
-                                    if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                                    {
-                                        errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                                    }
-                                    errorMessages[pipeOrDuct.Id].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*3/2");
-                                    tooClose = true; // Set tooClose to true
-                                    break;
+                                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
                                 }
+                                errorMessages[pipeOrDuct.Id].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*3/2");
+                                tooClose = true; // Set tooClose to true
+                                break;
                             }
                             if (tooClose) break; // Stop checking if too close
                         }
@@ -528,7 +521,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
         {
             var faces = solid.GetSolidVerticalFaces();
 
-            var faceAreas = faces.Select(face => new { Face = face, Area = GetFaceArea(face) }).ToList();
+            var faceAreas = faces.Select(face => new { Face = face, Area = face.Area }).ToList();
 
             var sortedFaceAreas = faceAreas.OrderBy(f => f.Area).ToList();
 
@@ -541,42 +534,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             return remainingFaces;
         }
 
-        private static double GetFaceArea(Face face)
-        {
-            Mesh mesh = face.Triangulate();
-            double area = 0;
-            int numTriangles = mesh.NumTriangles;
-            for (int i = 0; i < numTriangles; i++)
-            {
-                MeshTriangle triangle = mesh.get_Triangle(i);
-                XYZ p0 = triangle.get_Vertex(0);
-                XYZ p1 = triangle.get_Vertex(1);
-                XYZ p2 = triangle.get_Vertex(2);
-                area += 0.5 * ((p1 - p0).CrossProduct(p2 - p0)).GetLength();
-            }
-            return area;
-        }
-
-        private static List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
-        {
-            List<Solid> solids = new List<Solid>();
-
-            foreach (GeometryObject geomObj in geometryElement)
-            {
-                if (geomObj is Solid solid && solid.Volume > 0)
-                {
-                    solids.Add(solid);
-                }
-                else if (geomObj is GeometryInstance geomInstance)
-                {
-                    GeometryElement instanceGeometry = geomInstance.GetInstanceGeometry();
-                    solids.AddRange(GetSolidsFromGeometry(instanceGeometry));
-                }
-            }
-            return solids;
-        }
-
-        public class FrameObj
+        private class FrameObj
         {
             public Element FramingObj { get; private set; }
             public GeometryElement FramingGeometryObject { get; private set; }
@@ -589,7 +547,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 FramingGeometryObject = frameObj.get_Geometry(new Options());
                 if (FramingGeometryObject == null) return;
 
-                List<Solid> solids = GetSolidsFromGeometry(FramingGeometryObject);
+                List<Solid> solids = ElementGeometryUtils.GetSolidsFromGeometry(FramingGeometryObject);
                 FramingSolid = solids.UnionSolidList();
                 FramingHeight = FramingSolid.GetSolidHeight();
             }
