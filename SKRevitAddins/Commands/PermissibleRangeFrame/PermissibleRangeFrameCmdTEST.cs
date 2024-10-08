@@ -11,7 +11,7 @@ using UnitUtils = SKRevitAddins.Utils.UnitUtils;
 namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 {
     [Transaction(TransactionMode.Manual)]
-    public class PermissibleRangeFramePunchingCmd : IExternalCommand
+    public class PermissibleRangeFrameCmdTEST : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -20,7 +20,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             Document doc = uidoc.Document;
             View activeView = uidoc.ActiveView;
 
-            // Get linked documents 
+            // Get linked documents
             var linkedDocs = new FilteredElementCollector(doc)
                 .OfClass(typeof(RevitLinkInstance))
                 .Cast<RevitLinkInstance>()
@@ -69,9 +69,6 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             {
                 CreateErrorSchedules(doc, errorMessages);
             }
-
-            //// Show a message to the user
-            //TaskDialog.Show("Thông báo:", $"Đã đặt {intersectionData.Count} Sleeves. Vui lòng kiểm tra lại.");
 
             // Apply filters to the direct shapes
             ApplyFilterToDirectShapes(doc, activeView, directShapes);
@@ -140,8 +137,8 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
             // Calculate frame height and apply margins
             double frameHeight = frameObj.FramingHeight;
-            double widthMargin = frameHeight / 2; 
-            double heightMargin = frameHeight / 4; 
+            double widthMargin = frameHeight / 2;
+            double heightMargin = frameHeight / 4;
 
             UV adjustedMin = new UV(minUV.U + widthMargin, minUV.V + heightMargin);
             UV adjustedMax = new UV(maxUV.U - widthMargin, maxUV.V - heightMargin);
@@ -171,7 +168,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
             // Extrusion direction typically normal to the face
             XYZ extrusionDirection = planarFace.FaceNormal;
-            double extrusionDistance = 10.0 / 304.8; 
+            double extrusionDistance = 10.0 / 304.8;
 
             Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { newCurveLoop }, extrusionDirection, extrusionDistance);
 
@@ -179,7 +176,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             {
                 DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
                 directShape.SetShape(new GeometryObject[] { directShapeSolid });
-                directShape.Name = "Phạm vi cho phép xuyên dầm"; 
+                directShape.Name = "Phạm vi cho phép xuyên dầm";
                 return directShape;
             }
 
@@ -204,7 +201,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 }
                 return sleeveSymbol;
             }
-            message = "Không tìm thấy Family スリーブ_SK."; 
+            message = "Không tìm thấy Family スリーブ_SK.";
             return null;
         }
 
@@ -328,7 +325,8 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
                         // Check if the sleeve is within both direct shapes
                         bool isWithinDirectShapes = directShapes.All(ds => IsPointWithinDirectShape(midpoint, ds));
-                        if (isWithinDirectShapes) continue;
+                        if (!isWithinDirectShapes) continue;
+                        //if (isWithinDirectShapes) continue;
                         if (!errorMessages.ContainsKey(pipeOrDuct.Id))
                         {
                             errorMessages[pipeOrDuct.Id] = new HashSet<string>();
@@ -350,8 +348,11 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 subtx.Start();
 
                 // List of schedule names and categories for pipes and ducts
-                var schedules = new List<(string scheduleName, BuiltInCategory category)> 
-                { ("PipeErrorSchedule", BuiltInCategory.OST_PipeCurves), ("DuctErrorSchedule", BuiltInCategory.OST_DuctCurves) };
+                var schedules = new List<(string scheduleName, BuiltInCategory category)>
+                {
+                    ("PipeErrorSchedule", BuiltInCategory.OST_PipeCurves),
+                    ("DuctErrorSchedule", BuiltInCategory.OST_DuctCurves)
+                };
 
                 foreach (var (scheduleName, category) in schedules)
                 {
@@ -447,13 +448,29 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
 
         private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
         {
-            var boundingBox = directShape.get_BoundingBox(null);
-            if (boundingBox == null) return false;
+            // Obtain the geometry of the DirectShape
+            GeometryElement geometryElement = directShape.get_Geometry(new Options());
 
-            return (point.X >= boundingBox.Min.X && point.X <= boundingBox.Max.X) &&
-                   (point.Y >= boundingBox.Min.Y && point.Y <= boundingBox.Max.Y) &&
-                   (point.Z >= boundingBox.Min.Z && point.Z <= boundingBox.Max.Z);
+            // Iterate through the solids in the geometry
+            foreach (GeometryObject geomObj in geometryElement)
+            {
+                if (geomObj is Solid solid && solid.Volume > 0)
+                {
+                    // Check if the point is contained within the solid by projecting onto the solid faces
+                    var faceArray = solid.Faces;
+                    foreach (Face face in faceArray)
+                    {
+                        var result = face.Project(point);
+                        if (result != null && result.Distance < 0.001)
+                        {
+                            return true; // Point is within the solid
+                        }
+                    }
+                }
+            }
+            return false; // Point is not within the solid
         }
+
 
         private void ApplyFilterToDirectShapes(Document doc, View view, List<DirectShape> directShapes)
         {
@@ -506,6 +523,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
                 trans.Commit();
             }
         }
+
         private static List<Face> GetSurroundingFaces(Solid solid)
         {
             var faces = solid.GetSolidVerticalFaces();
@@ -538,6 +556,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFramePunching
             }
             return area;
         }
+
         private static List<Solid> GetSolidsFromGeometry(GeometryElement geometryElement)
         {
             List<Solid> solids = new List<Solid>();

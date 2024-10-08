@@ -156,13 +156,10 @@
     <Compile Include="Commands\CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
-    <Compile Include="Commands\PermissibleRangeFramePunching\PermissibleRangeFramePunchingCmd.cs" />
-    <Compile Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.Designer.cs">
-      <DependentUpon>IntersectInvalidPipesDuctsForm.cs</DependentUpon>
-    </Compile>
+    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameRequestHandler.cs" />
+    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameRequest.cs" />
+    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameCmd.cs" />
+    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameCmdTEST.cs" />
     <Compile Include="Commands\ParameterAssignment\ParameterAssignmentForm .cs">
       <SubType>Form</SubType>
     </Compile>
@@ -179,6 +176,9 @@
     <Compile Include="Commands\PlaceElementsFromBlocksCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\PlaceDuctsAndPipesBaseonCadCmd.cs" />
     <Compile Include="Commands\ParameterAssignment\ParameterAssignmentCmd.cs" />
+    <Compile Include="Forms\PermissibleRangeFrameWpfWindow.xaml.cs">
+      <DependentUpon>PermissibleRangeFrameWpfWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Forms\PlaceElementsFromBlocksCadWpfWindow.xaml.cs">
       <DependentUpon>PlaceElementsFromBlocksCadWpfWindow.xaml</DependentUpon>
     </Compile>
@@ -242,6 +242,7 @@
     <Compile Include="Utils\TUnionUtils.cs" />
     <Compile Include="Utils\UnitUtils.cs" />
     <Compile Include="Utils\WpfUtils.cs" />
+    <Compile Include="ViewModel\PermissibleRangeFrameViewModel.cs" />
     <Compile Include="ViewModel\PlaceElementsFromBlocksCadViewModel.cs" />
     <Compile Include="ViewModel\DeleteTypeOfTextNotesDontUseViewModel.cs" />
     <Compile Include="ViewModel\FindDWGNotUsedAndDelViewModel.cs" />
@@ -260,6 +261,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Forms\PermissibleRangeFrameWpfWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Forms\PlaceElementsFromBlocksCadWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -391,9 +396,6 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Commands\PermissibleRangeFramePunching\IntersectInvalidPipesDuctsForm.resx">
-      <DependentUpon>IntersectInvalidPipesDuctsForm.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Commands\ParameterAssignment\ParameterAssignmentForm .resx">
       <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
     </EmbeddedResource>

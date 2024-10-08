@@ -5,6 +5,7 @@ using SKRevitAddins.Commands.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.Commands.CreateSpace;
 using SKRevitAddins.Commands.DeleteTypeOfTextNotesDontUse;
 using SKRevitAddins.Commands.FindDWGNotUsedAndDel;
+using SKRevitAddins.Commands.PermissibleRangeFrame;
 using SKRevitAddins.Commands.PlaceElementsFromBlocksCad;
 using SKRevitAddins.Commands.SelectElements;
 using SKRevitAddins.Commands.SelectElementsVer1;
@@ -25,6 +26,8 @@ namespace SKRevitAddins
         private DeleteTypeOfTextNotesDontUseWpfWindow m_DeleteTypeOfTextNotesDontUseWpfWindow;
         private AutoCreatePileFromCadWpfWindow m_AutoCreatePileFromCadWpfWindow;
         private PlaceElementsFromBlocksCadWpfWindow m_PlaceElementsFromBlocksCadWpfWindow;
+        private PermissibleRangeFrameWpfWindow m_PermissibleRangeFrameWpfWindow;
+
         public Result OnShutdown(UIControlledApplication application)
         {
             if (m_CreateSpaceWpfWindow != null && m_CreateSpaceWpfWindow.IsVisible)
@@ -177,6 +180,17 @@ namespace SKRevitAddins
                 ExternalEvent exEvent = ExternalEvent.Create(handler);
                 m_PlaceElementsFromBlocksCadWpfWindow = new PlaceElementsFromBlocksCadWpfWindow(exEvent, handler, viewModel);
                 m_PlaceElementsFromBlocksCadWpfWindow.Show();
+            }
+        }
+
+        public void ShowPermissibleRangeFrameViewModel(UIApplication uiapp, PermissibleRangeFrameViewModel viewModel)
+        {
+            if (m_PermissibleRangeFrameWpfWindow == null || !m_PermissibleRangeFrameWpfWindow.IsVisible)
+            {
+                PermissibleRangeFrameRequestHandler handler = new PermissibleRangeFrameRequestHandler(viewModel);
+                ExternalEvent exEvent = ExternalEvent.Create(handler);
+                m_PermissibleRangeFrameWpfWindow = new PermissibleRangeFrameWpfWindow(exEvent, handler, viewModel);
+                m_PermissibleRangeFrameWpfWindow.Show();
             }
         }
     }
