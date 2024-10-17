@@ -14,29 +14,29 @@
         Topmost="True">
 
     <StackPanel Margin="10,10,10,9">
-        <Grid Height="410" Margin="0,0,0,0">
+        <Grid Height="415" Margin="0,0,0,0">
             <GroupBox Header="Conditions for Permissible Range" 
                       FontSize="14" 
                       HorizontalAlignment="Left" 
                       VerticalAlignment="Top" 
-                      Height="400" 
+                      Height="359" 
                       Width="283">
                 <StackPanel>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
-                            <TextBlock Margin="10,0,0,0"><Run Language="en-gb" Text="x Input:"/></TextBlock>
-                            <TextBox x:Name="xDbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding xD}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBlock Margin="10,0,0,0"><Run Language="en-gb" Text="x Input :"/></TextBlock>
+                            <TextBox x:Name="xDbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding X}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
                             <TextBlock Margin="10,0,0,0"><Run Language="en-gb" Text="y Input:"/></TextBlock>
-                            <TextBox x:Name="yDbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding yD}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBox x:Name="yDbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding Y}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <Image Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\PermissibleRange.png" 
                            Width="281" 
-                           Height="280" 
+                           Height="187" 
                            HorizontalAlignment="Center" />
                 </StackPanel>
             </GroupBox>
@@ -45,36 +45,31 @@
             <GroupBox Header="Conditions for Sleeve" 
                       FontSize="14" 
                       HorizontalAlignment="Left" 
-                      VerticalAlignment="Center" 
-                      Height="390" 
+                      VerticalAlignment="Top" 
+                      Height="359" 
                       Width="352" 
                       Margin="288,0,0,0">
-                <StackPanel>
+                <StackPanel Margin="10,0,0,0">
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
                             <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="a Input:"/></TextBlock>
-                            <TextBox x:Name="abox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding a}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBox x:Name="abox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding A}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
                             <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="b Input:"/></TextBlock>
-                            <TextBox x:Name="bbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding b}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBox x:Name="bbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding B}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox  Grid.Row="1" Margin="10,5,10,5">
                         <StackPanel Orientation="Horizontal" Margin="5">
                             <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="c Input:"/></TextBlock>
-                            <TextBox x:Name="cbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding c}" VerticalAlignment="Top" Width="150" Height="20"/>
+                            <TextBox x:Name="cbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding C}" VerticalAlignment="Top" Width="150" Height="20"/>
                         </StackPanel>
                     </GroupBox>
-                    <GroupBox  Grid.Row="1" Margin="10,5,10,5">
-                        <StackPanel Orientation="Horizontal" Margin="5">
-                            <TextBlock Margin="34,0,0,0"><Run Language="en-gb" Text="d Input:"/></TextBlock>
-                            <TextBox x:Name="dbox" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text="{Binding d}" VerticalAlignment="Top" Width="150" Height="20"/>
-                        </StackPanel>
-                    </GroupBox>
-                    <Image Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\SleeveConditions.png" 
+
+                    <Image Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\SleeveConditions.png" Height="182" 
                            />
                 </StackPanel>
             </GroupBox>
@@ -103,7 +98,7 @@
                               FontSize="14" 
                               VerticalAlignment="Top" 
                               Margin="10,45,4,0" 
-                              IsChecked="{Binding AutoCreateSleeve}" 
+                              IsChecked="{Binding PlaceSleeves}" 
                               Checked="AutoCreateSleeve_Checked"/>
 
                     <CheckBox Name="CreateReport" 
@@ -111,10 +106,14 @@
                               FontSize="14" 
                               VerticalAlignment="Top" 
                               Margin="10,80,4,0" 
-                              IsChecked="{Binding CreateReport}" 
+                              IsChecked="{Binding CreateErrorSchedules}" 
                               Checked="CreateReport_Checked"/>
                 </Grid>
             </GroupBox>
+
+            <StackPanel>
+
+            </StackPanel>
 
             <Button x:Name="SelectAllOption"
                     Content="Select All Option" 
@@ -122,8 +121,8 @@
                     Height="30" 
                     Width="170"
                     HorizontalAlignment="Right" 
-                    VerticalAlignment="Bottom" 
-                    Margin="0,0,28,146" 
+                    VerticalAlignment="Center" 
+                    Margin="0,0,25,0" 
                     Click="SelectAllOptionBtn_Click" />
 
             <Button x:Name="DeSelectAllOption"
@@ -133,7 +132,7 @@
                     Width="170"
                     HorizontalAlignment="Right" 
                     VerticalAlignment="Bottom" 
-                    Margin="0,0,28,106" 
+                    Margin="0,0,25,150" 
                     Click="DeSelectAllOptionBtn_Click" />
 
             <Button x:Name="createBtn" 
@@ -143,7 +142,7 @@
                     Width="80"
                     HorizontalAlignment="Right" 
                     VerticalAlignment="Bottom" 
-                    Margin="0,0,118,36" 
+                    Margin="0,0,113,80" 
                     Click="CreateBtn_Click" />
 
             <Button x:Name="cancelBtn" 
@@ -153,7 +152,7 @@
                     Width="80"
                     HorizontalAlignment="Right" 
                     VerticalAlignment="Bottom" 
-                    Margin="0,0,28,36" 
+                    Margin="0,0,23,80" 
                     Click="CancelBtn_Click" 
                     IsCancel="True"/>
         </Grid>

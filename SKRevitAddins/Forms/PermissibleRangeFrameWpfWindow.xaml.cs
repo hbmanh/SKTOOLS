@@ -20,7 +20,7 @@ namespace SKRevitAddins.Forms
             m_Handler = handler;
             m_ExEvent = exEvent;
 
-            this.LoadViewFromUri("/KajimaRevitAddins;componenet/Forms/PermissibleRangeFrameWpfWindow.xaml");
+            //this.LoadViewFromUri("/KajimaRevitAddins;componenet/Forms/PermissibleRangeFrameWpfWindow.xaml");
 
             this.DataContext = viewModel;
 
@@ -51,18 +51,15 @@ namespace SKRevitAddins.Forms
         }
         private void PermissibleRange_Checked(object sender, RoutedEventArgs e)
         {
-            AutoCreateSleeve.IsChecked = false;
-            CreateReport.IsChecked = false;
+            //PermissibleRange.IsChecked = true;
         }
         private void AutoCreateSleeve_Checked(object sender, RoutedEventArgs e)
         {
-            PermissibleRange.IsChecked = false;
-            CreateReport.IsChecked = false;
+            //AutoCreateSleeve.IsChecked = true; ;
         }
         private void CreateReport_Checked(object sender, RoutedEventArgs e)
         {
-            PermissibleRange.IsChecked = false;
-            AutoCreateSleeve.IsChecked = false;
+            //CreateReport.IsChecked = true;
         }
         private void SelectAllOptionBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -77,7 +74,7 @@ namespace SKRevitAddins.Forms
             CreateReport.IsChecked = false;
         }
        
-        private void MakeRequest(Commands.PermissibleRangeFrame.RequestId request)
+        private void MakeRequest(RequestId request)
         {
             m_Handler.Request.Make(request);
             m_ExEvent.Raise();

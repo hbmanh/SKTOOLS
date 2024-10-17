@@ -163,7 +163,7 @@ namespace SKToolsRibbon
             PushButtonData PermissibleRangeFramePunchingBtn = ribbonUtils.CreatePushButtonData("IntersectWithFrameCmd"
                 , "Permissible Range\n Check"
                 , "SKRevitAddins.dll",
-                "SKRevitAddins.Commands.PermissibleRangeFramePunching.PermissibleRangeFramePunchingCmd"
+                "SKRevitAddins.Commands.PermissibleRangeFrame.PermissibleRangeFrameCmd"
                 , "PermissibleRangeFramePunching.png"
                 , null
                 , null, null, null, null, null);

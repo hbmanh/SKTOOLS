@@ -144,7 +144,7 @@ namespace SKRevitAddins.Commands.DuctPipePlaceholderAndFittings
                     if (pipeSystemType != null && offsets.TryGetValue(pipeSystemType, out double pipeOffset))
                     {
                         pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM).Set(UnitUtils.MmToFeet(pipeOffset));
-                        pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(75 / 304.8);
+                        pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(25 / 304.8);
                     }
                     break;
             }

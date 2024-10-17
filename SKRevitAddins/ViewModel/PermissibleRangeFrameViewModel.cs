@@ -1,12 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Mechanical;
+using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SKRevitAddins.Utils;
-using Application = Autodesk.Revit.ApplicationServices.Application;
-using Document = Autodesk.Revit.DB.Document;
 
 namespace SKRevitAddins.ViewModel
 {
@@ -14,114 +15,180 @@ namespace SKRevitAddins.ViewModel
     {
         private UIApplication UiApp;
         private UIDocument UiDoc;
-        private Application ThisApp;
         private Document ThisDoc;
 
         public PermissibleRangeFrameViewModel(UIApplication uiApp)
         {
             UiApp = uiApp;
             UiDoc = UiApp.ActiveUIDocument;
-            ThisApp = UiApp.Application;
             ThisDoc = UiDoc.Document;
 
-            var refLinkCad = UiDoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
-            SelectedCadLink = ThisDoc.GetElement(refLinkCad) as ImportInstance;
-            if (SelectedCadLink == null) return;
-            AllLayers = CadUtils.GetAllLayer(SelectedCadLink);
-            SelectedLayer = AllLayers[0];
+            X = 1.0 / 2.0;
+            Y = 1.0 / 4.0;
+            A = 750.0;
+            B = 1.0 / 3.0;
+            C = 2.0 / 3.0;
 
-            PileType = new FilteredElementCollector(ThisDoc).WhereElementIsElementType().OfCategory(BuiltInCategory.OST_StructuralFoundation)
-                .Where(e => e.Name.Contains("杭")).ToList();
+            PermissibleRange = true;
+            PlaceSleeves = true;
+            CreateErrorSchedules = true;
 
-            SelectedPileType = PileType[0] as FamilySymbol;
-            AllLevel = new FilteredElementCollector(ThisDoc)
-                .WhereElementIsNotElementType()
-                .OfCategory(BuiltInCategory.OST_Levels)
-                .OfClass(typeof(Level)).Cast<Level>()
+            DirectShapes = new List<DirectShape>();
+            IntersectionData = new Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>>();
+            ErrorMessages = new Dictionary<ElementId, HashSet<string>>();
+            SleevePlacements = new Dictionary<ElementId, List<(XYZ, double)>>();
+
+            List<Document> linkedDocs = new FilteredElementCollector(ThisDoc)
+                .OfClass(typeof(RevitLinkInstance))
+                .Cast<RevitLinkInstance>()
+                .Select(link => link.GetLinkDocument())
+                .Where(linkedDoc => linkedDoc != null)
                 .ToList();
-            SelectedLevel = AllLevel[0];
-            Offset = 0;
+
+            foreach (var linkedDoc in linkedDocs)
+            {
+                StructuralFramings = new FilteredElementCollector(linkedDoc)
+                    .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                    .WhereElementIsNotElementType()
+                    .ToList();
+            }
+
+            SleeveSymbol = new FilteredElementCollector(ThisDoc)
+                .OfCategory(BuiltInCategory.OST_PipeAccessory)
+                .OfClass(typeof(FamilySymbol))
+                .WhereElementIsElementType()
+                .Cast<FamilySymbol>()
+                .FirstOrDefault(symbol => symbol.FamilyName == "スリーブ_SK");
+            if (SleeveSymbol != null) return;
+            TaskDialog.Show("Thông báo:", $"Không tìm thấy Family スリーブ_SK.");
+
+            //MepCurves = new FilteredElementCollector(ThisDoc, ThisDoc.ActiveView.Id)
+            //    .OfClass(typeof(MEPCurve))
+            //    .Cast<MEPCurve>()
+            //    .ToList();
         }
 
         #region Properties
-        /// <summary>
-        /// Assign value of conditions
-        /// </summary>
 
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double A { get; set; }
-        public double B { get; set; }
-        public double C { get; set; }
-        public double D { get; set; }
+        private double _x;
+        public double X { get { return _x; } set { _x = value; OnPropertyChanged(nameof(X)); } }
+        private double _y;
+        public double Y { get { return _y; } set { _y = value; OnPropertyChanged(nameof(Y)); } }
+        private double _a;
+        public double A { get { return _a; } set { _a = value; OnPropertyChanged(nameof(A)); } }
+        private double _b;
+        public double B { get { return _b; } set { _b = value; OnPropertyChanged(nameof(B)); } }
+        private double _c;
+        public double C { get { return _c; } set { _c = value; OnPropertyChanged(nameof(C)); } }
 
+        private FamilySymbol _sleeveSymbol;
 
-        private ImportInstance _selectedCadLink;
-        public ImportInstance SelectedCadLink
+        public FamilySymbol SleeveSymbol
         {
-            get { return _selectedCadLink; }
-            set { _selectedCadLink = value; OnPropertyChanged(nameof(SelectedCadLink)); }
+            get { return _sleeveSymbol; }
+            set { _sleeveSymbol = value; OnPropertyChanged(nameof(SleeveSymbol)); }
         }
-        private List<string> _allLayers { get; set; }
-        public List<string> AllLayers
-        {
-            get { return _allLayers; }
-            set { _allLayers = value; OnPropertyChanged(nameof(AllLayers)); }
-        }
-        private string _selectedLayer { get; set; }
-        public string SelectedLayer
-        {
-            get { return _selectedLayer; }
-            set { _selectedLayer = value; OnPropertyChanged(nameof(SelectedLayer)); }
-        }
-        private IList<Element> _pileType { get; set; }
-        public IList<Element> PileType
-        {
-            get { return _pileType; }
-            set { _pileType = value; OnPropertyChanged(nameof(PileType)); }
-        }
-        private FamilySymbol _selectedPileType { get; set; }
 
-        public FamilySymbol SelectedPileType
+        private List<Element> _structuralFramings;
+        public List<Element> StructuralFramings
         {
-            get { return _selectedPileType; }
-            set { _selectedPileType = value; OnPropertyChanged(nameof(SelectedPileType)); }
+            get { return _structuralFramings; }
+            set { _structuralFramings = value; OnPropertyChanged(nameof(StructuralFramings)); }
         }
-        private List<Level> _allLevel { get; set; }
-        public List<Level> AllLevel
+
+        private List<DirectShape> _directShapes;
+        public List<DirectShape> DirectShapes
         {
-            get { return _allLevel; }
-            set { _allLevel = value; OnPropertyChanged(nameof(AllLevel)); }
+            get { return _directShapes; }
+            set { _directShapes = value; OnPropertyChanged(nameof(DirectShapes)); }
         }
-        private Level _selectedLevel { get; set; }
-        public Level SelectedLevel
+        private List<MEPCurve> _mepCurves;
+        public List<MEPCurve> MepCurves
         {
-            get { return _selectedLevel; }
-            set { _selectedLevel = value; OnPropertyChanged(nameof(SelectedLevel)); }
+            get { return _mepCurves; }
+            set { _mepCurves = value; OnPropertyChanged(nameof(MepCurves)); }
         }
-        private double _offset{ get; set; }
-        public double Offset
+        private Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> _intersectionData;
+        public Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> IntersectionData
         {
-            get { return _offset; }
-            set { _offset = value; OnPropertyChanged(nameof(Offset)); }
+            get { return _intersectionData; }
+            set { _intersectionData = value; OnPropertyChanged(nameof(IntersectionData)); }
         }
-        public Document Doc { get; set; }
+
+        private Dictionary<ElementId, HashSet<string>> _errorMessages;
+        public Dictionary<ElementId, HashSet<string>> ErrorMessages
+        {
+            get { return _errorMessages; }
+            set { _errorMessages = value; OnPropertyChanged(nameof(ErrorMessages)); }
+        }
+
+        private Dictionary<ElementId, List<(XYZ, double)>> _sleevePlacements;
+        public Dictionary<ElementId, List<(XYZ, double)>> SleevePlacements
+        {
+            get { return _sleevePlacements; }
+            set { _sleevePlacements = value; OnPropertyChanged(nameof(SleevePlacements)); }
+        }
+
+        private bool _permissibleRange;
+        public bool PermissibleRange
+        {
+            get { return _permissibleRange; }
+            set { _permissibleRange = value; OnPropertyChanged(nameof(PermissibleRange)); }
+        }
+
+        private bool _placeSleeves;
+        public bool PlaceSleeves
+        {
+            get { return _placeSleeves; }
+            set { _placeSleeves = value; OnPropertyChanged(nameof(PlaceSleeves)); }
+        }private bool _createErrorSchedules;
+        public bool CreateErrorSchedules
+        {
+            get { return _createErrorSchedules; }
+            set { _createErrorSchedules = value; OnPropertyChanged(nameof(CreateErrorSchedules)); }
+        }
+
         public class FrameObj : INotifyPropertyChanged
         {
             public event PropertyChangedEventHandler PropertyChanged;
             public FrameObj(Element frameObj)
             {
                 FramingObj = frameObj;
-                FramingGeometryObject = frameObj.get_Geometry(new Options());
-                if (FramingGeometryObject == null) return;
-                List<Solid> solids = ElementGeometryUtils.GetSolidsFromGeometry(FramingGeometryObject);
+                FramingGeometryObj = frameObj.get_Geometry(new Options());
+                if (FramingGeometryObj == null) return;
+                List<Solid> solids = ElementGeometryUtils.GetSolidsFromGeometry(FramingGeometryObj);
                 FramingSolid = solids.UnionSolidList();
                 FramingHeight = FramingSolid.GetSolidHeight();
             }
-            public Element FramingObj { get; private set; }
-            public GeometryElement FramingGeometryObject { get; private set; }
-            public Solid FramingSolid { get; private set; }
-            public double FramingHeight { get; private set; }
+
+            private Element _framingObj;
+            public Element FramingObj 
+            { 
+                get { return _framingObj; }
+                set { _framingObj = value; OnPropertyChanged(nameof(FramingObj)); }
+            }
+            private GeometryElement _framingGeometryObj;
+
+            public GeometryElement FramingGeometryObj
+            {
+                get { return _framingGeometryObj; }
+                set { _framingGeometryObj = value; OnPropertyChanged(nameof(FramingGeometryObj)); }
+            }
+
+            private Solid _framingSolid;
+
+            public Solid FramingSolid
+            {
+                get { return _framingSolid; }
+                set { _framingSolid = value; OnPropertyChanged(nameof(FramingSolid)); }
+            }
+
+            private double _framingHeight;
+            public double FramingHeight
+            {
+                get { return _framingHeight; }
+                set { _framingHeight = value; OnPropertyChanged(nameof(FramingHeight)); }
+            }
 
             protected void OnPropertyChanged(string propertyName)
             {

@@ -29,7 +29,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
                 .ToList();
 
             // Get all MEPCurves (pipes and ducts) visible in the active view
-            var pipesAndDucts = new FilteredElementCollector(doc, activeView.Id)
+            var mepCurves = new FilteredElementCollector(doc, activeView.Id)
                 .OfClass(typeof(MEPCurve))
                 .Cast<MEPCurve>()
                 .ToList();
@@ -59,7 +59,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
             }
 
             // Process intersections between frames and pipes/ducts
-            ProcessIntersections(doc, structuralFramings, pipesAndDucts, intersectionData, directShapes);
+            ProcessIntersections(doc, structuralFramings, mepCurves, intersectionData, directShapes);
 
             // Place sleeves at the intersection points
             PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes);
@@ -219,131 +219,159 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
 
         private void PlaceSleeves(Document doc, FamilySymbol sleeveSymbol, Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> intersectionData, List<Element> structuralFramings, Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements, Dictionary<ElementId, HashSet<string>> errorMessages, List<DirectShape> directShapes)
         {
-            int successfulSleevesCount = 0; // Biến đếm số lượng Sleeve đặt thành công
+            int successfulSleevesCount = 0; // Variable to count successfully placed sleeves
 
-            using (Transaction trans = new Transaction(doc, "Đặt Sleeve"))
+            // Collect all potential sleeves
+            var potentialSleeves = new List<(ElementId MEPCurveId, XYZ Midpoint, double Diameter, double Length, XYZ Direction)>();
+
+            // First pass: Collect all potential sleeves without creating them
+            foreach (var entry in intersectionData)
             {
-                trans.Start();
+                var mepCurveId = entry.Key.MEPCurveId;
+                var frameId = entry.Key.FrameId;
+                var pipeOrDuct = doc.GetElement(mepCurveId);
 
-                foreach (var entry in intersectionData)
+                var frame = structuralFramings.FirstOrDefault(b => b.Id == frameId);
+                if (frame == null) continue;
+
+                var frameObj = new FrameObj(frame);
+                var points = entry.Value;
+
+                for (int i = 0; i + 1 < points.Count; i += 2)
                 {
-                    var mepCurveId = entry.Key.MEPCurveId;
-                    var frameId = entry.Key.FrameId;
-                    var pipeOrDuct = doc.GetElement(mepCurveId);
+                    XYZ point1 = points[i];
+                    XYZ point2 = points[i + 1];
+                    XYZ midpoint = (point1 + point2) / 2;
+                    XYZ direction = (point2 - point1).Normalize();
 
-                    var frame = structuralFramings.FirstOrDefault(b => b.Id == frameId);
-                    if (frame == null) continue;
+                    double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
+                    double sleeveDiameter = pipeDiameter + UnitUtils.MmToFeet(50);
+                    double frameHeight = frameObj.FramingHeight;
 
-                    var frameObj = new FrameObj(frame);
-                    var points = entry.Value;
-
-                    for (int i = 0; i + 1 < points.Count; i += 2)
+                    // Perform initial checks
+                    if (sleeveDiameter > UnitUtils.MmToFeet(750))
                     {
-                        XYZ point1 = points[i];
-                        XYZ point2 = points[i + 1];
-                        XYZ midpoint = (point1 + point2) / 2;
-                        XYZ direction = (point2 - point1).Normalize();
-
-                        double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
-                        double sleeveDiameter = pipeDiameter + UnitUtils.MmToFeet(50);
-                        double frameHeight = frameObj.FramingHeight;
-
-                        // Perform checks before creating the sleeve instance
-
-                        // Check if sleeve is outside allowable size
-                        if (sleeveDiameter > UnitUtils.MmToFeet(750))
-                        {
-                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            {
-                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                            }
-                            errorMessages[pipeOrDuct.Id].Add("OD > 750mm");
-                            continue;  // Skip creation if the sleeve is too large
-                        }
-
-                        if (sleeveDiameter > frameHeight / 3)
-                        {
-                            if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            {
-                                errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                            }
-                            errorMessages[pipeOrDuct.Id].Add("OD > H/3");
-                            continue;  // Skip creation if the sleeve is too large for the frame
-                        }
-
-                        // Check if the new sleeve is too close to any previously placed sleeves in all placements
-                        bool tooClose = false;
-                        foreach (var sleevePlacement in sleevePlacements)
-                        {
-                            foreach (var previousSleeve in sleevePlacement.Value)
-                            {
-                                XYZ previousMidpoint = previousSleeve.Item1;
-                                double previousOD = previousSleeve.Item2;
-
-                                // Calculate the minimum allowed distance between the sleeves
-                                double minDistance = (sleeveDiameter + previousOD) * 1.5;
-
-                                // Calculate the actual distance between the current and previous midpoint
-                                double actualDistance = midpoint.DistanceTo(previousMidpoint);
-
-                                // Compare the actual distance to the minimum allowed distance
-                                if (!(actualDistance < minDistance)) continue;
-                                if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                                {
-                                    errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                                }
-                                errorMessages[pipeOrDuct.Id].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*3/2");
-                                tooClose = true; // Set tooClose to true
-                                break;
-                            }
-                            if (tooClose) break; // Stop checking if too close
-                        }
-
-                        // Skip creating the sleeve if it's too close to another sleeve
-                        if (tooClose) continue;
-
-                        // Create the sleeve instance after all checks have passed
-                        FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
-
-                        // Rotate the sleeve to align with the pipe/duct direction
-                        Line rotationAxis = Line.CreateBound(midpoint, midpoint + XYZ.BasisZ);
-                        double rotationAngle = XYZ.BasisX.AngleTo(direction) + Math.PI / 2;
-                        ElementTransformUtils.RotateElement(doc, sleeveInstance.Id, rotationAxis, rotationAngle);
-
-                        // Set the sleeve parameters
-                        Parameter lengthParam = sleeveInstance.LookupParameter("L");
-                        if (lengthParam != null)
-                        {
-                            lengthParam.Set(point1.DistanceTo(point2));
-                        }
-
-                        Parameter odParam = sleeveInstance.LookupParameter("OD");
-                        if (odParam != null)
-                        {
-                            odParam.Set(sleeveDiameter);
-                        }
-
-                        // Record the sleeve placement
-                        if (!sleevePlacements.ContainsKey(mepCurveId))
-                        {
-                            sleevePlacements[mepCurveId] = new List<(XYZ, double)>();
-                        }
-                        sleevePlacements[mepCurveId].Add((midpoint, sleeveDiameter));
-
-                        // Increase the count for successfully placed sleeves
-                        successfulSleevesCount++;
-
-                        // Check if the sleeve is within both direct shapes
-                        bool isWithinDirectShapes = directShapes.All(ds => IsPointWithinDirectShape(midpoint, ds));
-                        if (!isWithinDirectShapes) continue;
-                        //if (isWithinDirectShapes) continue;
                         if (!errorMessages.ContainsKey(pipeOrDuct.Id))
                         {
                             errorMessages[pipeOrDuct.Id] = new HashSet<string>();
                         }
-                        errorMessages[pipeOrDuct.Id].Add("Sleeve nằm ngoài phạm vi cho phép xuyên dầm.");
+                        errorMessages[pipeOrDuct.Id].Add("OD > 750mm");
+                        continue;
+                    }
+
+                    if (sleeveDiameter > frameHeight / 3)
+                    {
+                        if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                        {
+                            errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                        }
+                        errorMessages[pipeOrDuct.Id].Add("OD > H/3");
+                        continue;
+                    }
+
+                    double sleeveLength = point1.DistanceTo(point2);
+
+                    // Add the potential sleeve to the list
+                    potentialSleeves.Add((MEPCurveId: mepCurveId, Midpoint: midpoint, Diameter: sleeveDiameter, Length: sleeveLength, Direction: direction));
+                }
+            }
+
+            // Second pass: Check for sleeves that are too close and remove both from the list
+            var sleevesToRemove = new HashSet<int>();
+            for (int i = 0; i < potentialSleeves.Count; i++)
+            {
+                for (int j = i + 1; j < potentialSleeves.Count; j++)
+                {
+                    var sleeve1 = potentialSleeves[i];
+                    var sleeve2 = potentialSleeves[j];
+
+                    // Calculate the minimum allowed distance between the sleeves
+                    double minDistance = (sleeve1.Diameter + sleeve2.Diameter) * (2.0 / 3.0);
+
+                    // Calculate the actual distance between the current and previous midpoint
+                    double actualDistance = sleeve1.Midpoint.DistanceTo(sleeve2.Midpoint);
+
+                    if (actualDistance < minDistance)
+                    {
+                        // Mark both sleeves for removal
+                        sleevesToRemove.Add(i);
+                        sleevesToRemove.Add(j);
+
+                        // Record error messages for both sleeves
+                        if (!errorMessages.ContainsKey(sleeve1.MEPCurveId))
+                        {
+                            errorMessages[sleeve1.MEPCurveId] = new HashSet<string>();
+                        }
+                        errorMessages[sleeve1.MEPCurveId].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*2/3");
+
+                        if (!errorMessages.ContainsKey(sleeve2.MEPCurveId))
+                        {
+                            errorMessages[sleeve2.MEPCurveId] = new HashSet<string>();
+                        }
+                        errorMessages[sleeve2.MEPCurveId].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*2/3");
                     }
                 }
+            }
+
+            // Remove sleeves that are too close
+            potentialSleeves = potentialSleeves.Where((sleeve, index) => !sleevesToRemove.Contains(index)).ToList();
+
+            // Third pass: Create the sleeves that passed all checks
+            using (Transaction trans = new Transaction(doc, "Đặt Sleeve"))
+            {
+                trans.Start();
+
+                foreach (var sleeveData in potentialSleeves)
+                {
+                    var mepCurveId = sleeveData.MEPCurveId;
+                    var midpoint = sleeveData.Midpoint;
+                    var sleeveDiameter = sleeveData.Diameter;
+                    var sleeveLength = sleeveData.Length;
+                    var direction = sleeveData.Direction;
+
+                    var pipeOrDuct = doc.GetElement(mepCurveId);
+
+                    // Create the sleeve instance
+                    FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
+
+                    // Rotate the sleeve to align with the pipe/duct direction
+                    Line rotationAxis = Line.CreateBound(midpoint, midpoint + XYZ.BasisZ);
+                    double rotationAngle = XYZ.BasisX.AngleTo(direction) + Math.PI / 2;
+                    ElementTransformUtils.RotateElement(doc, sleeveInstance.Id, rotationAxis, rotationAngle);
+
+                    // Set the sleeve parameters
+                    Parameter lengthParam = sleeveInstance.LookupParameter("L");
+                    if (lengthParam != null)
+                    {
+                        lengthParam.Set(sleeveLength);
+                    }
+
+                    Parameter odParam = sleeveInstance.LookupParameter("OD");
+                    if (odParam != null)
+                    {
+                        odParam.Set(sleeveDiameter);
+                    }
+
+                    // Record the sleeve placement
+                    if (!sleevePlacements.ContainsKey(mepCurveId))
+                    {
+                        sleevePlacements[mepCurveId] = new List<(XYZ, double)>();
+                    }
+                    sleevePlacements[mepCurveId].Add((midpoint, sleeveDiameter));
+
+                    // Increase the count for successfully placed sleeves
+                    successfulSleevesCount++;
+
+                    // Check if the sleeve is within the permissible range
+                    bool isWithinDirectShapes = directShapes.All(ds => IsPointWithinDirectShape(midpoint, ds));
+                    if (!isWithinDirectShapes) continue;
+                    if (!errorMessages.ContainsKey(pipeOrDuct.Id))
+                    {
+                        errorMessages[pipeOrDuct.Id] = new HashSet<string>();
+                    }
+                    errorMessages[pipeOrDuct.Id].Add("Sleeve nằm ngoài phạm vi cho phép xuyên dầm.");
+                }
+
                 trans.Commit();
             }
 
@@ -588,6 +616,10 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
         private static List<Face> GetSurroundingFacesOfFrame(Solid solid)
         {
             var faces = solid.GetSolidVerticalFaces();
+            //double minArea = faces.Min(f => f.Area);
+            //var remainingFaces = faces
+            //    .Where(f => f.Area > minArea) 
+            //    .ToList();
 
             var faceAreas = faces.Select(face =>
             {
@@ -614,6 +646,8 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
                 .Select(f => f.Face)
                 .ToList();
 
+
+
             return remainingFaces;
         }
 
@@ -637,5 +671,7 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
                 FramingHeight = FramingSolid.GetSolidHeight();
             }
         }
+
+
     }
 }
