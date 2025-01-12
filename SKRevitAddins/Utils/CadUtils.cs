@@ -1,5 +1,6 @@
 ﻿#region Namespaces
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -366,40 +367,96 @@ namespace SKRevitAddins.Utils
             return blockCenters;
         }
 
+        //public static List<Arc> GetArcsFromImportInstance(ImportInstance importInstance)
+        //{
+        //    List<Arc> arcs = new List<Arc>();
+
+        //    // Lấy phần tử hình học từ ImportInstance
+        //    GeometryElement geoElement = importInstance.get_Geometry(new Options());
+
+        //    // Duyệt qua các đối tượng hình học
+        //    foreach (GeometryObject geoObject in geoElement)
+        //    {
+        //        if (geoObject is GeometryInstance instance)
+        //        {
+        //            // Lặp qua các đối tượng hình học trong SymbolGeometry
+        //            foreach (GeometryObject geoObject2 in instance.SymbolGeometry)
+        //            {
+        //                if (geoObject2 is GeometryInstance blockInstance)
+        //                {
+        //                    // Lặp qua các đối tượng hình học trong khối hình học này
+        //                    foreach (GeometryObject geoObject3 in blockInstance.GetInstanceGeometry())
+        //                    {
+        //                        // Kiểm tra nếu đối tượng là Arc
+        //                        if (geoObject3 is Arc arc)
+        //                        {
+        //                            // Thêm Arc vào danh sách kết quả
+        //                            arcs.Add(arc);
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    return arcs;
+        //}
         public static List<Arc> GetArcsFromImportInstance(ImportInstance importInstance)
         {
-            List<Arc> arcs = new List<Arc>();
+            var arcs = new List<Arc>();
+            if (importInstance == null) return arcs;
 
-            // Lấy phần tử hình học từ ImportInstance
             GeometryElement geoElement = importInstance.get_Geometry(new Options());
+            if (geoElement == null) return arcs;
 
-            // Duyệt qua các đối tượng hình học
-            foreach (GeometryObject geoObject in geoElement)
+            // Đệ quy duyệt qua GeometryElement
+            void CollectArcs(GeometryElement geometryElement)
             {
-                if (geoObject is GeometryInstance instance)
+                foreach (GeometryObject gObj in geometryElement)
                 {
-                    // Lặp qua các đối tượng hình học trong SymbolGeometry
-                    foreach (GeometryObject geoObject2 in instance.SymbolGeometry)
+                    switch (gObj)
                     {
-                        if (geoObject2 is GeometryInstance blockInstance)
-                        {
-                            // Lặp qua các đối tượng hình học trong khối hình học này
-                            foreach (GeometryObject geoObject3 in blockInstance.GetInstanceGeometry())
+                        case GeometryInstance geomInstance:
+                            // Lấy SymbolGeometry và InstanceGeometry
+                            if (geomInstance.GetSymbolGeometry() is GeometryElement symGeo)
+                                CollectArcs(symGeo);
+                            if (geomInstance.GetInstanceGeometry() is GeometryElement instGeo)
+                                CollectArcs(instGeo);
+                            break;
+
+                        case Arc arc:
+                            // CHỈ thêm những Arc có chiều dài bằng chu vi (full circle)
+                            if (IsFullCircle(arc))
                             {
-                                // Kiểm tra nếu đối tượng là Arc
-                                if (geoObject3 is Arc arc)
-                                {
-                                    // Thêm Arc vào danh sách kết quả
-                                    arcs.Add(arc);
-                                }
+                                arcs.Add(arc);
                             }
-                        }
+                            break;
+
+                        case GeometryElement nestedGeo:
+                            // Nếu gặp GeometryElement lồng nhau
+                            CollectArcs(nestedGeo);
+                            break;
                     }
                 }
             }
 
+            CollectArcs(geoElement);
             return arcs;
         }
+
+        /// <summary>
+        /// Kiểm tra Arc có phải là vòng tròn khép kín hay không
+        /// (so sánh ApproximateLength với chu vi 2πR).
+        /// </summary>
+        private static bool IsFullCircle(Arc arc, double relativeTolerance = 1e-6)
+        {
+            double arcLength = arc.ApproximateLength;
+            double circleLength = 2 * Math.PI * arc.Radius;
+            double difference = Math.Abs(arcLength - circleLength);
+
+            return difference <= circleLength * relativeTolerance;
+        }
+
 
 
     }
