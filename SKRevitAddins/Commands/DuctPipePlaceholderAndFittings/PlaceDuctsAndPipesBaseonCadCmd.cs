@@ -141,7 +141,7 @@ namespace SKRevitAddins.Commands.DuctPipePlaceholderAndFittings
                 var splitCurves = MEPCurveUtils.SplitCurve(doc, customCurve.MepCurve, xPoints, level);
                 customCurve.SplitCurves.AddRange(splitCurves);
 
-                foreach (var splitCurve in splitCurves)
+                foreach (var splitCurve in customCurve.SplitCurves)
                 {
                     // Gán offset cho từng đoạn mới tách
                     SetOffsetsForSplitCurve(splitCurve, offsets);

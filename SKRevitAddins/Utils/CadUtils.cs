@@ -425,7 +425,8 @@ namespace SKRevitAddins.Utils
                             break;
 
                         case Arc arc:
-                            // CHỈ thêm những Arc có chiều dài bằng chu vi (full circle)
+                            //arcs.Add(arc);
+                            //CHỈ thêm những Arc có chiều dài bằng chu vi(full circle)
                             if (IsFullCircle(arc))
                             {
                                 arcs.Add(arc);
