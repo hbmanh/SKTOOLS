@@ -4,7 +4,7 @@ using SKRevitAddins.Commands.ChangeBwTypeAndIns;
 using SKRevitAddins.Commands.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.Commands.CreateSpace;
 using SKRevitAddins.Commands.DeleteTypeOfTextNotesDontUse;
-using SKRevitAddins.Commands.FindDWGNotUsedAndDel;
+using SKRevitAddins.Commands.FindDWGNotUseAndDel;
 using SKRevitAddins.Commands.PermissibleRangeFrame;
 using SKRevitAddins.Commands.PlaceElementsFromBlocksCad;
 using SKRevitAddins.Commands.SelectElements;
@@ -16,6 +16,7 @@ namespace SKRevitAddins
 {
     public class App : IExternalApplication
     {
+
         internal static App thisApp = null;
         private CreateSpaceWpfWindow m_CreateSpaceWpfWindow;
         private ChangeBwTypeAndInsWpfWindow m_ChangeBwTypeAndInsWpfWindow;
@@ -149,12 +150,13 @@ namespace SKRevitAddins
             }
         }
 
-        public void ShowFindDWGNotUseAndDelViewModel(UIApplication uiapp, FindDWGNotUsedAndDelViewModel viewModel)
+        public void ShowFindDWGNotUseAndDelViewModel(UIApplication uiapp, FindDWGNotUseAndDelViewModel viewModel)
         {
             if (m_FindDWGNotUseAndDelWpfWindow == null || !m_FindDWGNotUseAndDelWpfWindow.IsVisible)
             {
-                FindDWGNotUsedAndDelRequestHandler handler = new FindDWGNotUsedAndDelRequestHandler(viewModel);
+                FindDWGNotUseAndDelRequestHandler handler = new FindDWGNotUseAndDelRequestHandler(viewModel);
                 ExternalEvent exEvent = ExternalEvent.Create(handler);
+
                 m_FindDWGNotUseAndDelWpfWindow = new FindDWGNotUseAndDelWpfWindow(exEvent, handler, viewModel);
                 m_FindDWGNotUseAndDelWpfWindow.Show();
             }

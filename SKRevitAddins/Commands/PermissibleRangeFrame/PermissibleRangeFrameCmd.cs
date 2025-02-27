@@ -11,7 +11,6 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
     public class PermissibleRangeFrameCmd : IExternalCommand
     {
         PermissibleRangeFrameViewModel viewModel;
-
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiapp = commandData.Application;

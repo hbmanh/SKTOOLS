@@ -150,9 +150,9 @@
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
-    <Compile Include="Commands\FindDWGNotUsedAndDel\FindDWGNotUsedAndDelCmd.cs" />
-    <Compile Include="Commands\FindDWGNotUsedAndDel\FindDWGNotUsedAndDelRequest.cs" />
-    <Compile Include="Commands\FindDWGNotUsedAndDel\FindDWGNotUsedAndDelRequestHandler.cs" />
+    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelCmd.cs" />
+    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelRequest.cs" />
+    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelRequestHandler.cs" />
     <Compile Include="Commands\CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
@@ -185,8 +185,8 @@
     <Compile Include="Forms\DeleteTypeOfTextNotesDontUseWpfWindow.xaml.cs">
       <DependentUpon>DeleteTypeOfTextNotesDontUseWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Forms\FindDWGNotUsedAndDelWpfWindow.xaml.cs">
-      <DependentUpon>FindDWGNotUsedAndDelWpfWindow.xaml</DependentUpon>
+    <Compile Include="Forms\FindDWGNotUseAndDelWpfWindow.xaml.cs">
+      <DependentUpon>FindDWGNotUseAndDelWpfWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Forms\AutoCreatePileFromCadWpfWindow.xaml.cs">
       <DependentUpon>AutoCreatePileFromCadWpfWindow.xaml</DependentUpon>
@@ -245,7 +245,7 @@
     <Compile Include="ViewModel\PermissibleRangeFrameViewModel.cs" />
     <Compile Include="ViewModel\PlaceElementsFromBlocksCadViewModel.cs" />
     <Compile Include="ViewModel\DeleteTypeOfTextNotesDontUseViewModel.cs" />
-    <Compile Include="ViewModel\FindDWGNotUsedAndDelViewModel.cs" />
+    <Compile Include="ViewModel\FindDWGNotUseAndDelViewModel.cs" />
     <Compile Include="ViewModel\AutoCreatePileFromCadViewModel.cs" />
     <Compile Include="ViewModel\SelectElementsViewModel.cs" />
     <Compile Include="ViewModel\SelectElementsVer1ViewModel.cs" />
@@ -273,7 +273,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Forms\FindDWGNotUsedAndDelWpfWindow.xaml">
+    <Page Include="Forms\FindDWGNotUseAndDelWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

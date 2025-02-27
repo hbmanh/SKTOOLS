@@ -112,10 +112,10 @@ namespace SKToolsRibbon
             CADPanel.AddItem(placeEleFromBlocksBtn);
 
             // FindDWGNotUsed
-            PushButtonData findDWGNotUsedBtn = ribbonUtils.CreatePushButtonData("FindDWGNotUsedAndDelCmd"
+            PushButtonData findDWGNotUsedBtn = ribbonUtils.CreatePushButtonData("FindDWGNotUseAndDelCmd"
                 , "Import DWG\nDelete"
                 , "SKRevitAddins.dll",
-                "SKRevitAddins.Commands.FindDWGNotUsedAndDel.FindDWGNotUsedAndDelCmd"
+                "SKRevitAddins.Commands.FindDWGNotUseAndDel.FindDWGNotUseAndDelCmd"
                 , "FindDWGNotUsed.png"
                 , "Find DWG and Delete"
                 , null, null, null, null, null);
