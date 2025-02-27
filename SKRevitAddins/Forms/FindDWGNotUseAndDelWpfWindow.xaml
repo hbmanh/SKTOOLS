@@ -7,20 +7,43 @@
         ResizeMode="NoResize" ShowInTaskbar="True" Topmost="True">
 
     <Grid Margin="10">
+        <!-- 3 hàng: (1) Logo + Tìm kiếm, (2) DataGrid, (3) Panel nút -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Search Box -->
+        <!-- **** Hàng 0: Logo + Text + Search **** -->
         <Grid Grid.Row="0" Margin="0,0,0,10" Height="30">
             <Grid.ColumnDefinitions>
+                <!-- Cột 0: Chứa logo + text Shinken Group -->
                 <ColumnDefinition Width="*" />
+                <!-- Cột 1: Chứa ô search (icon + TextBox) -->
                 <ColumnDefinition Width="200"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" />
-            <Grid Grid.Column="1" Width="180" HorizontalAlignment="Right">
+
+            <!-- Logo + dòng chữ -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Left"
+                        Margin="5,0,0,0">
+                <!-- Logo -->
+                <Image Width="30" Height="30"
+                       Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
+                       Stretch="UniformToFill"
+                       Margin="0,0,5,0"/>
+                <!-- Text -->
+                <TextBlock Text="Shinken Group®"
+                           VerticalAlignment="Center"
+                           Foreground="Black"
+                           FontWeight="Bold"
+                           FontSize="12"/>
+            </StackPanel>
+
+            <!-- Hộp Search -->
+            <Grid Width="233" HorizontalAlignment="Left" Grid.ColumnSpan="2" Margin="507,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="30" />
                     <ColumnDefinition Width="*" />
@@ -28,26 +51,24 @@
                 <TextBlock Grid.Column="0" Text="🔍"
                            VerticalAlignment="Center"
                            HorizontalAlignment="Center"
-                           FontSize="14" Foreground="Gray"/>
+                           FontSize="14"
+                           Foreground="Gray"/>
                 <TextBox x:Name="SearchTextBox"
                          Grid.Column="1"
                          VerticalContentAlignment="Center"
                          Padding="5,0,0,0"
                          ToolTip="Nhập từ khoá tìm kiếm..."
-                         TextChanged="SearchTextBox_TextChanged"/>
+                         TextChanged="SearchTextBox_TextChanged" Margin="0,6,0,6"/>
             </Grid>
         </Grid>
 
-        <!-- DataGrid: Thêm SelectionChanged -->
+        <!-- **** Hàng 1: DataGrid hiển thị DWGs **** -->
         <DataGrid x:Name="viewSetDg"
                   Grid.Row="1"
                   Margin="0,0,0,10"
                   AutoGenerateColumns="False"
                   ItemsSource="{Binding ImportedDWGs}"
-                  IsReadOnly="True"
-                  SelectionMode="Extended"
-                  SelectionUnit="FullRow"
-                  SelectionChanged="viewSetDg_SelectionChanged">
+                  IsReadOnly="True">
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Instance Id" Binding="{Binding InstanceId}" Width="80"/>
@@ -55,12 +76,12 @@
                 <DataGridTextColumn Header="File Name"   Binding="{Binding FileName}"   Width="180"/>
                 <DataGridTextColumn Header="Insert Type" Binding="{Binding InsertType}" Width="80"/>
                 <DataGridTextColumn Header="Pinned"      Binding="{Binding Pinned}"     Width="60"/>
-                <DataGridTextColumn Header="Owner View"  Binding="{Binding OwnerView}"  Width="120"/>
+                <DataGridTextColumn Header="Owner View"  Binding="{Binding OwnerView}"  Width="220"/>
                 <!--<DataGridTextColumn Header="Group"       Binding="{Binding Group}"      Width="100"/>-->
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- Button panel -->
+        <!-- **** Hàng 2: Panel nút Delete/OpenView/Export/Cancel **** -->
         <Grid Grid.Row="2" Height="40">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220"/>
@@ -70,9 +91,8 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Grid.Column="0">
+            <!-- Delete + Radio -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Grid.Column="0">
                 <Button x:Name="DeleteBtn" Content="Delete"
                         Width="60" Margin="5,0,0,0"
                         Click="DeleteBtn_Click"/>
