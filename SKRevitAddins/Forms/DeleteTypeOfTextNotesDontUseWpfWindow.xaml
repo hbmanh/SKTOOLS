@@ -7,107 +7,137 @@
         mc:Ignorable="d" 
         Title="Delete Type of TexNotes Dont Use" 
         WindowStartupLocation="CenterScreen" 
-        Height="550" 
-        Width="350" 
+        Height="591" Width="350" 
         ResizeMode="NoResize" 
         ShowInTaskbar="True" 
         Topmost="True">
 
-    <Grid Height="530" VerticalAlignment="Top">
-        <GroupBox 
-    FontSize="13" 
-    HorizontalAlignment="Center" VerticalAlignment="Top"  Margin="0,10,0,0"
-    Height="180" Width="330">
-            <Grid Height="170" HorizontalAlignment="Left" VerticalAlignment="Top" Width="320">
+    <!-- Tạo 2 hàng:
+         Row 0: Logo + text "Shinken Group®"
+         Row 1: Grid cũ (mô phỏng layout ban đầu) -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Hàng cho logo + text -->
+            <RowDefinition Height="*"/>
+            <!-- Hàng chính chứa GroupBox, Button... -->
+        </Grid.RowDefinitions>
 
-                <TextBlock 
-                    Text="Filter By：" TextAlignment="Right" FontSize="13" 
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" 
-                    Width="81"/>
+        <!-- ***** Hàng 0: Logo + text Shinken Group® ***** -->
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Left"
+                    Margin="10,5,10,0">
+            <!-- Logo -->
+            <Image Width="30" Height="30"
+                   Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
+                   Stretch="UniformToFill"
+                   Margin="0,0,5,0"/>
+            <!-- TextBlock -->
+            <TextBlock Text="Shinken Group®"
+                       VerticalAlignment="Center"
+                       Foreground="Black"
+                       FontWeight="Bold"
+                       FontSize="12"/>
+        </StackPanel>
 
-                <ComboBox 
-                    Name="filterBy" 
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,10,0,0"
-                    Width="200" Height="25"
-                    ItemsSource="{Binding FilterBy}"
-                    SelectedItem="{Binding SelFilterBy}"
-                />
+        <!-- ***** Hàng 1: Grid cũ, copy nguyên code, chỉ thêm Grid.Row="1" ***** -->
+        <Grid Grid.Row="1" Height="530" VerticalAlignment="Top">
+            <GroupBox 
+                FontSize="13" 
+                HorizontalAlignment="Center" VerticalAlignment="Top"  Margin="0,10,0,0"
+                Height="180" Width="330">
+                <Grid Height="170" HorizontalAlignment="Left" VerticalAlignment="Top" Width="320">
 
-                <TextBlock 
-                    Text="Category："  FontSize="13" TextAlignment="Right"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,50,0,0" 
-                    Width="80"/>
+                    <TextBlock 
+                        Text="Filter By：" TextAlignment="Right" FontSize="13" 
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" 
+                        Width="81"/>
 
-                <ComboBox 
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,50,0,0"
-                    Width="200" Height="25"
-                    ItemsSource="{Binding StringCategories}"
-                    SelectedItem="{Binding SelStringCategories}"
-                    IsEditable="True"
-                    IsTextSearchEnabled="True"
-                    DisplayMemberPath="Name"
-                />
-                <TextBlock 
-                    Text="Filter Rule：" FontSize="13" TextAlignment="Right"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,90,0,0" 
-                    Width="80" />
+                    <ComboBox 
+                        Name="filterBy" 
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,10,0,0"
+                        Width="200" Height="25"
+                        ItemsSource="{Binding FilterBy}"
+                        SelectedItem="{Binding SelFilterBy}"/>
 
-                <ComboBox 
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,90,0,0"
-                    Width="200" Height="25"
-                    ItemsSource="{Binding StringRules}"
-                    SelectedItem="{Binding SelStringRule}"/>
+                    <TextBlock 
+                        Text="Category："  FontSize="13" TextAlignment="Right"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,50,0,0" 
+                        Width="80"/>
 
-                <TextBlock 
-                    Text="Type Names：" FontSize="13" TextAlignment="Right"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,130,0,0" 
-                    Width="80" />
+                    <ComboBox 
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,50,0,0"
+                        Width="200" Height="25"
+                        ItemsSource="{Binding StringCategories}"
+                        SelectedItem="{Binding SelStringCategories}"
+                        IsEditable="True"
+                        IsTextSearchEnabled="True"
+                        DisplayMemberPath="Name"/>
 
-                <ComboBox 
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,130,0,0"
-                    Width="200" Height="25"
-                    ItemsSource="{Binding ParamValues}"
-                    SelectedItem="{Binding SelParamValue}"
-                    IsEditable="True"
-                    IsTextSearchEnabled="True"
-                />
+                    <TextBlock 
+                        Text="Filter Rule：" FontSize="13" TextAlignment="Right"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,90,0,0" 
+                        Width="80" />
+
+                    <ComboBox 
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,90,0,0"
+                        Width="200" Height="25"
+                        ItemsSource="{Binding StringRules}"
+                        SelectedItem="{Binding SelStringRule}"/>
+
+                    <TextBlock 
+                        Text="Type Names：" FontSize="13" TextAlignment="Right"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,130,0,0" 
+                        Width="80" />
+
+                    <ComboBox 
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="110,130,0,0"
+                        Width="200" Height="25"
+                        ItemsSource="{Binding ParamValues}"
+                        SelectedItem="{Binding SelParamValue}"
+                        IsEditable="True"
+                        IsTextSearchEnabled="True"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox 
+                Header="Element List"
+                FontSize="14" 
+                HorizontalAlignment="Center" VerticalAlignment="Top"  Margin="0,190,0,0"
+                Height="280" Width="330">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Name="amt" HorizontalAlignment="Center"/>
+                    <Expander Margin="10,10,0,0" Width="296">
+                        <ListBox Name="elemList" Height="200" 
+                                 HorizontalAlignment="Left" VerticalAlignment="Top" Width="286"
+                                 SelectionMode="Multiple"
+                                 ItemsSource="{Binding TypeNamesToDelete}"
+                                 DisplayMemberPath="Name"
+                                 utils:MultiSelect.BindableSelectedItems="{Binding SelTypeNamesToDelete, Mode=OneWay}"/>
+                    </Expander>
+                </StackPanel>
+            </GroupBox>
+
+            <Grid
+                VerticalAlignment="Top" HorizontalAlignment="Left"
+                Margin="10,470,0,0" Width="320" Height="50">
+
+                <Button 
+                    HorizontalAlignment="Right"
+                    x:Name="ReviewBtn" Content="Delete" 
+                    FontSize="13" Height="25" Width="80"
+                    Margin="10,12,125,10" 
+                    Click="ReviewBtn_Click" />
+
+                <Button 
+                    HorizontalAlignment="Right"
+                    x:Name="CancelBtn" Content="Cancel" 
+                    IsCancel="True" 
+                    FontSize="13" Height="25" Width="80"
+                    Margin="120,12,25,10"
+                    Click="CancelBtn_Click"/>
             </Grid>
-
-        </GroupBox>
-
-        <GroupBox 
-    Header="Element List"
-    FontSize="14" 
-    HorizontalAlignment="Center" VerticalAlignment="Top"  Margin="0,190,0,0"
-    Height="280" Width="330">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Name="amt" HorizontalAlignment="Center"/>
-                <Expander Margin="10,10,0,0" Width="296">
-                    <ListBox Name="elemList" Height="200" 
-                     HorizontalAlignment="Left" VerticalAlignment="Top" Width="286"
-                     SelectionMode="Multiple"
-                     ItemsSource="{Binding TypeNamesToDelete}"
-                     DisplayMemberPath="Name"
-                     utils:MultiSelect.BindableSelectedItems="{Binding SelTypeNamesToDelete, Mode=OneWay}"/>
-                </Expander>
-            </StackPanel>
-        </GroupBox>
-
-        <Grid
-    VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10,470,0,0" Width="320" Height="50">
-            <Button 
-                HorizontalAlignment="Right"
-                x:Name="ReviewBtn" Content="Delete" 
-                FontSize="13" Height="25" Width="80"
-                Margin="10,12,125,10" 
-                Click="ReviewBtn_Click" />
-            <Button 
-                HorizontalAlignment="Right"
-                x:Name="CancelBtn" Content="Cancel" 
-                IsCancel="True" 
-                FontSize="13" Height="25" Width="80"
-                Margin="120,12,25,10"
-                Click="CancelBtn_Click"/>
         </Grid>
     </Grid>
 </Window>

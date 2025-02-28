@@ -58,7 +58,7 @@
                          VerticalContentAlignment="Center"
                          Padding="5,0,0,0"
                          ToolTip="Nhập từ khoá tìm kiếm..."
-                         TextChanged="SearchTextBox_TextChanged" Margin="0,6,0,6"/>
+                         TextChanged="SearchTextBox_TextChanged" Margin="0,6,16,6"/>
             </Grid>
         </Grid>
 
@@ -68,7 +68,10 @@
                   Margin="0,0,0,10"
                   AutoGenerateColumns="False"
                   ItemsSource="{Binding ImportedDWGs}"
-                  IsReadOnly="True">
+                  IsReadOnly="True"
+                  SelectionMode="Extended"
+                  SelectionUnit="FullRow"
+                  SelectionChanged="viewSetDg_SelectionChanged">
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Instance Id" Binding="{Binding InstanceId}" Width="80"/>

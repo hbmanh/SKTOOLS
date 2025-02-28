@@ -106,14 +106,14 @@ namespace SKToolsRibbon
 
             //CadLinkPlaceElementsFromBlocks
             PushButtonData placeEleFromBlocksBtn = ribbonUtils.CreatePushButtonData("PlaceElementsFromBlocksCadCmd",
-                "ElementsFrBlocks\nCreate", "SKRevitAddins.dll",
+                "EleFrB\nCreate", "SKRevitAddins.dll",
                 "SKRevitAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png",
                 "Creeate elements from Blocks", null, null, null, null, null);
             CADPanel.AddItem(placeEleFromBlocksBtn);
 
             // FindDWGNotUsed
             PushButtonData findDWGNotUsedBtn = ribbonUtils.CreatePushButtonData("FindDWGNotUseAndDelCmd"
-                , "Import DWG\nDelete"
+                , "CADFind\nDelete"
                 , "SKRevitAddins.dll",
                 "SKRevitAddins.Commands.FindDWGNotUseAndDel.FindDWGNotUseAndDelCmd"
                 , "FindDWGNotUsed.png"
@@ -123,7 +123,7 @@ namespace SKToolsRibbon
 
             // Create Pile From Cad
             PushButtonData createPileFromCadBtn = ribbonUtils.CreatePushButtonData("AutoCreatePileFromCadCmd"
-                , "PilesFrDWG\n Create"
+                , "Piles\n Create"
                 , "SKRevitAddins.dll",
                 "SKRevitAddins.Commands.AutoCreatePileFromCad.AutoCreatePileFromCadCmd"
                 , "PileFCADCreate.png"
@@ -161,7 +161,7 @@ namespace SKToolsRibbon
             mepAddinsPanel.AddItem(ConvertPlaceholdersToDuctsAndPipesBtn);
 
             PushButtonData PermissibleRangeFramePunchingBtn = ribbonUtils.CreatePushButtonData("IntersectWithFrameCmd"
-                , "Permissible Range\n Check"
+                , "Permissible\n Check"
                 , "SKRevitAddins.dll",
                 "SKRevitAddins.Commands.PermissibleRangeFrame.PermissibleRangeFrameCmd"
                 , "PermissibleRangeFramePunching.png"
