@@ -104,6 +104,13 @@ namespace SKToolsRibbon
 
             //CADPanel.AddItem(replaceLineStyleBtn);
 
+            //ExportSchedulesToExcel
+            PushButtonData exportSchedulesToExcelBtn = ribbonUtils.CreatePushButtonData("ExportSchedulesToExcelCmd",
+                "Schedules\nExport", "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png",
+                "アドインの情報", null, null, null, null, null);
+            GENPanelNamePanel.AddItem(exportSchedulesToExcelBtn);
+
             //CadLinkPlaceElementsFromBlocks
             PushButtonData placeEleFromBlocksBtn = ribbonUtils.CreatePushButtonData("PlaceElementsFromBlocksCadCmd",
                 "EleFrB\nCreate", "SKRevitAddins.dll",

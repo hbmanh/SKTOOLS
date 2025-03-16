@@ -4,6 +4,7 @@ using SKRevitAddins.Commands.ChangeBwTypeAndIns;
 using SKRevitAddins.Commands.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.Commands.CreateSpace;
 using SKRevitAddins.Commands.DeleteTypeOfTextNotesDontUse;
+using SKRevitAddins.Commands.ExportSchedulesToExcel;
 using SKRevitAddins.Commands.FindDWGNotUseAndDel;
 using SKRevitAddins.Commands.PermissibleRangeFrame;
 using SKRevitAddins.Commands.PlaceElementsFromBlocksCad;
@@ -28,6 +29,7 @@ namespace SKRevitAddins
         private AutoCreatePileFromCadWpfWindow m_AutoCreatePileFromCadWpfWindow;
         private PlaceElementsFromBlocksCadWpfWindow m_PlaceElementsFromBlocksCadWpfWindow;
         private PermissibleRangeFrameWpfWindow m_PermissibleRangeFrameWpfWindow;
+        private ExportSchedulesToExcelWpfWindow m_ExportSchedulesToExcelWpfWindow;
 
         public Result OnShutdown(UIControlledApplication application)
         {
@@ -55,7 +57,10 @@ namespace SKRevitAddins
             {
                 m_SelectElementsVer1WpfWindow.Close();
             }
-
+            if (m_ExportSchedulesToExcelWpfWindow != null && m_ExportSchedulesToExcelWpfWindow.IsVisible)
+            {
+                m_ExportSchedulesToExcelWpfWindow.Close();
+            }
             if (m_FindDWGNotUseAndDelWpfWindow != null && m_FindDWGNotUseAndDelWpfWindow.IsVisible)
             {
                 m_FindDWGNotUseAndDelWpfWindow.Close();
@@ -149,7 +154,16 @@ namespace SKRevitAddins
                 m_SelectElementsWpfWindow.Show();
             }
         }
-
+        public void ShowExportSchedulesToExcelViewModel(UIApplication uiApp, ExportSchedulesToExcelViewModel viewModel)
+        {
+            if (m_ExportSchedulesToExcelWpfWindow == null || !m_ExportSchedulesToExcelWpfWindow.IsVisible)
+            {
+                ExportSchedulesToExcelRequestHandler handler = new ExportSchedulesToExcelRequestHandler(viewModel);
+                ExternalEvent exEvent = ExternalEvent.Create(handler);
+                m_ExportSchedulesToExcelWpfWindow = new ExportSchedulesToExcelWpfWindow(exEvent, handler, viewModel);
+                m_ExportSchedulesToExcelWpfWindow.Show();
+            }
+        }
         public void ShowFindDWGNotUseAndDelViewModel(UIApplication uiapp, FindDWGNotUseAndDelViewModel viewModel)
         {
             if (m_FindDWGNotUseAndDelWpfWindow == null || !m_FindDWGNotUseAndDelWpfWindow.IsVisible)

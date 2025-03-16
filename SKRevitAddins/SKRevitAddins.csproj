@@ -96,10 +96,6 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data.OracleClient" />
     <Reference Include="System.Drawing" />
-    <Reference Include="System.Drawing.Common, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Drawing.Common.8.0.2\lib\net462\System.Drawing.Common.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="System.Net" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Security" />
@@ -150,6 +146,9 @@
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
+    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelCmd.cs" />
+    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelRequest.cs" />
+    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelRequestHandler.cs" />
     <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelCmd.cs" />
     <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelRequest.cs" />
     <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelRequestHandler.cs" />
@@ -176,6 +175,13 @@
     <Compile Include="Commands\PlaceElementsFromBlocksCmd.cs" />
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\PlaceDuctsAndPipesBaseonCadCmd.cs" />
     <Compile Include="Commands\ParameterAssignment\ParameterAssignmentCmd.cs" />
+    <Compile Include="Commands\ExportSchedulesExcel.cs" />
+    <Compile Include="Forms\PreviewWindow.xaml.xaml.cs">
+      <DependentUpon>PreviewWindow.xaml.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\ExportSchedulesToExcelWpfWindow.xaml.cs">
+      <DependentUpon>ExportSchedulesToExcelWpfWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Forms\PermissibleRangeFrameWpfWindow.xaml.cs">
       <DependentUpon>PermissibleRangeFrameWpfWindow.xaml</DependentUpon>
     </Compile>
@@ -242,6 +248,7 @@
     <Compile Include="Utils\TUnionUtils.cs" />
     <Compile Include="Utils\UnitUtils.cs" />
     <Compile Include="Utils\WpfUtils.cs" />
+    <Compile Include="ViewModel\ExportSchedulesToExcelViewModel .cs" />
     <Compile Include="ViewModel\PermissibleRangeFrameViewModel.cs" />
     <Compile Include="ViewModel\PlaceElementsFromBlocksCadViewModel.cs" />
     <Compile Include="ViewModel\DeleteTypeOfTextNotesDontUseViewModel.cs" />
@@ -261,6 +268,14 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Forms\PreviewWindow.xaml.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Forms\ExportSchedulesToExcelWpfWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Forms\PermissibleRangeFrameWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -358,20 +373,25 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML">
-      <Version>0.102.3</Version>
+      <Version>0.105.0-rc</Version>
     </PackageReference>
-    <PackageReference Include="EPPlus" Version="7.3.2" />
+    <PackageReference Include="EPPlus">
+      <Version>7.6.1</Version>
+    </PackageReference>
     <PackageReference Include="EPPlus.Interfaces">
-      <Version>6.1.1</Version>
+      <Version>7.6.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf">
       <Version>1.1.135</Version>
     </PackageReference>
+    <PackageReference Include="NPOI">
+      <Version>2.7.2</Version>
+    </PackageReference>
     <PackageReference Include="System.Drawing.Common">
-      <Version>8.0.8</Version>
+      <Version>10.0.0-preview.1.25080.3</Version>
     </PackageReference>
     <PackageReference Include="System.Text.Json">
-      <Version>8.0.5</Version>
+      <Version>10.0.0-preview.1.25080.5</Version>
     </PackageReference>
     <!-- Các PackageReference khác nếu có -->
   </ItemGroup>
