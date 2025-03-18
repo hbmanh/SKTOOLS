@@ -1,52 +1,69 @@
-﻿using System.Collections.Generic;
-using System.Windows;
+﻿using System.Windows;
 using SKRevitAddins.ViewModel;
+using System.Data;
+using System.Collections.Generic;
 
 namespace SKRevitAddins.Forms
 {
     public partial class PreviewWindow : Window
     {
-        private List<List<string>> _originalExcelData;
-        private ExportSchedulesToExcelViewModel _viewModel;
+        private ExportSchedulesToExcelViewModel _vm;
+        private List<ExportSchedulesToExcelViewModel.PreviewTab> _originalTabs;
 
         public PreviewWindow(ExportSchedulesToExcelViewModel viewModel)
         {
             InitializeComponent();
-            _viewModel = viewModel;
-            DataContext = _viewModel;
+            _vm = viewModel;
+            DataContext = _vm;
 
-            // Lưu bản sao dữ liệu ban đầu để có thể Reset
-            _originalExcelData = new List<List<string>>(_viewModel.ExcelPreviewData);
-
-            // Hiển thị dữ liệu trong DataGrid
-            ExcelPreviewDataGrid.ItemsSource = _viewModel.ExcelPreviewData;
-        }
-
-        // Sự kiện Reset: Quay lại dữ liệu gốc
-        private void ResetBtn_Click(object sender, RoutedEventArgs e)
-        {
-            _viewModel.ExcelPreviewData.Clear();
-            foreach (var row in _originalExcelData)
+            // Sao lưu dữ liệu ban đầu
+            _originalTabs = new List<ExportSchedulesToExcelViewModel.PreviewTab>();
+            foreach (var tab in _vm.ExcelPreviewTabs)
             {
-                // copy từng row
-                _viewModel.ExcelPreviewData.Add(new List<string>(row));
+                var copyTab = new ExportSchedulesToExcelViewModel.PreviewTab
+                {
+                    SheetName = tab.SheetName,
+                    SheetData = tab.SheetData.Copy() // Copy DataTable
+                };
+                _originalTabs.Add(copyTab);
             }
         }
 
-        // Sự kiện Update: Cập nhật dữ liệu đã chỉnh sửa vào Revit model (nếu cần)
+        private void ResetBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _vm.ExcelPreviewTabs.Clear();
+            foreach (var oldTab in _originalTabs)
+            {
+                var newTab = new ExportSchedulesToExcelViewModel.PreviewTab
+                {
+                    SheetName = oldTab.SheetName,
+                    SheetData = oldTab.SheetData.Copy()
+                };
+                _vm.ExcelPreviewTabs.Add(newTab);
+            }
+        }
+
         private void UpdateBtn_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Data updated successfully (logic not shown).",
+            // Logic ghi ngược Revit (nếu muốn)
+            MessageBox.Show("Data updated (demo).",
                 "Update", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            // Đóng cửa sổ Preview sau khi cập nhật
             this.Close();
         }
 
-        // Sự kiện Cancel: Đóng cửa sổ Preview mà không lưu thay đổi
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+    }
+
+    public static class DataTableExtensions
+    {
+        public static DataTable Copy(this DataTable dt)
+        {
+            // Copy DataTable
+            return dt.Copy();
         }
     }
 }

@@ -1,10 +1,9 @@
 ﻿using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using Autodesk.Revit.UI;
 using SKRevitAddins.Commands.ExportSchedulesToExcel;
 using SKRevitAddins.ViewModel;
-using System.Collections.Generic;
-using Autodesk.Revit.UI;
 
 namespace SKRevitAddins.Forms
 {
@@ -26,84 +25,93 @@ namespace SKRevitAddins.Forms
             DataContext = _vm;
         }
 
-        // 1. Sự kiện click CheckBox => Cập nhật SelectedSchedules
+        // Search Document
+        private void DocSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string keyword = DocSearchTextBox.Text?.Trim();
+            _vm.FilterDocumentByKeyword(keyword);
+        }
+
+        // Search Schedule
+        private void SchedSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string keyword = SchedSearchTextBox.Text?.Trim();
+            _vm.FilterScheduleByKeyword(keyword);
+        }
+
+        // CheckBox => cập nhật SelectedSchedules
         private void ScheduleCheckbox_Click(object sender, RoutedEventArgs e)
         {
             if (sender is CheckBox cb && cb.DataContext is ExportSchedulesToExcelViewModel.ScheduleItem item)
             {
-                // Nếu checkbox được check => thêm vào SelectedSchedules
                 if (item.IsSelected)
                 {
                     if (!_vm.SelectedSchedules.Contains(item))
-                    {
                         _vm.SelectedSchedules.Add(item);
-                    }
                 }
                 else
                 {
-                    // Nếu uncheck => gỡ khỏi SelectedSchedules
                     if (_vm.SelectedSchedules.Contains(item))
-                    {
                         _vm.SelectedSchedules.Remove(item);
-                    }
                 }
             }
         }
 
-        // 2. Select All => đánh dấu IsSelected = true cho tất cả
+        // Select All
         private void SelectAllBtn_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var sched in _vm.AvailableSchedules)
+            foreach (var s in _vm.FilteredSchedules)
             {
-                if (!sched.IsSelected)
+                if (!s.IsSelected)
                 {
-                    sched.IsSelected = true;
-                    if (!_vm.SelectedSchedules.Contains(sched))
-                    {
-                        _vm.SelectedSchedules.Add(sched);
-                    }
+                    s.IsSelected = true;
+                    if (!_vm.SelectedSchedules.Contains(s))
+                        _vm.SelectedSchedules.Add(s);
                 }
             }
-            // Làm mới UI (nếu cần)
-            SchedulesListBox.Items.Refresh();
         }
 
-        // 3. Deselect All => đánh dấu IsSelected = false cho tất cả
+        // Deselect All
         private void DeselectAllBtn_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var sched in _vm.AvailableSchedules)
+            foreach (var s in _vm.FilteredSchedules)
             {
-                sched.IsSelected = false;
+                s.IsSelected = false;
             }
             _vm.SelectedSchedules.Clear();
-            SchedulesListBox.Items.Refresh();
         }
 
-        // 4. Preview => Mở cửa sổ preview
+        // Preview
         private void PreviewBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!_vm.SelectedSchedules.Any())
             {
-                MessageBox.Show("Please select at least one schedule to preview.",
+                MessageBox.Show("No schedules selected to preview.",
                                 "Preview", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            PreviewWindow previewWindow = new PreviewWindow(_vm);
-            previewWindow.ShowDialog();
+
+            // Tạo tab
+            _vm.LoadPreviewTabsFromSelectedSchedules();
+
+            // Mở cửa sổ Preview
+            PreviewWindow pwin = new PreviewWindow(_vm);
+            pwin.ShowDialog();
         }
 
-        // 5. Export Without Preview
-        private void ExportWithoutPreviewBtn_Click(object sender, RoutedEventArgs e)
+        // Export
+        private void ExportBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_vm.SelectedSchedules.Any())
+            if (!_vm.SelectedSchedules.Any())
             {
-                _handler.Request.Make(RequestId.Export);
-                _exEvent.Raise();
+                MessageBox.Show("No schedules selected to export.",
+                                "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
-            else
-            {
-                MessageBox.Show("Please select at least one schedule.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+
+            // Gọi ExternalEvent => Export
+            _handler.Request.Make(RequestId.Export);
+            _exEvent.Raise();
         }
     }
 }
