@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using SKRevitAddins.ViewModel;
 using SKRevitAddins.Commands.ExportSchedulesToExcel;
+using System;
 using Autodesk.Revit.UI;
 
 namespace SKRevitAddins.Forms
@@ -77,15 +78,38 @@ namespace SKRevitAddins.Forms
             _vm.SelectedSchedules.Clear();
         }
 
+        private void PreviewBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_vm.SelectedSchedules.Any())
+            {
+                MessageBox.Show("No schedules selected to preview.",
+                    "Preview", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                _vm.LoadPreviewTabsFromSelectedSchedules();
+
+                // Mở Preview
+                PreviewWindow pw = new PreviewWindow(_vm);
+                pw.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error in Preview: " + ex.Message,
+                    "Preview Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void ExportBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!_vm.SelectedSchedules.Any())
             {
-                _vm.ExportStatusMessage = "No schedules selected to export.";
+                MessageBox.Show("No schedules selected to export.",
+                    "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-
-            // Gọi ExternalEvent => Export
             _handler.Request.Make(RequestId.Export);
             _exEvent.Raise();
         }

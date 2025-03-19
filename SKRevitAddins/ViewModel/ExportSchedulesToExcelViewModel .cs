@@ -2,12 +2,12 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System.Linq;
-using System.Data;
-using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace SKRevitAddins.ViewModel
 {
-    public class ExportSchedulesToExcelViewModel : ViewModelBase
+    public class ExportSchedulesToExcelViewModel : INotifyPropertyChanged
     {
         private UIApplication _uiApp;
         private Document _hostDoc;
@@ -17,27 +17,41 @@ namespace SKRevitAddins.ViewModel
             _uiApp = uiApp;
             _hostDoc = uiApp.ActiveUIDocument.Document;
 
-            AllDocuments = new ObservableCollection<DocumentItem>();
+            Documents = new ObservableCollection<DocumentItem>();
             FilteredDocuments = new ObservableCollection<DocumentItem>();
-
-            AvailableSchedules = new ObservableCollection<ScheduleItem>();
+            AllSchedules = new ObservableCollection<ScheduleItem>();
             FilteredSchedules = new ObservableCollection<ScheduleItem>();
-
             SelectedSchedules = new ObservableCollection<ScheduleItem>();
-            ExcelPreviewTabs = new ObservableCollection<PreviewTab>();
 
             LoadDocuments();
-            // Mặc định hiển thị hết Document
-            foreach (var docItem in AllDocuments)
+            foreach (var d in Documents) FilteredDocuments.Add(d);
+
+            // Mặc định, không có thông báo
+            ExportStatusMessage = "";
+        }
+
+        // Thuộc tính hiển thị thông báo sau khi Export
+        private string _exportStatusMessage;
+        public string ExportStatusMessage
+        {
+            get => _exportStatusMessage;
+            set
             {
-                FilteredDocuments.Add(docItem);
+                _exportStatusMessage = value;
+                OnPropertyChanged();
             }
         }
 
-        #region Thuộc tính chính
+        // Thuộc tính hủy (nếu cần)
+        private bool _isCancelled;
+        public bool IsCancelled
+        {
+            get => _isCancelled;
+            set { _isCancelled = value; OnPropertyChanged(); }
+        }
 
-        // Danh sách Document (host + link)
-        public ObservableCollection<DocumentItem> AllDocuments { get; set; }
+        // Document (host/link)
+        public ObservableCollection<DocumentItem> Documents { get; set; }
         public ObservableCollection<DocumentItem> FilteredDocuments { get; set; }
 
         private DocumentItem _selectedDocumentItem;
@@ -47,45 +61,38 @@ namespace SKRevitAddins.ViewModel
             set
             {
                 _selectedDocumentItem = value;
-                OnPropertyChanged(nameof(SelectedDocumentItem));
+                OnPropertyChanged();
                 LoadSchedulesForSelectedDoc();
             }
         }
 
-        // Danh sách schedule
-        public ObservableCollection<ScheduleItem> AvailableSchedules { get; set; }
+        // Schedules
+        public ObservableCollection<ScheduleItem> AllSchedules { get; set; }
         public ObservableCollection<ScheduleItem> FilteredSchedules { get; set; }
         public ObservableCollection<ScheduleItem> SelectedSchedules { get; set; }
 
-        // Danh sách tab preview
-        public ObservableCollection<PreviewTab> ExcelPreviewTabs { get; set; }
-
-        #endregion
-
-        #region Load Documents & Schedules
-
         private void LoadDocuments()
         {
-            // 1) Host
-            AllDocuments.Add(new DocumentItem
+            // Host
+            Documents.Add(new DocumentItem
             {
                 DisplayName = "Host Document",
                 DocRef = _hostDoc,
                 IsLink = false
             });
 
-            // 2) Link
-            var linkInstances = new FilteredElementCollector(_hostDoc)
+            // Link
+            var linkInsts = new FilteredElementCollector(_hostDoc)
                 .OfClass(typeof(RevitLinkInstance))
                 .Cast<RevitLinkInstance>()
                 .ToList();
 
-            foreach (var linkInst in linkInstances)
+            foreach (var li in linkInsts)
             {
-                var linkDoc = linkInst.GetLinkDocument();
+                var linkDoc = li.GetLinkDocument();
                 if (linkDoc != null)
                 {
-                    AllDocuments.Add(new DocumentItem
+                    Documents.Add(new DocumentItem
                     {
                         DisplayName = "Link: " + linkDoc.Title,
                         DocRef = linkDoc,
@@ -94,19 +101,18 @@ namespace SKRevitAddins.ViewModel
                 }
             }
 
-            // Mặc định chọn Host
-            SelectedDocumentItem = AllDocuments.FirstOrDefault();
+            SelectedDocumentItem = Documents.FirstOrDefault();
         }
 
         private void LoadSchedulesForSelectedDoc()
         {
-            AvailableSchedules.Clear();
+            AllSchedules.Clear();
             FilteredSchedules.Clear();
             SelectedSchedules.Clear();
 
             if (SelectedDocumentItem?.DocRef == null) return;
-
             var doc = SelectedDocumentItem.DocRef;
+
             var vsCollector = new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewSchedule))
                 .Cast<ViewSchedule>()
@@ -114,116 +120,57 @@ namespace SKRevitAddins.ViewModel
 
             foreach (var vs in vsCollector)
             {
-                AvailableSchedules.Add(new ScheduleItem
+                AllSchedules.Add(new ScheduleItem
                 {
                     Name = vs.Name,
                     Schedule = vs
                 });
             }
 
-            // Hiển thị hết
-            foreach (var s in AvailableSchedules)
-            {
+            foreach (var s in AllSchedules)
                 FilteredSchedules.Add(s);
-            }
         }
-
-        #endregion
-
-        #region Search Document & Schedule
 
         public void FilterDocumentByKeyword(string keyword)
         {
+            FilteredDocuments.Clear();
             if (string.IsNullOrWhiteSpace(keyword))
             {
-                FilteredDocuments.Clear();
-                foreach (var docItem in AllDocuments)
-                    FilteredDocuments.Add(docItem);
+                foreach (var d in Documents) FilteredDocuments.Add(d);
                 return;
             }
             keyword = keyword.ToLower();
-
-            var filtered = AllDocuments
+            var fil = Documents
                 .Where(d => d.DisplayName.ToLower().Contains(keyword))
                 .ToList();
-
-            FilteredDocuments.Clear();
-            foreach (var docItem in filtered)
-            {
+            foreach (var docItem in fil)
                 FilteredDocuments.Add(docItem);
-            }
         }
 
         public void FilterScheduleByKeyword(string keyword)
         {
+            FilteredSchedules.Clear();
             if (string.IsNullOrWhiteSpace(keyword))
             {
-                FilteredSchedules.Clear();
-                foreach (var s in AvailableSchedules)
-                    FilteredSchedules.Add(s);
+                foreach (var s in AllSchedules) FilteredSchedules.Add(s);
                 return;
             }
             keyword = keyword.ToLower();
-
-            var filtered = AvailableSchedules
+            var f = AllSchedules
                 .Where(s => s.Name.ToLower().Contains(keyword))
                 .ToList();
-
-            FilteredSchedules.Clear();
-            foreach (var item in filtered)
-            {
+            foreach (var item in f)
                 FilteredSchedules.Add(item);
-            }
         }
 
-        #endregion
-
-        #region Preview
-
-        public void LoadPreviewTabsFromSelectedSchedules()
+        // INotifyPropertyChanged
+        public event PropertyChangedEventHandler PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string prop = null)
         {
-            ExcelPreviewTabs.Clear();
-
-            // Mỗi schedule => 1 tab
-            foreach (var sched in SelectedSchedules)
-            {
-                var dt = new DataTable();
-                var tableData = sched.Schedule.GetTableData();
-                var section = tableData.GetSectionData(SectionType.Body);
-                int rowCount = section.NumberOfRows;
-                int colCount = section.NumberOfColumns;
-
-                // Tạo cột
-                for (int c = 0; c < colCount; c++)
-                {
-                    dt.Columns.Add("Column" + c, typeof(string));
-                }
-
-                // Tạo row
-                for (int r = 0; r < rowCount; r++)
-                {
-                    var rowVals = new object[colCount];
-                    for (int c = 0; c < colCount; c++)
-                    {
-                        string cellText = sched.Schedule.GetCellText(SectionType.Body, r, c);
-                        rowVals[c] = cellText;
-                    }
-                    dt.Rows.Add(rowVals);
-                }
-
-                ExcelPreviewTabs.Add(new PreviewTab
-                {
-                    SheetName = sched.Name,
-                    SheetData = dt
-                });
-            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
         }
 
-        #endregion
-
-        #region Nested Classes
-
-        // DocumentItem
+        // Nested classes
         public class DocumentItem
         {
             public string DisplayName { get; set; }
@@ -231,21 +178,11 @@ namespace SKRevitAddins.ViewModel
             public bool IsLink { get; set; }
         }
 
-        // ScheduleItem
         public class ScheduleItem
         {
             public string Name { get; set; }
             public ViewSchedule Schedule { get; set; }
             public bool IsSelected { get; set; }
         }
-
-        // PreviewTab
-        public class PreviewTab
-        {
-            public string SheetName { get; set; }
-            public DataTable SheetData { get; set; }
-        }
-
-        #endregion
     }
 }

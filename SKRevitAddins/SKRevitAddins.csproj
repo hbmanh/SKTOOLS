@@ -176,9 +176,6 @@
     <Compile Include="Commands\DuctPipePlaceholderAndFittings\PlaceDuctsAndPipesBaseonCadCmd.cs" />
     <Compile Include="Commands\ParameterAssignment\ParameterAssignmentCmd.cs" />
     <Compile Include="Commands\ExportSchedulesExcel.cs" />
-    <Compile Include="Forms\PreviewWindow.xaml.xaml.cs">
-      <DependentUpon>PreviewWindow.xaml.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Forms\ExportSchedulesToExcelWpfWindow.xaml.cs">
       <DependentUpon>ExportSchedulesToExcelWpfWindow.xaml</DependentUpon>
     </Compile>
@@ -268,10 +265,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Forms\PreviewWindow.xaml.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="Forms\ExportSchedulesToExcelWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

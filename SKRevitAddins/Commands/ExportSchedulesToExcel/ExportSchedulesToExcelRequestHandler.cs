@@ -1,92 +1,96 @@
 ﻿using Autodesk.Revit.UI;
 using Autodesk.Revit.DB;
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using OfficeOpenXml;
 using OfficeOpenXml.Table;
-using Microsoft.Win32;
-using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using SKRevitAddins.ViewModel;
 
 namespace SKRevitAddins.Commands.ExportSchedulesToExcel
 {
     public class ExportSchedulesToExcelRequestHandler : IExternalEventHandler
     {
+        private ExportSchedulesToExcelRequest _request;
         private ExportSchedulesToExcelViewModel _vm;
-        private ExportSchedulesToExcelRequest _request = new ExportSchedulesToExcelRequest();
 
-        public ExportSchedulesToExcelRequestHandler(ExportSchedulesToExcelViewModel viewModel)
+        public ExportSchedulesToExcelRequestHandler(
+            ExportSchedulesToExcelViewModel viewModel,
+            ExportSchedulesToExcelRequest request)
         {
             _vm = viewModel;
+            _request = request;
         }
 
+        // Cho phép code-behind gọi handler.Request.Make(...)
         public ExportSchedulesToExcelRequest Request => _request;
+
+        public string GetName() => "ExportSchedulesToExcelRequestHandler";
 
         public void Execute(UIApplication uiApp)
         {
             try
             {
-                Document doc = uiApp.ActiveUIDocument.Document;
                 var reqId = _request.Take();
                 switch (reqId)
                 {
                     case RequestId.None:
                         break;
                     case RequestId.Export:
-                        DoExport(doc);
+                        DoExport(uiApp);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Export Error", ex.Message);
+                // Tuỳ ý ghi log hoặc hiển thị lỗi
             }
         }
 
-        public string GetName()
+        private void DoExport(UIApplication uiApp)
         {
-            return "ExportSchedulesToExcelRequestHandler";
-        }
+            // Xoá thông báo cũ (nếu có)
+            _vm.ExportStatusMessage = "";
 
-        private void DoExport(Document doc)
-        {
-            if (_vm.SelectedSchedules == null || !_vm.SelectedSchedules.Any())
+            var doc = uiApp.ActiveUIDocument.Document;
+            var selected = _vm.SelectedSchedules?.ToList();
+            if (selected == null || selected.Count == 0)
             {
-                TaskDialog.Show("Export Schedules", "No schedules selected.");
+                _vm.ExportStatusMessage = "No schedule selected to export.";
                 return;
             }
 
-            // Hỏi người dùng lưu file Excel ở đâu (sử dụng SaveFileDialog của WPF)
-            var saveDialog = new SaveFileDialog()
+            // Hỏi người dùng nơi lưu file
+            var sfd = new Microsoft.Win32.SaveFileDialog
             {
                 Title = "Save Excel File",
                 Filter = "Excel File (*.xlsx)|*.xlsx",
-                FileName = "SelectedSchedules.xlsx",
-                DefaultExt = ".xlsx"
+                FileName = "SelectedSchedules.xlsx"
             };
-
-            bool? result = saveDialog.ShowDialog();
+            bool? result = sfd.ShowDialog();
             if (result != true)
             {
+                // Người dùng bấm Cancel => không làm gì
                 return;
             }
 
-            string excelFilePath = saveDialog.FileName;
+            string excelFilePath = sfd.FileName;
 
-            // Xuất các schedule được chọn vào file Excel
+            // Tiến hành Export
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using (ExcelPackage package = new ExcelPackage())
             {
-                foreach (var scheduleItem in _vm.SelectedSchedules)
+                foreach (var schedItem in selected)
                 {
-                    ViewSchedule schedule = scheduleItem.Schedule;
-                    var data = GetScheduleData(schedule);
+                    var vs = schedItem.Schedule;
+                    var data = GetScheduleData(vs);
                     if (data.Count == 0) continue;
 
-                    string wsName = CleanSheetName(schedule.Name);
-                    var ws = package.Workbook.Worksheets.Add(wsName);
+                    string sheetName = CleanSheetName(schedItem.Name);
+                    var ws = package.Workbook.Worksheets.Add(sheetName);
 
+                    // Ghi dữ liệu
                     for (int r = 0; r < data.Count; r++)
                     {
                         for (int c = 0; c < data[r].Count; c++)
@@ -95,22 +99,23 @@ namespace SKRevitAddins.Commands.ExportSchedulesToExcel
                         }
                     }
 
+                    // Table style
                     if (data[0].Count > 0)
                     {
                         var range = ws.Cells[1, 1, data.Count, data[0].Count];
-                        string tableName = CleanTableName(schedule.Name);
-                        var tbl = ws.Tables.Add(range, tableName);
+                        var tbl = ws.Tables.Add(range, CleanTableName(schedItem.Name));
                         tbl.TableStyle = TableStyles.Medium6;
                     }
-
                     ws.Cells[ws.Dimension.Address].AutoFitColumns();
                 }
 
-                FileInfo fi = new FileInfo(excelFilePath);
+                // Lưu file
+                var fi = new FileInfo(excelFilePath);
                 package.SaveAs(fi);
             }
 
-            TaskDialog.Show("Export Schedules", $"Export completed!\nExcel file: {excelFilePath}");
+            // Hiển thị thông báo đã hoàn thành ngay trên cửa sổ chính
+            _vm.ExportStatusMessage = "Export completed!";
         }
 
         private List<List<string>> GetScheduleData(ViewSchedule schedule)
@@ -137,8 +142,8 @@ namespace SKRevitAddins.Commands.ExportSchedulesToExcel
 
         private string CleanSheetName(string name)
         {
-            string invalidChars = new string(Path.GetInvalidFileNameChars()) + @":\/?*[]";
-            foreach (char c in invalidChars)
+            var invalid = Path.GetInvalidFileNameChars();
+            foreach (char c in invalid)
             {
                 name = name.Replace(c.ToString(), "_");
             }
@@ -150,7 +155,7 @@ namespace SKRevitAddins.Commands.ExportSchedulesToExcel
         {
             string result = name.Replace(" ", "_");
             result = new string(result.Where(ch => char.IsLetterOrDigit(ch) || ch == '_').ToArray());
-            if (string.IsNullOrEmpty(result) || (!char.IsLetter(result, 0) && result[0] != '_'))
+            if (string.IsNullOrEmpty(result) || (!char.IsLetter(result[0]) && result[0] != '_'))
             {
                 result = "_" + result;
             }

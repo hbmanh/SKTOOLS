@@ -158,7 +158,10 @@ namespace SKRevitAddins
         {
             if (m_ExportSchedulesToExcelWpfWindow == null || !m_ExportSchedulesToExcelWpfWindow.IsVisible)
             {
-                ExportSchedulesToExcelRequestHandler handler = new ExportSchedulesToExcelRequestHandler(viewModel);
+                // Đúng: truyền cả 2 tham số
+                ExportSchedulesToExcelRequest request = new ExportSchedulesToExcelRequest();
+                ExportSchedulesToExcelRequestHandler handler
+                    = new ExportSchedulesToExcelRequestHandler(viewModel, request);
                 ExternalEvent exEvent = ExternalEvent.Create(handler);
                 m_ExportSchedulesToExcelWpfWindow = new ExportSchedulesToExcelWpfWindow(exEvent, handler, viewModel);
                 m_ExportSchedulesToExcelWpfWindow.Show();
