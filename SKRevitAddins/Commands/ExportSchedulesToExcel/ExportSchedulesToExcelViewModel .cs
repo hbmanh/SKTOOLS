@@ -5,7 +5,7 @@ using System.Linq;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace SKRevitAddins.ViewModel
+namespace SKRevitAddins.ExportSchedulesToExcel
 {
     public class ExportSchedulesToExcelViewModel : INotifyPropertyChanged
     {
@@ -15,7 +15,7 @@ namespace SKRevitAddins.ViewModel
         public ExportSchedulesToExcelViewModel(UIApplication uiApp)
         {
             _uiApp = uiApp;
-            _hostDoc = uiApp.ActiveUIDocument.Document;
+            _hostDoc = _uiApp.ActiveUIDocument.Document;
 
             Documents = new ObservableCollection<DocumentItem>();
             FilteredDocuments = new ObservableCollection<DocumentItem>();
@@ -24,13 +24,14 @@ namespace SKRevitAddins.ViewModel
             SelectedSchedules = new ObservableCollection<ScheduleItem>();
 
             LoadDocuments();
-            foreach (var d in Documents) FilteredDocuments.Add(d);
+            foreach (var d in Documents)
+                FilteredDocuments.Add(d);
 
-            // Mặc định, không có thông báo
             ExportStatusMessage = "";
+            ExportProgressValue = 0;
         }
 
-        // Thuộc tính hiển thị thông báo sau khi Export
+        // Thông báo trạng thái
         private string _exportStatusMessage;
         public string ExportStatusMessage
         {
@@ -42,7 +43,19 @@ namespace SKRevitAddins.ViewModel
             }
         }
 
-        // Thuộc tính hủy (nếu cần)
+        // Tiến độ xuất (0–100), liên kết với ProgressBar
+        private int _exportProgressValue;
+        public int ExportProgressValue
+        {
+            get => _exportProgressValue;
+            set
+            {
+                _exportProgressValue = value;
+                OnPropertyChanged();
+            }
+        }
+
+        // Nếu muốn hủy (Cancel) thì dùng thuộc tính này
         private bool _isCancelled;
         public bool IsCancelled
         {
@@ -50,7 +63,7 @@ namespace SKRevitAddins.ViewModel
             set { _isCancelled = value; OnPropertyChanged(); }
         }
 
-        // Document (host/link)
+        // Danh sách Document
         public ObservableCollection<DocumentItem> Documents { get; set; }
         public ObservableCollection<DocumentItem> FilteredDocuments { get; set; }
 
@@ -66,14 +79,14 @@ namespace SKRevitAddins.ViewModel
             }
         }
 
-        // Schedules
+        // Danh sách Schedule
         public ObservableCollection<ScheduleItem> AllSchedules { get; set; }
         public ObservableCollection<ScheduleItem> FilteredSchedules { get; set; }
         public ObservableCollection<ScheduleItem> SelectedSchedules { get; set; }
 
         private void LoadDocuments()
         {
-            // Host
+            // Host Document
             Documents.Add(new DocumentItem
             {
                 DisplayName = "Host Document",
@@ -136,13 +149,12 @@ namespace SKRevitAddins.ViewModel
             FilteredDocuments.Clear();
             if (string.IsNullOrWhiteSpace(keyword))
             {
-                foreach (var d in Documents) FilteredDocuments.Add(d);
+                foreach (var d in Documents)
+                    FilteredDocuments.Add(d);
                 return;
             }
             keyword = keyword.ToLower();
-            var fil = Documents
-                .Where(d => d.DisplayName.ToLower().Contains(keyword))
-                .ToList();
+            var fil = Documents.Where(d => d.DisplayName.ToLower().Contains(keyword)).ToList();
             foreach (var docItem in fil)
                 FilteredDocuments.Add(docItem);
         }
@@ -152,25 +164,23 @@ namespace SKRevitAddins.ViewModel
             FilteredSchedules.Clear();
             if (string.IsNullOrWhiteSpace(keyword))
             {
-                foreach (var s in AllSchedules) FilteredSchedules.Add(s);
+                foreach (var s in AllSchedules)
+                    FilteredSchedules.Add(s);
                 return;
             }
             keyword = keyword.ToLower();
-            var f = AllSchedules
-                .Where(s => s.Name.ToLower().Contains(keyword))
-                .ToList();
+            var f = AllSchedules.Where(s => s.Name.ToLower().Contains(keyword)).ToList();
             foreach (var item in f)
                 FilteredSchedules.Add(item);
         }
 
-        // INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string prop = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
         }
 
-        // Nested classes
+        // DocumentItem
         public class DocumentItem
         {
             public string DisplayName { get; set; }
@@ -178,11 +188,24 @@ namespace SKRevitAddins.ViewModel
             public bool IsLink { get; set; }
         }
 
-        public class ScheduleItem
+        // ScheduleItem
+        public class ScheduleItem : INotifyPropertyChanged
         {
+            private bool _isSelected;
+            public bool IsSelected
+            {
+                get => _isSelected;
+                set { _isSelected = value; OnPropertyChanged(); }
+            }
+
             public string Name { get; set; }
             public ViewSchedule Schedule { get; set; }
-            public bool IsSelected { get; set; }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+            private void OnPropertyChanged([CallerMemberName] string prop = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+            }
         }
     }
 }

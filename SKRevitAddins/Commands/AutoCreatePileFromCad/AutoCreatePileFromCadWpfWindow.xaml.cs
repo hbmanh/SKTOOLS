@@ -8,7 +8,7 @@ using Window = System.Windows.Window;
 using AutoCreatePileFromCad_RequestId = SKRevitAddins.Commands.AutoCreatePileFromCad.RequestId;
 using Commands_AutoCreatePileFromCad_RequestId = SKRevitAddins.Commands.AutoCreatePileFromCad.RequestId;
 
-namespace SKRevitAddins.Forms
+namespace SKRevitAddins.AutoCreatePileFromCad
 {
     public partial class AutoCreatePileFromCadWpfWindow : Window
     {

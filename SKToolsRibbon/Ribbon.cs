@@ -111,6 +111,13 @@ namespace SKToolsRibbon
                 "アドインの情報", null, null, null, null, null);
             GENPanelNamePanel.AddItem(exportSchedulesToExcelBtn);
 
+            //ScanAndModel
+            PushButtonData scanAndModelBtn = ribbonUtils.CreatePushButtonData("ScanAndModelCmd",
+                "PCL\nModel", "SKRevitAddins.dll",
+                "SKRevitAddins.Commands.ScanAndModel.ScanAndModelCmd", "ScanAndModel.png",
+                "アドインの情報", null, null, null, null, null);
+            GENPanelNamePanel.AddItem(scanAndModelBtn);
+
             //CadLinkPlaceElementsFromBlocks
             PushButtonData placeEleFromBlocksBtn = ribbonUtils.CreatePushButtonData("PlaceElementsFromBlocksCadCmd",
                 "EleFrB\nCreate", "SKRevitAddins.dll",

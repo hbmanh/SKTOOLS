@@ -4,10 +4,11 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SKRevitAddins.Utils;
+using SKRevitAddins.ViewModel;
 using Application = Autodesk.Revit.ApplicationServices.Application;
 using Document = Autodesk.Revit.DB.Document;
 
-namespace SKRevitAddins.ViewModel
+namespace SKRevitAddins.AutoCreatePileFromCad
 {
     public class AutoCreatePileFromCadViewModel : ViewModelBase
     {

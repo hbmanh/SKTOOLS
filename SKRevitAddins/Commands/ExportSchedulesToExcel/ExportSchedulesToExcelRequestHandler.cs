@@ -1,12 +1,15 @@
 ﻿using Autodesk.Revit.UI;
 using Autodesk.Revit.DB;
 using System;
-using System.IO;
-using OfficeOpenXml;
-using OfficeOpenXml.Table;
-using System.Linq;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Threading;
 using SKRevitAddins.ViewModel;
+using SKRevitAddins.ExportSchedulesToExcel;
 
 namespace SKRevitAddins.Commands.ExportSchedulesToExcel
 {
@@ -14,16 +17,18 @@ namespace SKRevitAddins.Commands.ExportSchedulesToExcel
     {
         private ExportSchedulesToExcelRequest _request;
         private ExportSchedulesToExcelViewModel _vm;
+        private CancellationTokenSource _cts;
+        // Sử dụng Dictionary để tối ưu tên sheet duy nhất
+        private Dictionary<string, int> sheetNameCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        public ExportSchedulesToExcelRequestHandler(
-            ExportSchedulesToExcelViewModel viewModel,
-            ExportSchedulesToExcelRequest request)
+        public ExportSchedulesToExcelRequestHandler(ExportSchedulesToExcelViewModel viewModel, ExportSchedulesToExcelRequest request)
         {
             _vm = viewModel;
             _request = request;
+            _cts = new CancellationTokenSource();
         }
 
-        // Cho phép code-behind gọi handler.Request.Make(...)
+        // Cho phép code-behind gọi: handler.Request.Make(RequestId.Export)
         public ExportSchedulesToExcelRequest Request => _request;
 
         public string GetName() => "ExportSchedulesToExcelRequestHandler";
@@ -44,89 +49,126 @@ namespace SKRevitAddins.Commands.ExportSchedulesToExcel
             }
             catch (Exception ex)
             {
-                // Tuỳ ý ghi log hoặc hiển thị lỗi
+                TaskDialog.Show("Export Error", ex.ToString());
+                LogException(ex);
             }
         }
 
         private void DoExport(UIApplication uiApp)
         {
-            // Xoá thông báo cũ (nếu có)
             _vm.ExportStatusMessage = "";
-
-            var doc = uiApp.ActiveUIDocument.Document;
-            var selected = _vm.SelectedSchedules?.ToList();
-            if (selected == null || selected.Count == 0)
+            if (_vm.SelectedSchedules == null || _vm.SelectedSchedules.Count == 0)
             {
                 _vm.ExportStatusMessage = "No schedule selected to export.";
                 return;
             }
 
-            // Hỏi người dùng nơi lưu file
             var sfd = new Microsoft.Win32.SaveFileDialog
             {
                 Title = "Save Excel File",
                 Filter = "Excel File (*.xlsx)|*.xlsx",
                 FileName = "SelectedSchedules.xlsx"
             };
+
             bool? result = sfd.ShowDialog();
             if (result != true)
             {
-                // Người dùng bấm Cancel => không làm gì
+                _vm.ExportStatusMessage = "Export cancelled by user.";
                 return;
             }
 
             string excelFilePath = sfd.FileName;
+            // Reset lại từ điển tên sheet
+            sheetNameCounts.Clear();
 
-            // Tiến hành Export
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            using (ExcelPackage package = new ExcelPackage())
+            // Thu thập dữ liệu từ các schedule trên luồng chính (vì cần gọi API Revit)
+            List<(string ScheduleName, List<List<string>> Data)> scheduleDataList = new List<(string, List<List<string>>)>();
+            foreach (var schedItem in _vm.SelectedSchedules)
             {
-                foreach (var schedItem in selected)
+                var data = GetScheduleData(schedItem.Schedule);
+                if (data.Count > 0)
                 {
-                    var vs = schedItem.Schedule;
-                    var data = GetScheduleData(vs);
-                    if (data.Count == 0) continue;
-
-                    string sheetName = CleanSheetName(schedItem.Name);
-                    var ws = package.Workbook.Worksheets.Add(sheetName);
-
-                    // Ghi dữ liệu
-                    for (int r = 0; r < data.Count; r++)
-                    {
-                        for (int c = 0; c < data[r].Count; c++)
-                        {
-                            ws.Cells[r + 1, c + 1].Value = data[r][c];
-                        }
-                    }
-
-                    // Table style
-                    if (data[0].Count > 0)
-                    {
-                        var range = ws.Cells[1, 1, data.Count, data[0].Count];
-                        var tbl = ws.Tables.Add(range, CleanTableName(schedItem.Name));
-                        tbl.TableStyle = TableStyles.Medium6;
-                    }
-                    ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                    scheduleDataList.Add((schedItem.Name, data));
                 }
-
-                // Lưu file
-                var fi = new FileInfo(excelFilePath);
-                package.SaveAs(fi);
             }
 
-            // Hiển thị thông báo đã hoàn thành ngay trên cửa sổ chính
-            _vm.ExportStatusMessage = "Export completed!";
+            try
+            {
+                // Xử lý xuất Excel bất đồng bộ để không block giao diện
+                Task.Run(() =>
+                {
+                    CancellationToken token = _cts.Token;
+                    OfficeOpenXml.ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+                    using (var package = new OfficeOpenXml.ExcelPackage())
+                    {
+                        int total = scheduleDataList.Count;
+                        for (int i = 0; i < total; i++)
+                        {
+                            token.ThrowIfCancellationRequested();
+                            var item = scheduleDataList[i];
+                            string baseName = CleanSheetName(item.ScheduleName);
+                            string sheetName = GetUniqueSheetName(baseName);
+                            var ws = package.Workbook.Worksheets.Add(sheetName);
+                            var data = item.Data;
+                            for (int r = 0; r < data.Count; r++)
+                            {
+                                token.ThrowIfCancellationRequested();
+                                for (int c = 0; c < data[r].Count; c++)
+                                {
+                                    ws.Cells[r + 1, c + 1].Value = data[r][c];
+                                }
+                            }
+
+                            // Tạo table nếu có header
+                            if (data[0].Count > 0)
+                            {
+                                var range = ws.Cells[1, 1, data.Count, data[0].Count];
+                                string tableName = CleanTableName(item.ScheduleName);
+                                try
+                                {
+                                    var tbl = ws.Tables.Add(range, tableName);
+                                    tbl.TableStyle = OfficeOpenXml.Table.TableStyles.Medium6;
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log("Error creating table for " + item.ScheduleName + ": " + ex.Message);
+                                }
+                            }
+                            ws.Cells[ws.Dimension.Address].AutoFitColumns();
+
+                            // Cho phép hệ thống "thở" mỗi 10 vòng lặp
+                            if (i % 10 == 0)
+                            {
+                                Task.Delay(1, token).Wait(token);
+                            }
+                        }
+                        FileInfo fi = new FileInfo(excelFilePath);
+                        package.SaveAs(fi);
+                    }
+                }, _cts.Token).GetAwaiter().GetResult();
+
+                _vm.ExportStatusMessage = "Export completed!";
+            }
+            catch (OperationCanceledException)
+            {
+                _vm.ExportStatusMessage = "Export cancelled by user.";
+                Log("Export cancelled by user.");
+            }
+            catch (Exception ex)
+            {
+                _vm.ExportStatusMessage = "Export failed: " + ex.Message;
+                LogException(ex);
+            }
         }
 
+        // Lấy dữ liệu từ schedule (chạy trên luồng chính)
         private List<List<string>> GetScheduleData(ViewSchedule schedule)
         {
             var tableData = schedule.GetTableData();
             var section = tableData.GetSectionData(SectionType.Body);
-
             List<List<string>> rowsData = new List<List<string>>();
             int rowCount = section.NumberOfRows;
             int colCount = section.NumberOfColumns;
-
             for (int r = 0; r < rowCount; r++)
             {
                 List<string> row = new List<string>();
@@ -140,26 +182,67 @@ namespace SKRevitAddins.Commands.ExportSchedulesToExcel
             return rowsData;
         }
 
+        // Làm sạch tên sheet sử dụng Regex
         private string CleanSheetName(string name)
         {
-            var invalid = Path.GetInvalidFileNameChars();
-            foreach (char c in invalid)
-            {
-                name = name.Replace(c.ToString(), "_");
-            }
-            if (name.Length > 31) name = name.Substring(0, 31);
-            return name;
+            if (string.IsNullOrEmpty(name))
+                name = "Sheet";
+            string invalidChars = new string(Path.GetInvalidFileNameChars());
+            string pattern = $"[{Regex.Escape(invalidChars)}]";
+            string cleaned = Regex.Replace(name, pattern, "_");
+            if (cleaned.Length > 31)
+                cleaned = cleaned.Substring(0, 31);
+            if (string.IsNullOrWhiteSpace(cleaned))
+                cleaned = "Sheet";
+            return cleaned;
         }
 
+        // Làm sạch tên table sử dụng Regex
         private string CleanTableName(string name)
         {
-            string result = name.Replace(" ", "_");
+            if (string.IsNullOrEmpty(name))
+                name = "Table";
+            string result = Regex.Replace(name, @"\s+", "_");
             result = new string(result.Where(ch => char.IsLetterOrDigit(ch) || ch == '_').ToArray());
             if (string.IsNullOrEmpty(result) || (!char.IsLetter(result[0]) && result[0] != '_'))
             {
                 result = "_" + result;
             }
             return result;
+        }
+
+        // Tối ưu GetUniqueSheetName sử dụng Dictionary để theo dõi số lần xuất hiện của baseName
+        private string GetUniqueSheetName(string baseName)
+        {
+            if (!sheetNameCounts.ContainsKey(baseName))
+            {
+                sheetNameCounts[baseName] = 0;
+                return baseName;
+            }
+            else
+            {
+                sheetNameCounts[baseName]++;
+                string newName = $"{baseName}_{sheetNameCounts[baseName]}";
+                if (newName.Length > 31)
+                    newName = newName.Substring(0, 31);
+                return newName;
+            }
+        }
+
+        // Các phương thức ghi log đơn giản (không tạo lớp mới)
+        private void Log(string message)
+        {
+            try
+            {
+                string logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ExportSchedulesLog.txt");
+                File.AppendAllText(logFilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
+            }
+            catch { }
+        }
+
+        private void LogException(Exception ex)
+        {
+            Log("Exception: " + ex.ToString());
         }
     }
 }

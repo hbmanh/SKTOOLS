@@ -5,7 +5,7 @@ using SKRevitAddins.ViewModel;
 using SKRevitAddins.Commands.ExportSchedulesToExcel;
 using Autodesk.Revit.UI;
 
-namespace SKRevitAddins.Forms
+namespace SKRevitAddins.ExportSchedulesToExcel
 {
     public partial class ExportSchedulesToExcelWpfWindow : Window
     {
@@ -13,10 +13,7 @@ namespace SKRevitAddins.Forms
         private ExportSchedulesToExcelRequestHandler _handler;
         private ExportSchedulesToExcelViewModel _vm;
 
-        public ExportSchedulesToExcelWpfWindow(
-            ExternalEvent exEvent,
-            ExportSchedulesToExcelRequestHandler handler,
-            ExportSchedulesToExcelViewModel viewModel)
+        public ExportSchedulesToExcelWpfWindow(ExternalEvent exEvent, ExportSchedulesToExcelRequestHandler handler, ExportSchedulesToExcelViewModel viewModel)
         {
             InitializeComponent();
             _exEvent = exEvent;
@@ -37,44 +34,20 @@ namespace SKRevitAddins.Forms
             _vm.FilterScheduleByKeyword(keyword);
         }
 
-        private void ScheduleCheckbox_Click(object sender, RoutedEventArgs e)
+        // Xử lý SelectionChanged của ListBox Schedules để cập nhật danh sách SelectedSchedules trong ViewModel
+        private void SchedulesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (sender is CheckBox cb &&
-                cb.DataContext is ExportSchedulesToExcelViewModel.ScheduleItem item)
+            if (sender is ListBox lb)
             {
-                if (item.IsSelected)
+                _vm.SelectedSchedules.Clear();
+                foreach (var item in lb.SelectedItems)
                 {
-                    if (!_vm.SelectedSchedules.Contains(item))
-                        _vm.SelectedSchedules.Add(item);
-                }
-                else
-                {
-                    if (_vm.SelectedSchedules.Contains(item))
-                        _vm.SelectedSchedules.Remove(item);
+                    if (item is ExportSchedulesToExcelViewModel.ScheduleItem schedule)
+                    {
+                        _vm.SelectedSchedules.Add(schedule);
+                    }
                 }
             }
-        }
-
-        private void SelectAllBtn_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var s in _vm.FilteredSchedules)
-            {
-                if (!s.IsSelected)
-                {
-                    s.IsSelected = true;
-                    if (!_vm.SelectedSchedules.Contains(s))
-                        _vm.SelectedSchedules.Add(s);
-                }
-            }
-        }
-
-        private void DeselectAllBtn_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var s in _vm.FilteredSchedules)
-            {
-                s.IsSelected = false;
-            }
-            _vm.SelectedSchedules.Clear();
         }
 
         private void ExportBtn_Click(object sender, RoutedEventArgs e)
@@ -85,7 +58,7 @@ namespace SKRevitAddins.Forms
                 return;
             }
 
-            // Gọi ExternalEvent => Export
+            // Kích hoạt ExternalEvent để bắt đầu xuất
             _handler.Request.Make(RequestId.Export);
             _exEvent.Raise();
         }

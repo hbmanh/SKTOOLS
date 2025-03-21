@@ -10,18 +10,17 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
     [Transaction(TransactionMode.Manual)]
     public class PermissibleRangeFrameCmd : IExternalCommand
     {
-        PermissibleRangeFrameViewModel viewModel;
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiapp = commandData.Application;
             UIDocument uidoc = uiapp.ActiveUIDocument;
-            Application app = uiapp.Application;
             Document doc = uidoc.Document;
 
-            viewModel = new PermissibleRangeFrameViewModel(uiapp);
+            var viewModel = new PermissibleRangeFrameViewModel(uiapp);
 
             try
             {
+                // Giả sử App.thisApp.ShowPermissibleRangeFrameViewModel là phương thức hiển thị UI (cửa sổ WPF)
                 App.thisApp.ShowPermissibleRangeFrameViewModel(uiapp, viewModel);
                 return Result.Succeeded;
             }
@@ -32,5 +31,4 @@ namespace SKRevitAddins.Commands.PermissibleRangeFrame
             }
         }
     }
-
 }

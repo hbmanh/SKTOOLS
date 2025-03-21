@@ -3,6 +3,7 @@ using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using SKRevitAddins.AutoCreatePileFromCad;
 using SKRevitAddins.ViewModel;
 
 namespace SKRevitAddins.Commands.AutoCreatePileFromCad

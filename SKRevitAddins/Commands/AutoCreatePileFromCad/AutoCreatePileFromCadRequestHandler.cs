@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using SKRevitAddins.AutoCreatePileFromCad;
 using SKRevitAddins.Utils;
 using SKRevitAddins.ViewModel;
 using Document = Autodesk.Revit.DB.Document;
