@@ -4,7 +4,7 @@ using System;
 using System.Linq;
 using ScanAndModel.ViewModel;
 
-namespace ScanAndModel
+namespace SKRevitAddins.Commands.ScanAndModel
 {
     public class ScanAndModelRequestHandler : IExternalEventHandler
     {

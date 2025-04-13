@@ -4,7 +4,7 @@ using Autodesk.Revit.UI;
 using ScanAndModel.Forms;
 using ScanAndModel.ViewModel;
 
-namespace ScanAndModel
+namespace SKRevitAddins.Commands.ScanAndModel
 {
     [Transaction(TransactionMode.Manual)]
     public class ScanAndModelCmd : IExternalCommand

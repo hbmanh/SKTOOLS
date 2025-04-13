@@ -1,6 +1,6 @@
 ﻿using System.Threading;
 
-namespace ScanAndModel
+namespace SKRevitAddins.Commands.ScanAndModel
 {
     public enum ScanAndModelRequestId
     {

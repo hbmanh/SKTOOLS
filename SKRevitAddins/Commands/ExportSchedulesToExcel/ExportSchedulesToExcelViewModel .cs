@@ -86,6 +86,9 @@ namespace SKRevitAddins.ExportSchedulesToExcel
 
         private void LoadDocuments()
         {
+            // Clear collection trước khi thêm (nếu cần)
+            Documents.Clear();
+
             // Host Document
             Documents.Add(new DocumentItem
             {
@@ -114,6 +117,14 @@ namespace SKRevitAddins.ExportSchedulesToExcel
                 }
             }
 
+            // Sắp xếp Documents theo DisplayName
+            var sortedDocs = Documents.OrderBy(d => d.DisplayName).ToList();
+            Documents.Clear();
+            foreach (var doc in sortedDocs)
+            {
+                Documents.Add(doc);
+            }
+
             SelectedDocumentItem = Documents.FirstOrDefault();
         }
 
@@ -123,7 +134,9 @@ namespace SKRevitAddins.ExportSchedulesToExcel
             FilteredSchedules.Clear();
             SelectedSchedules.Clear();
 
-            if (SelectedDocumentItem?.DocRef == null) return;
+            if (SelectedDocumentItem?.DocRef == null)
+                return;
+
             var doc = SelectedDocumentItem.DocRef;
 
             var vsCollector = new FilteredElementCollector(doc)
@@ -140,6 +153,20 @@ namespace SKRevitAddins.ExportSchedulesToExcel
                 });
             }
 
+            // Sắp xếp các bảng:
+            // - Các bảng có tên chứa từ "khối lượng" được ưu tiên (OrderByDescending)
+            // - Sau đó sắp xếp theo thứ tự chữ cái của tên bảng (ThenBy)
+            var sortedSchedules = AllSchedules
+                .OrderByDescending(s => s.Name.ToLower().Contains("khối lượng"))
+                .ThenBy(s => s.Name)
+                .ToList();
+
+            AllSchedules.Clear();
+            foreach (var s in sortedSchedules)
+            {
+                AllSchedules.Add(s);
+            }
+
             foreach (var s in AllSchedules)
                 FilteredSchedules.Add(s);
         }
@@ -154,7 +181,9 @@ namespace SKRevitAddins.ExportSchedulesToExcel
                 return;
             }
             keyword = keyword.ToLower();
-            var fil = Documents.Where(d => d.DisplayName.ToLower().Contains(keyword)).ToList();
+            var fil = Documents
+                .Where(d => d.DisplayName.ToLower().Contains(keyword))
+                .ToList();
             foreach (var docItem in fil)
                 FilteredDocuments.Add(docItem);
         }
@@ -169,7 +198,9 @@ namespace SKRevitAddins.ExportSchedulesToExcel
                 return;
             }
             keyword = keyword.ToLower();
-            var f = AllSchedules.Where(s => s.Name.ToLower().Contains(keyword)).ToList();
+            var f = AllSchedules
+                .Where(s => s.Name.ToLower().Contains(keyword))
+                .ToList();
             foreach (var item in f)
                 FilteredSchedules.Add(item);
         }

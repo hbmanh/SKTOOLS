@@ -102,7 +102,6 @@ namespace SKRevitAddins
                 m_CreateSpaceWpfWindow.Show();
             }
         }
-
         public void ShowChangeBwTypeAndInsViewModel(UIApplication uiapp, ChangeBwTypeAndInsViewModel viewModel)
         {
             if (m_ChangeBwTypeAndInsWpfWindow == null || !m_ChangeBwTypeAndInsWpfWindow.IsVisible)
@@ -160,7 +159,6 @@ namespace SKRevitAddins
         {
             if (m_ExportSchedulesToExcelWpfWindow == null || !m_ExportSchedulesToExcelWpfWindow.IsVisible)
             {
-                // Đúng: truyền cả 2 tham số
                 ExportSchedulesToExcelRequest request = new ExportSchedulesToExcelRequest();
                 ExportSchedulesToExcelRequestHandler handler
                     = new ExportSchedulesToExcelRequestHandler(viewModel, request);

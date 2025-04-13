@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using ScanAndModel.ViewModel;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Commands.ScanAndModel;
 
 namespace ScanAndModel.Forms
 {

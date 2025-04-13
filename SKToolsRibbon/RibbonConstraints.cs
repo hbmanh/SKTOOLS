@@ -18,7 +18,7 @@ namespace SKToolsRibbon
 
         public RibbonConstraints(ControlledApplication app = null)
         {
-            ContentsFolder = @"C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents";
+            ContentsFolder = @"C:\ProgramData\Autodesk\Revit\Addins\2023\SKTools.bundle\Contents";
             ResourcesFolder = Path.Combine(ContentsFolder, "Resources");
             HelpFolder = Path.Combine(ResourcesFolder, "Help");
             ImageFolder = Path.Combine(ResourcesFolder, "Images");
