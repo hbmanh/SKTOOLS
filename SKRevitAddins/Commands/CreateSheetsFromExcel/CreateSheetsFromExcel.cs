@@ -23,9 +23,17 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
         public ProgressForm(int maxValue)
         {
-            Text = "Shinken Group®";
+            Text = "Shinken Group® - Đang xử lý";
             Size = new Size(420, 100);
             StartPosition = FormStartPosition.CenterScreen;
+
+            Label statusLabel = new Label
+            {
+                Text = "Đang xử lý...",
+                Location = new Point(10, 10),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9, FontStyle.Regular)
+            };
 
             PictureBox logo = new PictureBox
             {
@@ -104,7 +112,6 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
             {
                 Text = "OK",
                 DialogResult = DialogResult.OK,
-                Location = new Point(200, 390),
                 Width = 75
             };
 
@@ -112,15 +119,24 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
             {
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(300, 390),
                 Width = 75
             };
+
+            FlowLayoutPanel buttonPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.RightToLeft,
+                Dock = DockStyle.Bottom,
+                Padding = new Padding(0, 10, 10, 10),
+                AutoSize = true
+            };
+
+            buttonPanel.Controls.Add(btnCancel);
+            buttonPanel.Controls.Add(btnOk);
 
             Controls.Add(logo);
             Controls.Add(label);
             Controls.Add(sheetGrid);
-            Controls.Add(btnOk);
-            Controls.Add(btnCancel);
+            Controls.Add(buttonPanel);
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -223,29 +239,65 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                     foreach (var entry in sheetData)
                     {
                         var (sheetNumber, sheetName, viewGroup) = entry.Value;
+                        string viewFullName = sheetNumber + " - " + sheetName;
+                        string createViewText = worksheet.Cells[entry.Key, 4].Text.Trim().ToLower();
+                        string levelName = worksheet.Cells[entry.Key, 5].Text.Trim();
+
+                        ViewPlan newPlanView = null;
+                        if (createViewText == "yes" && !string.IsNullOrWhiteSpace(levelName))
+                        {
+                            bool viewExists = new FilteredElementCollector(doc)
+                                .OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
+                                .Any(v => v.Name.Equals(viewFullName, StringComparison.InvariantCultureIgnoreCase));
+
+                            if (!viewExists)
+                            {
+                                Level level = new FilteredElementCollector(doc)
+                                    .OfClass(typeof(Level)).Cast<Level>()
+                                    .FirstOrDefault(l => l.Name.Equals(levelName, StringComparison.InvariantCultureIgnoreCase));
+
+                                if (level != null)
+                                {
+                                    ViewFamilyType planType = new FilteredElementCollector(doc)
+                                        .OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+                                        .FirstOrDefault(x => x.ViewFamily == ViewFamily.StructuralPlan);
+
+                                    if (planType != null)
+                                    {
+                                        newPlanView = ViewPlan.Create(doc, planType.Id, level.Id);
+                                        newPlanView.Name = viewFullName;
+                                    }
+                                }
+                            }
+                        }
+
                         ViewSheet newSheet = ViewSheet.Create(doc, titleBlockType.Id);
                         newSheet.get_Parameter(BuiltInParameter.SHEET_NUMBER).Set(sheetNumber);
                         newSheet.get_Parameter(BuiltInParameter.SHEET_NAME).Set(sheetName);
                         var param = newSheet.LookupParameter("Sub-Package");
                         if (param != null && !param.IsReadOnly) param.Set(viewGroup);
-                        string viewFullName = sheetNumber + " - " + sheetName;
-                        var viewToPlace = new FilteredElementCollector(doc)
+
+                        View viewToPlace = new FilteredElementCollector(doc)
                             .OfClass(typeof(View)).Cast<View>()
                             .FirstOrDefault(v => v.Name.Equals(viewFullName));
+
                         if (viewToPlace != null && Viewport.CanAddViewToSheet(doc, newSheet.Id, viewToPlace.Id))
                         {
-                            var sheetBBox = newSheet.Outline;
-                            var sheetCenter = new XYZ((sheetBBox.Min.U - sheetBBox.Max.U) / 2,
+                            BoundingBoxUV sheetBBox = newSheet.Outline;
+                            XYZ sheetCenter = new XYZ((sheetBBox.Min.U + sheetBBox.Max.U) / 2,
                                                       (sheetBBox.Min.V + sheetBBox.Max.V) / 2, 0);
                             Viewport.Create(doc, newSheet.Id, viewToPlace.Id, sheetCenter);
                         }
+
                         progressForm.UpdateProgress(++index);
                     }
                     trans.Commit();
                 }
+
                 progressForm.Close();
             }
-            TaskDialog.Show("Thông báo", "Đã tạo Sheet và đặt View hoàn tất!");
+
+            TaskDialog.Show("Thông báo", "Đã tạo Sheet và View hoàn tất!");
             return Result.Succeeded;
         }
     }
