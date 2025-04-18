@@ -38,15 +38,15 @@
   <ItemGroup>
     <Reference Include="accoremgd">
       <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2022\accoremgd.dll</HintPath>
-      <Private>False</Private>
     </Reference>
     <Reference Include="acdbmgd">
       <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2022\acdbmgd.dll</HintPath>
-      <Private>False</Private>
     </Reference>
     <Reference Include="acmgd">
       <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2022\acmgd.dll</HintPath>
-      <Private>False</Private>
+    </Reference>
+    <Reference Include="D3Lib">
+      <HintPath>G:\Shared drives\KM-Tools\10_要求\241114_tab-panel-set\D3Lib.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Extensions.Configuration, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.Configuration.8.0.0\lib\net462\Microsoft.Extensions.Configuration.dll</HintPath>
@@ -161,15 +161,21 @@
     <Compile Include="Commands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGCommands.cs" />
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGViewsCodeBehind.cs" />
+    <Compile Include="Commands\LayoutsToDWG\AcadAppFolder.cs" />
+    <Compile Include="Commands\LayoutsToDWG\EnumBooleanConverter.cs" />
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGCmd.cs" />
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGRequestHandler.cs" />
+    <Compile Include="Commands\LayoutsToDWG\RunAutoCadBg.cs" />
+    <Compile Include="Commands\LayoutsToDWG\SheetSelectionItem.cs" />
+    <Compile Include="Commands\LayoutsToDWG\SheetSelectionItemLight.cs" />
     <Compile Include="Commands\LayoutsToDWG\SheetSelectionWindow.xaml.cs">
       <DependentUpon>SheetSelectionWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGWindow.xaml.cs">
       <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGViewModels.cs" />
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGViewModel.cs" />
+    <Compile Include="Commands\RelayCommand.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelCmd.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelRequest.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelRequestHandler.cs" />
@@ -424,22 +430,25 @@
       <Version>0.105.0-rc</Version>
     </PackageReference>
     <PackageReference Include="EPPlus">
-      <Version>7.6.1</Version>
+      <Version>8.0.2</Version>
     </PackageReference>
     <PackageReference Include="EPPlus.Interfaces">
-      <Version>7.6.1</Version>
+      <Version>8.0.0</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf">
       <Version>1.1.135</Version>
     </PackageReference>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>13.0.3</Version>
+    </PackageReference>
     <PackageReference Include="NPOI">
-      <Version>2.7.2</Version>
+      <Version>2.7.3</Version>
     </PackageReference>
     <PackageReference Include="System.Drawing.Common">
-      <Version>10.0.0-preview.1.25080.3</Version>
+      <Version>10.0.0-preview.3.25173.2</Version>
     </PackageReference>
     <PackageReference Include="System.Text.Json">
-      <Version>10.0.0-preview.1.25080.5</Version>
+      <Version>10.0.0-preview.3.25171.5</Version>
     </PackageReference>
     <!-- Các PackageReference khác nếu có -->
   </ItemGroup>

@@ -54,6 +54,8 @@ namespace SKToolsRibbon
                 "AutoCreatePileFromCadCmd", "Piles\n Create", "SKRevitAddins.Commands.AutoCreatePileFromCad.AutoCreatePileFromCadCmd", "PileFCADCreate.png", "Create Pile From DWG");
             AddButton(GENPanel,
                 "DWGExportCmd", "DWG\nExport", "SKRevitAddins.Commands.DWGExport.DWGExportCmd", "DWGExport.png");
+            AddButton(GENPanel,
+                "LayoutsToDWGCmd", "Layout\nExport", "SKRevitAddins.Commands.LayoutsToDWG.LayoutsToDWGCmd", "DWGExport.png");
             // MEP Panel
             AddButton(MEPPanel, 
                 "PlaceDuctsAndPipesBaseonCadCmd", "Duct・Pipes\n Create", "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.PlaceDuctsAndPipesBaseonCadCmd", "PlaceDuctsAndPipesBaseonCad.png", "Create Duct/ Pipes from DWG");
