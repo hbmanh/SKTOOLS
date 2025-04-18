@@ -65,7 +65,7 @@
         <!-- Header: Logo và tiêu đề -->
         <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
             <Image Width="35" Height="35"
-                   Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
+                   Source="C:\\ProgramData\\Autodesk\\Revit\\Addins\\2023\\SKTools.bundle\\Contents\\Resources\\Images\\shinken.png"
                    Stretch="Uniform"
                    Margin="0,0,10,0"/>
             <TextBlock Text="Shinken Group®"

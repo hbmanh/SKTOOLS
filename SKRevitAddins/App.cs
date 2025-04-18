@@ -5,6 +5,7 @@ using SKRevitAddins.Commands.ChangeBwTypeAndIns;
 using SKRevitAddins.Commands.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.Commands.CreateSpace;
 using SKRevitAddins.Commands.DeleteTypeOfTextNotesDontUse;
+using SKRevitAddins.Commands.DWGExport;
 using SKRevitAddins.Commands.ExportSchedulesToExcel;
 using SKRevitAddins.Commands.FindDWGNotUseAndDel;
 using SKRevitAddins.Commands.PermissibleRangeFrame;
@@ -32,6 +33,8 @@ namespace SKRevitAddins
         private PlaceElementsFromBlocksCadWpfWindow m_PlaceElementsFromBlocksCadWpfWindow;
         private PermissibleRangeFrameWpfWindow m_PermissibleRangeFrameWpfWindow;
         private ExportSchedulesToExcelWpfWindow m_ExportSchedulesToExcelWpfWindow;
+        private DWGExportWpfWindow m_ExportLayersWindow;
+
 
         public Result OnShutdown(UIControlledApplication application)
         {
@@ -81,6 +84,11 @@ namespace SKRevitAddins
             if (m_PlaceElementsFromBlocksCadWpfWindow != null && m_PlaceElementsFromBlocksCadWpfWindow.IsVisible)
             {
                 m_PlaceElementsFromBlocksCadWpfWindow.Close();
+            }
+
+            if (m_ExportLayersWindow != null && m_ExportLayersWindow.IsVisible)
+            {
+                m_ExportLayersWindow.Close();
             }
             return Result.Succeeded;
         }
@@ -167,6 +175,24 @@ namespace SKRevitAddins
                 m_ExportSchedulesToExcelWpfWindow.Show();
             }
         }
+
+        //public void ShowExportLayersWindow(UIApplication uiapp)
+        //{
+        //    if (m_ExportLayersWindow == null || !m_ExportLayersWindow.IsVisible)
+        //    {
+        //        var vm = new DWGExportViewModel(uiapp);
+        //        var request = new DWGExportRequest();
+        //        var handler = new DWGExportRequestHandler(vm, request);
+        //        var exEvent = ExternalEvent.Create(handler);
+        //        m_ExportLayersWindow = new DWGExportWpfWindow(exEvent, handler, vm);
+        //        m_ExportLayersWindow.Show();
+        //    }
+        //    else
+        //    {
+        //        m_ExportLayersWindow.Activate();
+        //    }
+        //}
+
         public void ShowFindDWGNotUseAndDelViewModel(UIApplication uiapp, FindDWGNotUseAndDelViewModel viewModel)
         {
             if (m_FindDWGNotUseAndDelWpfWindow == null || !m_FindDWGNotUseAndDelWpfWindow.IsVisible)

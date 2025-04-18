@@ -18,7 +18,7 @@
         <!-- Row 0: Logo + Title -->
         <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
             <Image Width="30" Height="30"
-                   Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
+                   Source="C:\\ProgramData\\Autodesk\\Revit\\Addins\\2023\\SKTools.bundle\\Contents\\Resources\\Images\\shinken.png"
                    Stretch="UniformToFill"
                    Margin="0,0,5,0"/>
             <TextBlock Text="Shinken Group® - Scan to Model"

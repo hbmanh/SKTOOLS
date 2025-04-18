@@ -1,0 +1,87 @@
+﻿<Window x:Class="LayoutsToDWG.Commands.SheetSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SHEET LIST" Height="700" Width="820"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Logo -->
+        <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
+            <Image Width="30" Height="30"
+             Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
+             Margin="0 0 5 0"/>
+            <TextBlock Text="Shinken Group®" VerticalAlignment="Center"
+                 FontWeight="Bold" FontSize="14"/>
+        </StackPanel>
+
+        <!-- Filters -->
+        <Grid Grid.Row="1" Margin="0 0 0 10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="160"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="Arrangement:" VerticalAlignment="Center" Margin="0 0 5 0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <RadioButton Content="Horizontal" GroupName="Arrange"
+                     IsChecked="{Binding IsHorizontal}"/>
+                <RadioButton Content="Vertical"   GroupName="Arrange"
+                     IsChecked="{Binding IsVertical}"
+                     Margin="10 0 0 0"/>
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="Sort by parameter:" VerticalAlignment="Center" Margin="15 0 5 0"/>
+            <ComboBox Grid.Column="3" ItemsSource="{Binding SortParameters}"
+                SelectedItem="{Binding SelectedSortParameter}" Width="150"/>
+
+            <TextBlock Grid.Column="4" Text="From sheet set:" VerticalAlignment="Center" Margin="15 0 5 0"/>
+            <ComboBox Grid.Column="5" ItemsSource="{Binding SheetSets}"
+                SelectedItem="{Binding SelectedSheetSet}" Width="150"/>
+        </Grid>
+
+        <!-- Sheet grid -->
+        <DataGrid Grid.Row="2" AutoGenerateColumns="False"
+              ItemsSource="{Binding AllSheets}"
+              CanUserAddRows="False" HeadersVisibility="Column"
+              SelectionMode="Extended" SelectionUnit="FullRow"
+              Margin="0 0 0 10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="LEVEL" Width="100" Binding="{Binding Level}"/>
+                <DataGridTextColumn Header="SHEET NAME" Width="*" Binding="{Binding SheetName}"/>
+                <DataGridTextColumn Header="PAPER SIZE" Width="100" Binding="{Binding PaperSize}"/>
+                <DataGridTemplateColumn Header="ALL">
+                    <DataGridTemplateColumn.HeaderTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsAllSelected,
+                Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.HeaderTemplate>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                        HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal"
+                HorizontalAlignment="Right" Spacing="10">
+            <Button Content="OK" Width="80" Click="Ok_Click"
+              Background="#3399FF" Foreground="White"/>
+            <Button Content="CANCEL" Width="80" Click="Cancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -25,7 +25,7 @@
                     Margin="0,0,0,10">
             <!-- Logo -->
             <Image Width="30" Height="30"
-                   Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
+                   Source="C:\\ProgramData\\Autodesk\\Revit\\Addins\\2023\\SKTools.bundle\\Contents\\Resources\\Images\\shinken.png"
                    Stretch="UniformToFill"
                    Margin="0,0,5,0"/>
             <!-- TextBlock -->

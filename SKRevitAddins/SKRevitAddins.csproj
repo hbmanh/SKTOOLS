@@ -23,7 +23,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\SKTools\bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;REVIT2022</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -149,6 +149,27 @@
     <Compile Include="Commands\CreateSheetsFromExcel\CreateSheetsFromExcel.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Commands\DWGExport\AciToRevit.cs" />
+    <Compile Include="Commands\DWGExport\DWGExportCmd .cs" />
+    <Compile Include="Commands\DWGExport\DWGExportWpfWindow.xaml.cs">
+      <DependentUpon>DWGExportWpfWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Commands\DWGExport\DWGExportRequest.cs" />
+    <Compile Include="Commands\DWGExport\DWGExportRequestHandler.cs" />
+    <Compile Include="Commands\DWGExport\DWGExportViewModel.cs" />
+    <Compile Include="Commands\DWGExport\RelayCommand.cs" />
+    <Compile Include="Commands\GridTools\GridToolsCmd.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGCommands.cs" />
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGViewsCodeBehind.cs" />
+    <Compile Include="Commands\LayoutsToDWG\SheetSelectionWindow.xaml.cs">
+      <DependentUpon>SheetSelectionWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGWindow.xaml.cs">
+      <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGViewModels.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelCmd.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelRequest.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelRequestHandler.cs" />
@@ -279,6 +300,18 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Commands\DWGExport\DWGExportWpfWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Commands\LayoutsToDWG\SheetSelectionWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Commands\LayoutsToDWG\LayoutsToDWGWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Commands\PermissibleRangeFrame\PreviewReportWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

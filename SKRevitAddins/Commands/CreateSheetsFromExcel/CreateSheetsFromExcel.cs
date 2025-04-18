@@ -260,7 +260,7 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                                 {
                                     ViewFamilyType planType = new FilteredElementCollector(doc)
                                         .OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
-                                        .FirstOrDefault(x => x.ViewFamily == ViewFamily.StructuralPlan);
+                                        .FirstOrDefault(x => x.ViewFamily == ViewFamily.FloorPlan);
 
                                     if (planType != null)
                                     {
@@ -284,7 +284,7 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                         if (viewToPlace != null && Viewport.CanAddViewToSheet(doc, newSheet.Id, viewToPlace.Id))
                         {
                             BoundingBoxUV sheetBBox = newSheet.Outline;
-                            XYZ sheetCenter = new XYZ((sheetBBox.Min.U + sheetBBox.Max.U) / 2,
+                            XYZ sheetCenter = new XYZ((sheetBBox.Min.U - sheetBBox.Max.U) / 2,
                                                       (sheetBBox.Min.V + sheetBBox.Max.V) / 2, 0);
                             Viewport.Create(doc, newSheet.Id, viewToPlace.Id, sheetCenter);
                         }

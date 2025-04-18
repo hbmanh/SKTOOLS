@@ -1,0 +1,102 @@
+﻿<!-- DWGExportWpfWindow.xaml: giao diện đã tách Category / Parameter / Param Value ra ngoài -->
+<Window x:Class="SKRevitAddins.Commands.DWGExport.DWGExportWpfWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export Layers to DWG"
+        Height="600" Width="920"
+        WindowStartupLocation="CenterScreen">
+
+  <Grid Margin="10">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="1*"/>
+      <ColumnDefinition Width="2*"/>
+    </Grid.ColumnDefinitions>
+
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- Logo -->
+      <RowDefinition Height="Auto"/>   <!-- Add Mapping Inputs -->
+      <RowDefinition Height="*"/>      <!-- Mapping List -->
+      <RowDefinition Height="Auto"/>   <!-- Progress -->
+      <RowDefinition Height="Auto"/>   <!-- Buttons -->
+    </Grid.RowDefinitions>
+
+    <!-- Logo Row -->
+    <StackPanel Grid.ColumnSpan="2" Grid.Row="0" Orientation="Horizontal" Margin="0 0 0 10">
+      <Image Width="30" Height="30"
+             Source="C:\ProgramData\Autodesk\Revit\Addins\2023\SKTools.bundle\Contents\Resources\Images\shinken.png"
+             Margin="0 0 5 0"/>
+      <TextBlock Text="Shinken Group®" VerticalAlignment="Center" FontWeight="Bold" FontSize="14"/>
+    </StackPanel>
+
+    <!-- Add Mapping Inputs -->
+    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0 0 0 5">
+      <ComboBox ItemsSource="{Binding AvailableCats}" Width="120"
+                SelectedItem="{Binding InputCategory, Mode=TwoWay}" Margin="0,0,10,0"/>
+
+      <ComboBox ItemsSource="{Binding InputParameterOptions}" Width="120"
+                SelectedItem="{Binding InputParameter, Mode=TwoWay}" Margin="0,0,10,0"/>
+
+      <ComboBox ItemsSource="{Binding InputValueOptions}" Width="140"
+                SelectedItem="{Binding InputParamValue, Mode=TwoWay}"
+                IsEditable="True" Margin="0,0,10,0"/>
+
+      <TextBox Text="{Binding InputLayerName, Mode=TwoWay}" Width="100" Margin="0,0,10,0"/>
+
+      <ComboBox SelectedValuePath="Tag"
+                SelectedValue="{Binding InputColorIndex, Mode=TwoWay}"
+                Width="80" Margin="0,0,10,0">
+        <ComboBoxItem Tag="1"><TextBlock Text="Red"/></ComboBoxItem>
+        <ComboBoxItem Tag="2"><TextBlock Text="Green"/></ComboBoxItem>
+        <ComboBoxItem Tag="3"><TextBlock Text="Blue"/></ComboBoxItem>
+        <ComboBoxItem Tag="4"><TextBlock Text="Cyan"/></ComboBoxItem>
+        <ComboBoxItem Tag="5"><TextBlock Text="Yellow"/></ComboBoxItem>
+        <ComboBoxItem Tag="6"><TextBlock Text="Magenta"/></ComboBoxItem>
+        <ComboBoxItem Tag="7"><TextBlock Text="Black"/></ComboBoxItem>
+        <ComboBoxItem Tag="8"><TextBlock Text="Gray"/></ComboBoxItem>
+        <ComboBoxItem Tag="9"><TextBlock Text="White"/></ComboBoxItem>
+      </ComboBox>
+
+      <Button Content="Add Mapping" Width="100" Command="{Binding AddRowCmd}"/>
+    </StackPanel>
+
+    <!-- Mapping List -->
+    <Grid Grid.Row="2" Grid.Column="1">
+      <DataGrid ItemsSource="{Binding CategoryItems}" 
+                SelectedItem="{Binding SelectedMapping}"
+                CanUserAddRows="False"
+                AutoGenerateColumns="False"
+                Margin="0 5 0 5">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" IsReadOnly="True" Width="*"/>
+          <DataGridTextColumn Header="Parameter" Binding="{Binding ParameterName}" IsReadOnly="True" Width="*"/>
+          <DataGridTextColumn Header="Value" Binding="{Binding ParamValue}" IsReadOnly="True" Width="*"/>
+          <DataGridTextColumn Header="Layer" Binding="{Binding LayerName}" Width="*"/>
+          <DataGridTextColumn Header="Color" Binding="{Binding ColorIndex}" Width="60"/>
+        </DataGrid.Columns>
+      </DataGrid>
+    </Grid>
+
+    <!-- Sheet List (left) -->
+    <StackPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="0" Margin="5">
+      <TextBlock Text="Chọn Sheet (multi-select):" FontWeight="Bold" Margin="0 0 0 5"/>
+      <ListBox x:Name="SheetsList" ItemsSource="{Binding Sheets}" 
+               DisplayMemberPath="SheetDisplay"
+               SelectionMode="Extended"
+               VerticalAlignment="Stretch"
+               SelectionChanged="SheetsList_SelectionChanged"/>
+    </StackPanel>
+
+    <!-- Progress Bar -->
+    <ProgressBar Grid.Row="3" Grid.ColumnSpan="2"
+                 Minimum="0" Maximum="{Binding ProgressMax}"
+                 Value="{Binding ProgressValue}" Height="20" Margin="0 10 0 0"/>
+
+    <!-- Buttons -->
+    <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <TextBlock Text="{Binding ExportStatusMessage}" Margin="5 0 15 0" VerticalAlignment="Center"/>
+      <Button Content="Export" Width="80" Margin="5" Click="ExportBtn_Click"/>
+      <Button Content="Close" Width="80" Margin="5" Click="CancelBtn_Click"/>
+    </StackPanel>
+
+  </Grid>
+</Window>
