@@ -38,7 +38,7 @@ namespace SKAcadAddins.Commands
         private Label lblStatus;
         static LayerManagerForm()
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            ExcelPackage.License = new OfficeOpenXml.LicenseContext(OfficeOpenXml.eLicenseContext.NonCommercial);
         }
 
         public LayerManagerForm()
