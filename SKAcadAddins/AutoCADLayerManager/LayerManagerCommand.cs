@@ -129,31 +129,41 @@ namespace SKAcadAddins.Commands
 
                     IWorkbook workbook = new XSSFWorkbook();
                     ISheet sheet1 = workbook.CreateSheet("Layers");
-                    ISheet sheet2 = workbook.CreateSheet("Metadata");
+                    ISheet sheet2 = workbook.CreateSheet("LayerRename");
 
-                    string[] headers = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked" };
-                    IRow headerRow = sheet1.CreateRow(0);
+                    string[] headers = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked", "NewLayerName" };
+                    IRow headerRow1 = sheet1.CreateRow(0);
+                    IRow headerRow2 = sheet2.CreateRow(0);
                     for (int i = 0; i < headers.Length; i++)
-                        headerRow.CreateCell(i).SetCellValue(headers[i]);
+                    {
+                        headerRow1.CreateCell(i).SetCellValue(headers[i]);
+                        headerRow2.CreateCell(i).SetCellValue(headers[i]);
+                    }
 
                     int row = 1;
                     foreach (ObjectId id in layerTable)
                     {
                         LayerTableRecord layer = (LayerTableRecord)tr.GetObject(id, OpenMode.ForRead);
-                        IRow dataRow = sheet1.CreateRow(row);
-                        dataRow.CreateCell(0).SetCellValue(layer.Name);
-                        dataRow.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
-                        dataRow.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
-                        dataRow.CreateCell(3).SetCellValue(layer.IsPlottable);
-                        dataRow.CreateCell(4).SetCellValue(layer.IsFrozen);
-                        dataRow.CreateCell(5).SetCellValue(layer.IsOff);
-                        dataRow.CreateCell(6).SetCellValue(layer.IsLocked);
+                        IRow dataRow1 = sheet1.CreateRow(row);
+                        IRow dataRow2 = sheet2.CreateRow(row);
+                        dataRow1.CreateCell(0).SetCellValue(layer.Name);
+                        dataRow1.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
+                        dataRow1.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
+                        dataRow1.CreateCell(3).SetCellValue(layer.IsPlottable);
+                        dataRow1.CreateCell(4).SetCellValue(layer.IsFrozen);
+                        dataRow1.CreateCell(5).SetCellValue(layer.IsOff);
+                        dataRow1.CreateCell(6).SetCellValue(layer.IsLocked);
+                        dataRow1.CreateCell(7).SetCellValue("");
+                        dataRow2.CreateCell(0).SetCellValue(layer.Name);
+                        dataRow2.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
+                        dataRow2.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
+                        dataRow2.CreateCell(3).SetCellValue(layer.IsPlottable);
+                        dataRow2.CreateCell(4).SetCellValue(layer.IsFrozen);
+                        dataRow2.CreateCell(5).SetCellValue(layer.IsOff);
+                        dataRow2.CreateCell(6).SetCellValue(layer.IsLocked);
+                        dataRow2.CreateCell(7).SetCellValue("");
                         row++;
                     }
-
-                    sheet2.CreateRow(0).CreateCell(0).SetCellValue("ColorARGB: int ARGB value");
-                    sheet2.CreateRow(1).CreateCell(0).SetCellValue("Linetype: BYLAYER, CONTINUOUS...");
-                    sheet2.CreateRow(2).CreateCell(0).SetCellValue("Boolean fields: True/False");
 
                     using (var fs = new FileStream(txtFilePath.Text, FileMode.Create, FileAccess.Write))
                     {
@@ -193,23 +203,29 @@ namespace SKAcadAddins.Commands
                     using (var fs = new FileStream(txtFilePath.Text, FileMode.Open, FileAccess.Read))
                     {
                         IWorkbook workbook = new XSSFWorkbook(fs);
-                        ISheet sheet = workbook.GetSheet("Layers");
+                        ISheet sheet = workbook.GetSheet("LayerRename");
+                        if (sheet == null) sheet = workbook.GetSheet("Layers");
                         int rowCount = sheet.LastRowNum;
                         for (int row = 1; row <= rowCount; row++)
                         {
                             IRow dataRow = sheet.GetRow(row);
                             if (dataRow == null) continue;
                             string name = dataRow.GetCell(0)?.ToString();
+                            string newName = dataRow.LastCellNum > 7 ? dataRow.GetCell(7)?.ToString() : null;
                             if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
 
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
+
+                            if (!string.IsNullOrEmpty(newName) && newName != name && !layerTable.Has(newName))
+                            {
+                                layer.Name = newName;
+                            }
 
                             if (int.TryParse(dataRow.GetCell(1)?.ToString(), out int argb))
                                 layer.Color = Color.FromColor(AutoColor.FromArgb(argb));
 
                             string linetype = dataRow.GetCell(2)?.ToString();
-                            if (!string.IsNullOrEmpty(linetype))
-                                layer.LinetypeObjectId.ToString(); // TODO: Nếu cần set lại linetype thì bổ sung logic
+                            // TODO: Nếu cần set lại linetype thì bổ sung logic
 
                             layer.IsPlottable = bool.TryParse(dataRow.GetCell(3)?.ToString(), out bool p) && p;
                             layer.IsFrozen = bool.TryParse(dataRow.GetCell(4)?.ToString(), out bool f) && f;
