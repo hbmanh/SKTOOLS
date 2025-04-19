@@ -9,6 +9,8 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
 
 using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
 using AutoColor = System.Drawing.Color;
@@ -22,7 +24,7 @@ namespace SKAcadAddins.Commands
 {
     public class LayerManagerCommand
     {
-        [CommandMethod("LayerManagerUI")]
+        [CommandMethod("LX")]
         public void ShowForm()
         {
             FormsApp.EnableVisualStyles();
@@ -38,7 +40,7 @@ namespace SKAcadAddins.Commands
         private Label lblStatus;
         static LayerManagerForm()
         {
-            ExcelPackage.License = new OfficeOpenXml.LicenseContext(OfficeOpenXml.eLicenseContext.NonCommercial);
+            // Không cần thiết lập license cho NPOI
         }
 
         public LayerManagerForm()
@@ -126,34 +128,37 @@ namespace SKAcadAddins.Commands
                 {
                     LayerTable layerTable = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
 
-                    using (ExcelPackage package = new ExcelPackage())
+                    IWorkbook workbook = new XSSFWorkbook();
+                    ISheet sheet1 = workbook.CreateSheet("Layers");
+                    ISheet sheet2 = workbook.CreateSheet("Metadata");
+
+                    string[] headers = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked" };
+                    IRow headerRow = sheet1.CreateRow(0);
+                    for (int i = 0; i < headers.Length; i++)
+                        headerRow.CreateCell(i).SetCellValue(headers[i]);
+
+                    int row = 1;
+                    foreach (ObjectId id in layerTable)
                     {
-                        var sheet1 = package.Workbook.Worksheets.Add("Layers");
-                        var sheet2 = package.Workbook.Worksheets.Add("Metadata");
+                        LayerTableRecord layer = (LayerTableRecord)tr.GetObject(id, OpenMode.ForRead);
+                        IRow dataRow = sheet1.CreateRow(row);
+                        dataRow.CreateCell(0).SetCellValue(layer.Name);
+                        dataRow.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
+                        dataRow.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
+                        dataRow.CreateCell(3).SetCellValue(layer.IsPlottable);
+                        dataRow.CreateCell(4).SetCellValue(layer.IsFrozen);
+                        dataRow.CreateCell(5).SetCellValue(layer.IsOff);
+                        dataRow.CreateCell(6).SetCellValue(layer.IsLocked);
+                        row++;
+                    }
 
-                        string[] headers = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked" };
-                        for (int i = 0; i < headers.Length; i++)
-                            sheet1.Cells[1, i + 1].Value = headers[i];
+                    sheet2.CreateRow(0).CreateCell(0).SetCellValue("ColorARGB: int ARGB value");
+                    sheet2.CreateRow(1).CreateCell(0).SetCellValue("Linetype: BYLAYER, CONTINUOUS...");
+                    sheet2.CreateRow(2).CreateCell(0).SetCellValue("Boolean fields: True/False");
 
-                        int row = 2;
-                        foreach (ObjectId id in layerTable)
-                        {
-                            LayerTableRecord layer = (LayerTableRecord)tr.GetObject(id, OpenMode.ForRead);
-                            sheet1.Cells[row, 1].Value = layer.Name;
-                            sheet1.Cells[row, 2].Value = layer.Color.ColorValue.ToArgb();
-                            sheet1.Cells[row, 3].Value = layer.LinetypeObjectId.ToString();
-                            sheet1.Cells[row, 4].Value = layer.IsPlottable;
-                            sheet1.Cells[row, 5].Value = layer.IsFrozen;
-                            sheet1.Cells[row, 6].Value = layer.IsOff;
-                            sheet1.Cells[row, 7].Value = layer.IsLocked;
-                            row++;
-                        }
-
-                        sheet2.Cells[1, 1].Value = "ColorARGB: int ARGB value";
-                        sheet2.Cells[2, 1].Value = "Linetype: BYLAYER, CONTINUOUS...";
-                        sheet2.Cells[3, 1].Value = "Boolean fields: True/False";
-
-                        package.SaveAs(new FileInfo(txtFilePath.Text));
+                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Create, FileAccess.Write))
+                    {
+                        workbook.Write(fs);
                     }
 
                     tr.Commit();
@@ -186,29 +191,31 @@ namespace SKAcadAddins.Commands
                 using (Transaction tr = db.TransactionManager.StartTransaction())
                 {
                     LayerTable layerTable = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForWrite);
-                    using (ExcelPackage package = new ExcelPackage(new FileInfo(txtFilePath.Text)))
+                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Open, FileAccess.Read))
                     {
-                        var sheet = package.Workbook.Worksheets["Layers"];
-                        int rowCount = sheet.Dimension.End.Row;
-
-                        for (int row = 2; row <= rowCount; row++)
+                        IWorkbook workbook = new XSSFWorkbook(fs);
+                        ISheet sheet = workbook.GetSheet("Layers");
+                        int rowCount = sheet.LastRowNum;
+                        for (int row = 1; row <= rowCount; row++)
                         {
-                            string name = sheet.Cells[row, 1].Text;
-                            if (!layerTable.Has(name)) continue;
+                            IRow dataRow = sheet.GetRow(row);
+                            if (dataRow == null) continue;
+                            string name = dataRow.GetCell(0)?.ToString();
+                            if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
 
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
 
-                            if (int.TryParse(sheet.Cells[row, 2].Text, out int argb))
-                                layer.Color = Color.FromColor(AutoColor.FromArgb(argb)); // ✅ đúng AutoCAD.Colors.Color
+                            if (int.TryParse(dataRow.GetCell(1)?.ToString(), out int argb))
+                                layer.Color = Color.FromColor(AutoColor.FromArgb(argb));
 
-                            string linetype = sheet.Cells[row, 3].Text;
+                            string linetype = dataRow.GetCell(2)?.ToString();
                             if (!string.IsNullOrEmpty(linetype))
-                                layer.LinetypeObjectId.ToString(); 
+                                layer.LinetypeObjectId.ToString(); // TODO: Nếu cần set lại linetype thì bổ sung logic
 
-                            layer.IsPlottable = bool.TryParse(sheet.Cells[row, 4].Text, out bool p) && p;
-                            layer.IsFrozen = bool.TryParse(sheet.Cells[row, 5].Text, out bool f) && f;
-                            layer.IsOff = bool.TryParse(sheet.Cells[row, 6].Text, out bool o) && o;
-                            layer.IsLocked = bool.TryParse(sheet.Cells[row, 7].Text, out bool l) && l;
+                            layer.IsPlottable = bool.TryParse(dataRow.GetCell(3)?.ToString(), out bool p) && p;
+                            layer.IsFrozen = bool.TryParse(dataRow.GetCell(4)?.ToString(), out bool f) && f;
+                            layer.IsOff = bool.TryParse(dataRow.GetCell(5)?.ToString(), out bool o) && o;
+                            layer.IsLocked = bool.TryParse(dataRow.GetCell(6)?.ToString(), out bool l) && l;
                         }
                     }
                     tr.Commit();
