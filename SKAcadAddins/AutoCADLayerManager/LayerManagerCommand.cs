@@ -131,13 +131,13 @@ namespace SKAcadAddins.Commands
                     ISheet sheet1 = workbook.CreateSheet("Layers");
                     ISheet sheet2 = workbook.CreateSheet("LayerRename");
 
-                    string[] headers = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked", "NewLayerName" };
+                    string[] headers1 = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked" };
                     IRow headerRow1 = sheet1.CreateRow(0);
                     IRow headerRow2 = sheet2.CreateRow(0);
-                    for (int i = 0; i < headers.Length; i++)
+                    headerRow2.CreateCell(0).SetCellValue("LayerName");
+                    for (int i = 0; i < headers1.Length; i++)
                     {
-                        headerRow1.CreateCell(i).SetCellValue(headers[i]);
-                        headerRow2.CreateCell(i).SetCellValue(headers[i]);
+                        headerRow1.CreateCell(i).SetCellValue(headers1[i]);
                     }
 
                     int row = 1;
@@ -153,15 +153,7 @@ namespace SKAcadAddins.Commands
                         dataRow1.CreateCell(4).SetCellValue(layer.IsFrozen);
                         dataRow1.CreateCell(5).SetCellValue(layer.IsOff);
                         dataRow1.CreateCell(6).SetCellValue(layer.IsLocked);
-                        dataRow1.CreateCell(7).SetCellValue("");
-                        dataRow2.CreateCell(0).SetCellValue(layer.Name);
-                        dataRow2.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
-                        dataRow2.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
-                        dataRow2.CreateCell(3).SetCellValue(layer.IsPlottable);
-                        dataRow2.CreateCell(4).SetCellValue(layer.IsFrozen);
-                        dataRow2.CreateCell(5).SetCellValue(layer.IsOff);
-                        dataRow2.CreateCell(6).SetCellValue(layer.IsLocked);
-                        dataRow2.CreateCell(7).SetCellValue("");
+                        dataRow2.CreateCell(0).SetCellValue(""); // Để trống cho người dùng nhập tên mới nếu muốn
                         row++;
                     }
 
@@ -203,30 +195,32 @@ namespace SKAcadAddins.Commands
                     using (var fs = new FileStream(txtFilePath.Text, FileMode.Open, FileAccess.Read))
                     {
                         IWorkbook workbook = new XSSFWorkbook(fs);
-                        ISheet sheet = workbook.GetSheet("LayerRename");
-                        if (sheet == null) sheet = workbook.GetSheet("Layers");
-                        int rowCount = sheet.LastRowNum;
+                        ISheet sheetRename = workbook.GetSheet("LayerRename");
+                        ISheet sheetLayers = workbook.GetSheet("Layers");
+                        if (sheetRename == null || sheetLayers == null)
+                        {
+                            lblStatus.ForeColor = AutoColor.Red;
+                            lblStatus.Text = "❌ Không tìm thấy sheet phù hợp.";
+                            return;
+                        }
+                        int rowCount = sheetLayers.LastRowNum;
                         for (int row = 1; row <= rowCount; row++)
                         {
-                            IRow dataRow = sheet.GetRow(row);
+                            IRow dataRow = sheetLayers.GetRow(row);
+                            IRow renameRow = sheetRename.GetRow(row);
                             if (dataRow == null) continue;
                             string name = dataRow.GetCell(0)?.ToString();
-                            string newName = dataRow.LastCellNum > 7 ? dataRow.GetCell(7)?.ToString() : null;
                             if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
-
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
-
+                            string newName = renameRow?.GetCell(0)?.ToString();
                             if (!string.IsNullOrEmpty(newName) && newName != name && !layerTable.Has(newName))
                             {
                                 layer.Name = newName;
                             }
-
                             if (int.TryParse(dataRow.GetCell(1)?.ToString(), out int argb))
                                 layer.Color = Color.FromColor(AutoColor.FromArgb(argb));
-
                             string linetype = dataRow.GetCell(2)?.ToString();
                             // TODO: Nếu cần set lại linetype thì bổ sung logic
-
                             layer.IsPlottable = bool.TryParse(dataRow.GetCell(3)?.ToString(), out bool p) && p;
                             layer.IsFrozen = bool.TryParse(dataRow.GetCell(4)?.ToString(), out bool f) && f;
                             layer.IsOff = bool.TryParse(dataRow.GetCell(5)?.ToString(), out bool o) && o;
