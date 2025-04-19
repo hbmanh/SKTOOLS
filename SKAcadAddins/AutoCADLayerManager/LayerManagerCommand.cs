@@ -134,10 +134,10 @@ namespace SKAcadAddins.Commands
                     string[] headers1 = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked" };
                     IRow headerRow1 = sheet1.CreateRow(0);
                     IRow headerRow2 = sheet2.CreateRow(0);
-                    headerRow2.CreateCell(0).SetCellValue("LayerName");
                     for (int i = 0; i < headers1.Length; i++)
                     {
                         headerRow1.CreateCell(i).SetCellValue(headers1[i]);
+                        headerRow2.CreateCell(i).SetCellValue(headers1[i]);
                     }
 
                     int row = 1;
@@ -153,7 +153,14 @@ namespace SKAcadAddins.Commands
                         dataRow1.CreateCell(4).SetCellValue(layer.IsFrozen);
                         dataRow1.CreateCell(5).SetCellValue(layer.IsOff);
                         dataRow1.CreateCell(6).SetCellValue(layer.IsLocked);
-                        dataRow2.CreateCell(0).SetCellValue(""); // Để trống cho người dùng nhập tên mới nếu muốn
+                        // Sheet2 giống sheet1
+                        dataRow2.CreateCell(0).SetCellValue(layer.Name);
+                        dataRow2.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
+                        dataRow2.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
+                        dataRow2.CreateCell(3).SetCellValue(layer.IsPlottable);
+                        dataRow2.CreateCell(4).SetCellValue(layer.IsFrozen);
+                        dataRow2.CreateCell(5).SetCellValue(layer.IsOff);
+                        dataRow2.CreateCell(6).SetCellValue(layer.IsLocked);
                         row++;
                     }
 
@@ -206,25 +213,49 @@ namespace SKAcadAddins.Commands
                         int rowCount = sheetLayers.LastRowNum;
                         for (int row = 1; row <= rowCount; row++)
                         {
-                            IRow dataRow = sheetLayers.GetRow(row);
-                            IRow renameRow = sheetRename.GetRow(row);
-                            if (dataRow == null) continue;
-                            string name = dataRow.GetCell(0)?.ToString();
+                            IRow dataRow1 = sheetLayers.GetRow(row);
+                            IRow dataRow2 = sheetRename.GetRow(row);
+                            if (dataRow1 == null || dataRow2 == null) continue;
+                            string name = dataRow1.GetCell(0)?.ToString();
                             if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
-                            string newName = renameRow?.GetCell(0)?.ToString();
+
+                            // So sánh từng thuộc tính, nếu khác thì cập nhật
+                            // Name
+                            string newName = dataRow2.GetCell(0)?.ToString();
                             if (!string.IsNullOrEmpty(newName) && newName != name && !layerTable.Has(newName))
                             {
                                 layer.Name = newName;
                             }
-                            if (int.TryParse(dataRow.GetCell(1)?.ToString(), out int argb))
-                                layer.Color = Color.FromColor(AutoColor.FromArgb(argb));
-                            string linetype = dataRow.GetCell(2)?.ToString();
-                            // TODO: Nếu cần set lại linetype thì bổ sung logic
-                            layer.IsPlottable = bool.TryParse(dataRow.GetCell(3)?.ToString(), out bool p) && p;
-                            layer.IsFrozen = bool.TryParse(dataRow.GetCell(4)?.ToString(), out bool f) && f;
-                            layer.IsOff = bool.TryParse(dataRow.GetCell(5)?.ToString(), out bool o) && o;
-                            layer.IsLocked = bool.TryParse(dataRow.GetCell(6)?.ToString(), out bool l) && l;
+                            // Color
+                            if (int.TryParse(dataRow1.GetCell(1)?.ToString(), out int argb1) && int.TryParse(dataRow2.GetCell(1)?.ToString(), out int argb2))
+                            {
+                                if (argb1 != argb2)
+                                    layer.Color = Color.FromColor(AutoColor.FromArgb(argb2));
+                            }
+                            // Linetype
+                            string linetype1 = dataRow1.GetCell(2)?.ToString();
+                            string linetype2 = dataRow2.GetCell(2)?.ToString();
+                            if (!string.IsNullOrEmpty(linetype2) && linetype1 != linetype2)
+                            {
+                                // TODO: Nếu cần set lại linetype thì bổ sung logic
+                            }
+                            // IsPlottable
+                            bool.TryParse(dataRow1.GetCell(3)?.ToString(), out bool p1);
+                            bool.TryParse(dataRow2.GetCell(3)?.ToString(), out bool p2);
+                            if (p1 != p2) layer.IsPlottable = p2;
+                            // IsFrozen
+                            bool.TryParse(dataRow1.GetCell(4)?.ToString(), out bool f1);
+                            bool.TryParse(dataRow2.GetCell(4)?.ToString(), out bool f2);
+                            if (f1 != f2) layer.IsFrozen = f2;
+                            // IsOff
+                            bool.TryParse(dataRow1.GetCell(5)?.ToString(), out bool o1);
+                            bool.TryParse(dataRow2.GetCell(5)?.ToString(), out bool o2);
+                            if (o1 != o2) layer.IsOff = o2;
+                            // IsLocked
+                            bool.TryParse(dataRow1.GetCell(6)?.ToString(), out bool l1);
+                            bool.TryParse(dataRow2.GetCell(6)?.ToString(), out bool l2);
+                            if (l1 != l2) layer.IsLocked = l2;
                         }
                     }
                     tr.Commit();
