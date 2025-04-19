@@ -261,13 +261,7 @@ namespace SKAcadAddins.Commands
                                 if (newName.IndexOfAny(invalidChars) >= 0)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ.";
-                                    return;
-                                }
-                                if (layerTable.Has(newName))
-                                {
-                                    lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại.";
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ: {newName}";
                                     return;
                                 }
                                 if (string.IsNullOrWhiteSpace(newName))
@@ -276,7 +270,33 @@ namespace SKAcadAddins.Commands
                                     lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} bị bỏ trống.";
                                     return;
                                 }
-                                layer.Name = newName;
+                                // Kiểm tra trùng tên với bất kỳ layer nào khác (không chỉ trong bảng hiện tại)
+                                bool nameExists = false;
+                                foreach (ObjectId lid in layerTable)
+                                {
+                                    LayerTableRecord ltr = (LayerTableRecord)tr.GetObject(lid, OpenMode.ForRead);
+                                    if (ltr.Name.Equals(newName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        nameExists = true;
+                                        break;
+                                    }
+                                }
+                                if (nameExists)
+                                {
+                                    lblStatus.ForeColor = AutoColor.Red;
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại: {newName}";
+                                    return;
+                                }
+                                try
+                                {
+                                    layer.Name = newName;
+                                }
+                                catch (System.Exception ex)
+                                {
+                                    lblStatus.ForeColor = AutoColor.Red;
+                                    lblStatus.Text = $"❌ Đổi tên layer ở dòng {row + 1} thất bại: {ex.Message}";
+                                    return;
+                                }
                             }
                             // Color
                             if (int.TryParse(dataRow1.GetCell(1)?.ToString(), out int argb1) && int.TryParse(dataRow2.GetCell(1)?.ToString(), out int argb2))
