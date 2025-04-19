@@ -36,6 +36,10 @@ namespace SKAcadAddins.Commands
         private TextBox txtFilePath;
         private Button btnBrowse, btnExport, btnImport;
         private Label lblStatus;
+        static LayerManagerForm()
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
 
         public LayerManagerForm()
         {
