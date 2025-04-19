@@ -5,6 +5,7 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Colors;
 using OfficeOpenXml;
 using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -100,8 +101,6 @@ namespace SKAcadAddins.Commands
             Controls.Add(btnExport);
             Controls.Add(btnImport);
             Controls.Add(lblStatus);
-
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
         private void BtnBrowse_Click(object sender, EventArgs e)
