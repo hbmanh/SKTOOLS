@@ -48,6 +48,10 @@
     <Reference Include="D3Lib">
       <HintPath>G:\Shared drives\KM-Tools\10_要求\241114_tab-panel-set\D3Lib.dll</HintPath>
     </Reference>
+    <Reference Include="Interop.AutoCAD">
+      <HintPath>..\SKAcadAddins\obj\Debug\Interop.AutoCAD.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
     <Reference Include="Microsoft.Extensions.Configuration, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.Configuration.8.0.0\lib\net462\Microsoft.Extensions.Configuration.dll</HintPath>
       <Private>False</Private>
@@ -161,20 +165,13 @@
     <Compile Include="Commands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\LayoutsToDWG\AcadAppFolder.cs" />
-    <Compile Include="Commands\LayoutsToDWG\EnumBooleanConverter.cs" />
+    <Compile Include="Commands\LayoutsToDWG\AutoCADMergePlugin.cs" />
+    <Compile Include="Commands\LayoutsToDWG\Helpers.cs" />
     <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGCmd.cs" />
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGRequestHandler.cs" />
-    <Compile Include="Commands\LayoutsToDWG\RunAutoCadBg.cs" />
-    <Compile Include="Commands\LayoutsToDWG\SheetSelectionItem.cs" />
-    <Compile Include="Commands\LayoutsToDWG\SheetSelectionItemLight.cs" />
-    <Compile Include="Commands\LayoutsToDWG\SheetSelectionWindow.xaml.cs">
-      <DependentUpon>SheetSelectionWindow.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGWindow.xaml.cs">
       <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGViewModel.cs" />
+    <Compile Include="Commands\LayoutsToDWG\ViewModels.cs" />
     <Compile Include="Commands\RelayCommand.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelCmd.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelRequest.cs" />
@@ -307,10 +304,6 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="Commands\DWGExport\DWGExportWpfWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Commands\LayoutsToDWG\SheetSelectionWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
