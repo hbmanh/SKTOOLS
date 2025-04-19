@@ -210,21 +210,72 @@ namespace SKAcadAddins.Commands
                             lblStatus.Text = "❌ Không tìm thấy sheet phù hợp.";
                             return;
                         }
-                        int rowCount = sheetLayers.LastRowNum;
-                        for (int row = 1; row <= rowCount; row++)
+                        int rowCount1 = sheetLayers.LastRowNum;
+                        int rowCount2 = sheetRename.LastRowNum;
+                        if (rowCount1 != rowCount2)
+                        {
+                            lblStatus.ForeColor = AutoColor.Red;
+                            lblStatus.Text = "❌ Số dòng giữa hai sheet không khớp.";
+                            return;
+                        }
+                        int colCount1 = sheetLayers.GetRow(0)?.LastCellNum ?? 0;
+                        int colCount2 = sheetRename.GetRow(0)?.LastCellNum ?? 0;
+                        if (colCount1 != colCount2 || colCount1 < 7)
+                        {
+                            lblStatus.ForeColor = AutoColor.Red;
+                            lblStatus.Text = "❌ Số cột không hợp lệ hoặc thiếu dữ liệu.";
+                            return;
+                        }
+                        for (int row = 1; row <= rowCount1; row++)
                         {
                             IRow dataRow1 = sheetLayers.GetRow(row);
                             IRow dataRow2 = sheetRename.GetRow(row);
-                            if (dataRow1 == null || dataRow2 == null) continue;
+                            if (dataRow1 == null || dataRow2 == null)
+                            {
+                                lblStatus.ForeColor = AutoColor.Red;
+                                lblStatus.Text = $"❌ Dòng {row + 1} bị thiếu dữ liệu.";
+                                return;
+                            }
+                            // So sánh toàn bộ các cột, nếu giống hoàn toàn thì bỏ qua
+                            bool isDifferent = false;
+                            for (int col = 0; col < 7; col++)
+                            {
+                                var v1 = dataRow1.GetCell(col)?.ToString();
+                                var v2 = dataRow2.GetCell(col)?.ToString();
+                                if (v1 != v2)
+                                {
+                                    isDifferent = true;
+                                    break;
+                                }
+                            }
+                            if (!isDifferent) continue;
                             string name = dataRow1.GetCell(0)?.ToString();
                             if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
-
-                            // So sánh từng thuộc tính, nếu khác thì cập nhật
                             // Name
                             string newName = dataRow2.GetCell(0)?.ToString();
-                            if (!string.IsNullOrEmpty(newName) && newName != name && !layerTable.Has(newName))
+                            // Kiểm tra tên mới hợp lệ
+                            if (!string.IsNullOrEmpty(newName) && newName != name)
                             {
+                                char[] invalidChars = { '\\', '/', ':', ';', '<', '>', '?', '"', '|', '=', '`', '*', ',' };
+                                if (newName.IndexOfAny(invalidChars) >= 0)
+                                {
+                                    lblStatus.ForeColor = AutoColor.Red;
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ.";
+                                    return;
+                                }
+                                if (layerTable.Has(newName))
+                                {
+                                    lblStatus.ForeColor = AutoColor.Red;
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại.";
+                                    return;
+                                }
+                                if (string.IsNullOrWhiteSpace(newName))
+                                {
+                                    lblStatus.ForeColor = AutoColor.Red;
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} bị bỏ trống.";
+                                    return;
+                                }
                                 layer.Name = newName;
                             }
                             // Color
