@@ -1,330 +1,361 @@
-﻿using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Colors;
-using OfficeOpenXml;
+﻿// LayerExportImport.cs
+// AutoCAD Add-in: Export/Import/Purge Layers via Excel
+// Final complete code
+
 using System;
-using System.ComponentModel;
-using System.Drawing;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Windows.Forms;
-using NPOI.SS.UserModel;
-using NPOI.XSSF.UserModel;
-
+using System.Drawing;
+using Excel = Microsoft.Office.Interop.Excel;
 using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
-using AutoColor = System.Drawing.Color;
-using Color = Autodesk.AutoCAD.Colors.Color;
-using Exception = Autodesk.AutoCAD.Runtime.Exception;
-using FormsApp = System.Windows.Forms.Application;
+using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Colors;
 
-[assembly: CommandClass(typeof(SKAcadAddins.Commands.LayerManagerCommand))]
+// Resolve ambiguous types
+using SysImage = System.Drawing.Image;
+using DrawColor = System.Drawing.Color;
+using AcadColor = Autodesk.AutoCAD.Colors.Color;
+using DrawFont = System.Drawing.Font;
+using Exception = System.Exception;
 
-namespace SKAcadAddins.Commands
+[assembly: CommandClass(typeof(MyAutoCADAddin.LayerExportImport))]
+
+namespace MyAutoCADAddin
 {
-    public class LayerManagerCommand
+    public class LayerExportImport : IExtensionApplication
     {
-        [CommandMethod("LX")]
-        public void ShowForm()
+        public void Initialize() { }
+        public void Terminate() { }
+
+        [CommandMethod("lx")]
+        public void Execute()
         {
-            FormsApp.EnableVisualStyles();
-            LayerManagerForm form = new LayerManagerForm();
-            AcadApp.ShowModalDialog(form);
+            var doc = AcadApp.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            using (var frm = new LayerExportImportForm())
+            {
+                AcadApp.ShowModalDialog(frm);
+            }
         }
     }
 
-    public class LayerManagerForm : Form
+    internal class LayerExportImportForm : Form
     {
-        private TextBox txtFilePath;
-        private Button btnExport, btnImport;
-        private Label lblStatus;
-        static LayerManagerForm()
-        {
-            // Không cần thiết lập license cho NPOI
-        }
+        private Button btnExport, btnImport, btnPurge;
+        private PictureBox logoBox;
+        private Label lblTitle;
+        private TableLayoutPanel layout;
+        private const string LogoPath = @"C:\ProgramData\Autodesk\Revit\Addins\2023\SKTools.bundle\Contents\Resources\Images\shinken.png";
 
-        public LayerManagerForm()
+        public LayerExportImportForm()
         {
-            Text = "Shinken Group® - Layer Manager";
-            Size = new Size(440, 180);
+            // Form settings
+            Text = "Layer Manager - Shinken Group®";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
+            ClientSize = new Size(360, 180);
 
-            Label lbl = new Label
+            // Layout: 3 rows, 3 columns
+            layout = new TableLayoutPanel
             {
-                Text = "Excel File Path:",
-                Location = new Point(10, 20),
-                AutoSize = true
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 3
             };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));  // Header
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 10));  // Spacer
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));  // Buttons
 
-            txtFilePath = new TextBox
+            // Logo
+            logoBox = new PictureBox
             {
-                Location = new Point(100, 15),
-                Width = 250
+                Dock = DockStyle.Fill,
+                SizeMode = PictureBoxSizeMode.Zoom
             };
-            txtFilePath.ReadOnly = true;
+            if (File.Exists(LogoPath))
+                logoBox.Image = SysImage.FromFile(LogoPath);
+            layout.Controls.Add(logoBox, 0, 0);
 
-            btnExport = new Button
+            // Title
+            lblTitle = new Label
             {
-                Text = "Export Layers",
-                Location = new Point(30, 60),
-                Size = new Size(120, 35)
+                Text = "Shinken Group®",
+                Font = new DrawFont("Segoe UI", 12F, FontStyle.Bold),
+                ForeColor = DrawColor.FromArgb(45, 45, 48),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Dock = DockStyle.Fill
             };
-            btnExport.Click += BtnExport_Click;
+            layout.Controls.Add(lblTitle, 1, 0);
+            layout.SetColumnSpan(lblTitle, 2);
 
-            btnImport = new Button
-            {
-                Text = "Import Layers",
-                Location = new Point(170, 60),
-                Size = new Size(120, 35)
-            };
-            btnImport.Click += BtnImport_Click;
+            // Buttons
+            btnExport = new Button { Text = "Export...", Size = new Size(80, 24), Margin = new Padding(3) };
+            btnImport = new Button { Text = "Import...", Size = new Size(80, 24), Margin = new Padding(3) };
+            btnPurge = new Button { Text = "Purge All", Size = new Size(80, 24), Margin = new Padding(3) };
+            btnExport.Click += OnExport;
+            btnImport.Click += OnImport;
+            btnPurge.Click += OnPurge;
+            layout.Controls.Add(btnExport, 0, 2);
+            layout.Controls.Add(btnImport, 1, 2);
+            layout.Controls.Add(btnPurge, 2, 2);
 
-            lblStatus = new Label
-            {
-                Text = "",
-                ForeColor = AutoColor.DarkGreen,
-                Location = new Point(30, 105),
-                AutoSize = true
-            };
-
-            Controls.Add(lbl);
-            Controls.Add(txtFilePath);
-            Controls.Add(btnExport);
-            Controls.Add(btnImport);
-            Controls.Add(lblStatus);
+            Controls.Add(layout);
         }
 
-        private void BtnExport_Click(object sender, EventArgs e)
+        private void OnExport(object sender, EventArgs e)
         {
-            SaveFileDialog dlg = new SaveFileDialog
+            var doc = AcadApp.DocumentManager.MdiActiveDocument;
+            var db = doc.Database;
+            string defaultFile = Path.Combine(Path.GetDirectoryName(doc.Name), Path.GetFileNameWithoutExtension(doc.Name) + "_Layers.xlsx");
+            using (var sfd = new SaveFileDialog { Filter = "Excel Workbook|*.xlsx", FileName = defaultFile, InitialDirectory = Path.GetDirectoryName(doc.Name) })
             {
-                Filter = "Excel Files|*.xlsx",
-                Title = "Chọn nơi lưu file Excel"
-            };
-            if (dlg.ShowDialog() != DialogResult.OK) return;
-            txtFilePath.Text = dlg.FileName;
+                if (sfd.ShowDialog() != DialogResult.OK) return;
+                string file = sfd.FileName;
 
-            Document doc = AcadApp.DocumentManager.MdiActiveDocument;
-            Database db = doc.Database;
-
-            try
-            {
-                using (Transaction tr = db.TransactionManager.StartTransaction())
+                Excel.Application xlApp = null;
+                Excel.Workbook wb = null;
+                Excel.Worksheet ws1 = null, ws2 = null;
+                try
                 {
-                    LayerTable layerTable = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+                    xlApp = new Excel.Application();
+                    wb = xlApp.Workbooks.Add();
+                    ws1 = (Excel.Worksheet)wb.Worksheets[1]; ws1.Name = "Layers";
+                    ws2 = (Excel.Worksheet)wb.Worksheets.Add(After: ws1); ws2.Name = "LayerRename";
 
-                    IWorkbook workbook = new XSSFWorkbook();
-                    ISheet sheet1 = workbook.CreateSheet("Layers");
-                    ISheet sheet2 = workbook.CreateSheet("LayerRename");
-
-                    string[] headers1 = { "LayerName", "ColorARGB", "Linetype", "IsPlottable", "IsFrozen", "IsOff", "IsLocked" };
-                    IRow headerRow1 = sheet1.CreateRow(0);
-                    IRow headerRow2 = sheet2.CreateRow(0);
-                    for (int i = 0; i < headers1.Length; i++)
+                    using (var tr = db.TransactionManager.StartTransaction())
                     {
-                        headerRow1.CreateCell(i).SetCellValue(headers1[i]);
-                        headerRow2.CreateCell(i).SetCellValue(headers1[i]);
-                    }
-
-                    int row = 1;
-                    foreach (ObjectId id in layerTable)
-                    {
-                        LayerTableRecord layer = (LayerTableRecord)tr.GetObject(id, OpenMode.ForRead);
-                        IRow dataRow1 = sheet1.CreateRow(row);
-                        IRow dataRow2 = sheet2.CreateRow(row);
-                        dataRow1.CreateCell(0).SetCellValue(layer.Name);
-                        dataRow1.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
-                        dataRow1.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
-                        dataRow1.CreateCell(3).SetCellValue(layer.IsPlottable);
-                        dataRow1.CreateCell(4).SetCellValue(layer.IsFrozen);
-                        dataRow1.CreateCell(5).SetCellValue(layer.IsOff);
-                        dataRow1.CreateCell(6).SetCellValue(layer.IsLocked);
-                        dataRow2.CreateCell(0).SetCellValue(layer.Name);
-                        dataRow2.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
-                        dataRow2.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
-                        dataRow2.CreateCell(3).SetCellValue(layer.IsPlottable);
-                        dataRow2.CreateCell(4).SetCellValue(layer.IsFrozen);
-                        dataRow2.CreateCell(5).SetCellValue(layer.IsOff);
-                        dataRow2.CreateCell(6).SetCellValue(layer.IsLocked);
+                        var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+                        int row = 1;
+                        string[] headers = { "Name", "ColorIndex", "Linetype", "Lineweight", "PlotStyleName" };
+                        for (int i = 0; i < headers.Length; i++)
+                        {
+                            ws1.Cells[row, i + 1] = headers[i];
+                            ws2.Cells[row, i + 1] = headers[i];
+                        }
                         row++;
+                        // Sort by Name
+                        var sorted = lt.Cast<ObjectId>()
+                            .OrderBy(o => ((LayerTableRecord)tr.GetObject(o, OpenMode.ForRead)).Name)
+                            .ToList();
+                        foreach (ObjectId layerId in sorted)
+                        {
+                            var rec = (LayerTableRecord)tr.GetObject(layerId, OpenMode.ForRead);
+                            ws1.Cells[row, 1] = rec.Name;
+                            ws1.Cells[row, 2] = rec.Color.ColorIndex;
+                            ws1.Cells[row, 3] = rec.LinetypeObjectId.IsNull
+                                ? "ByLayer"
+                                : ((LinetypeTableRecord)tr.GetObject(rec.LinetypeObjectId, OpenMode.ForRead)).Name;
+                            double lwMm = (int)rec.LineWeight / 100.0;
+                            ws1.Cells[row, 4] = $"{lwMm:F2} mm";
+                            ws1.Cells[row, 5] = rec.PlotStyleName ?? string.Empty;
+                            for (int c = 1; c <= 5; c++)
+                                ws2.Cells[row, c] = ws1.Cells[row, c].Value;
+                            row++;
+                        }
+                        tr.Commit();
                     }
-
-                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
-                    {
-                        workbook.Write(fs);
-                    }
-
-                    tr.Commit();
+                    // SaveAs
+                    object missing = Missing.Value;
+                    wb.SaveAs(file,
+                        Excel.XlFileFormat.xlOpenXMLWorkbook,
+                        missing, missing, false, false,
+                        Excel.XlSaveAsAccessMode.xlNoChange,
+                        missing, missing, missing, missing, missing);
+                    xlApp.Visible = true;
                 }
-
-                lblStatus.ForeColor = AutoColor.Green;
-                lblStatus.Text = "✅ Xuất layer thành công!";
-            }
-            catch (Exception ex)
-            {
-                lblStatus.ForeColor = AutoColor.Red;
-                lblStatus.Text = "❌ " + ex.Message;
+                catch (System.Exception ex)
+                {
+                    MessageBox.Show("Export lỗi:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    if (ws2 != null) Marshal.ReleaseComObject(ws2);
+                    if (ws1 != null) Marshal.ReleaseComObject(ws1);
+                    if (wb != null) Marshal.ReleaseComObject(wb);
+                }
             }
         }
 
-        private void BtnImport_Click(object sender, EventArgs e)
+        private void OnImport(object sender, EventArgs e)
         {
-            OpenFileDialog dlg = new OpenFileDialog
+            var doc = AcadApp.DocumentManager.MdiActiveDocument;
+            var db = doc.Database;
+            using (var ofd = new OpenFileDialog { Filter = "Excel Workbook|*.xlsx;*.xls", InitialDirectory = Path.GetDirectoryName(doc.Name) })
             {
-                Filter = "Excel Files|*.xlsx",
-                Title = "Chọn file Excel để nhập"
-            };
-            if (dlg.ShowDialog() != DialogResult.OK)
-            {
-                lblStatus.ForeColor = AutoColor.Red;
-                lblStatus.Text = "❌ Chưa chọn file để nhập.";
-                return;
-            }
-            txtFilePath.Text = dlg.FileName;
-            if (!File.Exists(txtFilePath.Text))
-            {
-                lblStatus.ForeColor = AutoColor.Red;
-                lblStatus.Text = "❌ File không tồn tại.";
-                return;
-            }
-
-            Document doc = AcadApp.DocumentManager.MdiActiveDocument;
-            Database db = doc.Database;
-
-            try
-            {
-                using (Transaction tr = db.TransactionManager.StartTransaction())
+                if (ofd.ShowDialog() != DialogResult.OK) return;
+                string file = ofd.FileName;
+                Excel.Application xlApp = null;
+                Excel.Workbook wb = null;
+                var errors = new List<string>();
+                try
                 {
-                    LayerTable layerTable = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForWrite);
-                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    xlApp = GetExcelFromROT();
+                    wb = xlApp.Workbooks.Cast<Excel.Workbook>()
+                        .FirstOrDefault(wb2 => string.Equals(wb2.FullName, file, StringComparison.OrdinalIgnoreCase))
+                        ?? xlApp.Workbooks.Open(file, false, true,
+                            Missing.Value, Missing.Value, Missing.Value,
+                            false, Missing.Value, Missing.Value,
+                            Missing.Value, Missing.Value,
+                            Missing.Value, Missing.Value,
+                            Missing.Value, Missing.Value);
+                    if (wb.Worksheets.Count < 2) throw new Exception("File phải có 2 Sheet.");
+                    var ws1 = (Excel.Worksheet)wb.Worksheets["Layers"];
+                    var ws2 = (Excel.Worksheet)wb.Worksheets["LayerRename"];
+                    if (ws1.UsedRange.Columns.Count != 5) throw new Exception("Sai số cột.");
+                    var list1 = ReadSheet(ws1);
+                    var list2 = ReadSheet(ws2);
+                    if (list1.Count != list2.Count) throw new Exception("Sai số dòng.");
+
+                    using (var tr = db.TransactionManager.StartTransaction())
                     {
-                        IWorkbook workbook = new XSSFWorkbook(fs);
-                        ISheet sheetRename = workbook.GetSheet("LayerRename");
-                        ISheet sheetLayers = workbook.GetSheet("Layers");
-                        if (sheetRename == null || sheetLayers == null)
+                        var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForWrite);
+                        for (int i = 0; i < list1.Count; i++)
                         {
-                            lblStatus.ForeColor = AutoColor.Red;
-                            lblStatus.Text = "❌ Không tìm thấy sheet phù hợp.";
-                            return;
-                        }
-                        int rowCount1 = sheetLayers.LastRowNum;
-                        int rowCount2 = sheetRename.LastRowNum;
-                        if (rowCount1 != rowCount2)
-                        {
-                            lblStatus.ForeColor = AutoColor.Red;
-                            lblStatus.Text = "❌ Số dòng giữa hai sheet không khớp.";
-                            return;
-                        }
-                        int colCount1 = sheetLayers.GetRow(0)?.LastCellNum ?? 0;
-                        int colCount2 = sheetRename.GetRow(0)?.LastCellNum ?? 0;
-                        if (colCount1 != colCount2 || colCount1 < 7)
-                        {
-                            lblStatus.ForeColor = AutoColor.Red;
-                            lblStatus.Text = "❌ Số cột không hợp lệ hoặc thiếu dữ liệu.";
-                            return;
-                        }
-                        for (int row = 1; row <= rowCount1; row++)
-                        {
-                            IRow dataRow1 = sheetLayers.GetRow(row);
-                            IRow dataRow2 = sheetRename.GetRow(row);
-                            if (dataRow1 == null || dataRow2 == null)
+                            var a = list1[i];
+                            var b = list2[i];
+                            string oldName = a["Name"];
+                            if (!lt.Has(oldName)) { errors.Add($"Dòng {i + 2}: Layer '{oldName}' không tồn tại."); continue; }
+                            var recId = lt[oldName];
+                            var ltr = (LayerTableRecord)tr.GetObject(recId, OpenMode.ForWrite);
+
+                            // Rename except '0'
+                            string newName = b["Name"];
+                            if (!string.Equals(oldName, "0", StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(newName, oldName, StringComparison.Ordinal))
                             {
-                                lblStatus.ForeColor = AutoColor.Red;
-                                lblStatus.Text = $"❌ Dòng {row + 1} bị thiếu dữ liệu.";
-                                return;
+                                if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
+                                {
+                                    try { ltr.Name = newName; recId = lt[newName]; ltr = (LayerTableRecord)tr.GetObject(recId, OpenMode.ForWrite); }
+                                    catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Rename lỗi '{ex.Message}'"); continue; }
+                                }
+                                else errors.Add($"Dòng {i + 2}: Tên '{newName}' không hợp lệ.");
                             }
-                            string name = dataRow1.GetCell(0)?.ToString();
-                            if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
-                            LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
-                            // Name
-                            string newName = dataRow2.GetCell(0)?.ToString();
-                            if (!string.IsNullOrEmpty(newName) && !newName.Equals(name, StringComparison.OrdinalIgnoreCase))
+
+                            // Color
+                            short origCol = short.Parse(a["ColorIndex"]);
+                            short newCol = short.Parse(b["ColorIndex"]);
+                            if (newCol != origCol)
                             {
-                                if (name.Equals("Layer1", StringComparison.OrdinalIgnoreCase))
-                                    continue;
-                                char[] invalidChars = { '\\', '/', ':', ';', '<', '>', '?', '"', '|', '=', '`', '*', ',', ' ', '\t' };
-                                if (newName.IndexOfAny(invalidChars) >= 0)
+                                try { ltr.Color = AcadColor.FromColorIndex(ColorMethod.ByAci, newCol); }
+                                catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Color lỗi '{ex.Message}'"); }
+                            }
+
+                            // LineWeight
+                            string lwText = b["Lineweight"];
+                            if (!string.IsNullOrWhiteSpace(lwText))
+                            {
+                                var parts = lwText.Split(' ');
+                                if (double.TryParse(parts[0], out double mmVal))
                                 {
-                                    lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ: '{newName}'. Không được chứa các ký tự: \\ / : ; < > ? \" | = ` * , hoặc khoảng trắng.";
-                                    return;
-                                }
-                                if (string.IsNullOrWhiteSpace(newName))
-                                {
-                                    lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} bị bỏ trống.";
-                                    return;
-                                }
-                                bool nameExists = false;
-                                foreach (ObjectId lid in layerTable)
-                                {
-                                    LayerTableRecord ltr = (LayerTableRecord)tr.GetObject(lid, OpenMode.ForRead);
-                                    if (ltr.Name.Equals(newName, StringComparison.OrdinalIgnoreCase))
+                                    int lwVal = (int)Math.Round(mmVal * 100);
+                                    if (Enum.IsDefined(typeof(LineWeight), lwVal)
+                                        && (int)ltr.LineWeight != lwVal)
                                     {
-                                        nameExists = true;
-                                        break;
+                                        try { ltr.LineWeight = (LineWeight)lwVal; }
+                                        catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: LineWeight lỗi '{ex.Message}'"); }
                                     }
                                 }
-                                if (nameExists)
-                                {
-                                    lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại: '{newName}'. Vui lòng chọn tên khác.";
-                                    return;
-                                }
+                                else errors.Add($"Dòng {i + 2}: Không parse Lineweight '{lwText}'");
+                            }
+
+                            // Linetype
+                            string origLt = a["Linetype"], newLt = b["Linetype"];
+                            if (!string.Equals(origLt, newLt, StringComparison.OrdinalIgnoreCase))
+                            {
                                 try
                                 {
-                                    layer.Name = newName;
+                                    var ltt = (LinetypeTable)tr.GetObject(db.LinetypeTableId, OpenMode.ForRead);
+                                    if (!ltt.Has(newLt)) db.LoadLineTypeFile(newLt, "acad.lin");
+                                    if (ltt.Has(newLt)) ltr.LinetypeObjectId = ltt[newLt];
+                                    else errors.Add($"Dòng {i + 2}: Không tìm thấy Linetype '{newLt}'");
                                 }
-                                catch (System.Exception ex)
-                                {
-                                    lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Đổi tên layer ở dòng {row + 1} thất bại cho tên '{newName}': {ex.Message}. Hãy kiểm tra lại tên layer trong file Excel.";
-                                    return;
-                                }
+                                catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Linetype lỗi '{ex.Message}'"); }
                             }
-                            // Color
-                            if (int.TryParse(dataRow1.GetCell(1)?.ToString(), out int argb1) && int.TryParse(dataRow2.GetCell(1)?.ToString(), out int argb2))
-                            {
-                                if (argb1 != argb2)
-                                    layer.Color = Color.FromColor(AutoColor.FromArgb(argb2));
-                            }
-                            // Linetype
-                            string linetype1 = dataRow1.GetCell(2)?.ToString();
-                            string linetype2 = dataRow2.GetCell(2)?.ToString();
-                            if (!string.IsNullOrEmpty(linetype2) && linetype1 != linetype2)
-                            {
-                                // TODO: Nếu cần set lại linetype thì bổ sung logic
-                            }
-                            // IsPlottable
-                            bool.TryParse(dataRow1.GetCell(3)?.ToString(), out bool p1);
-                            bool.TryParse(dataRow2.GetCell(3)?.ToString(), out bool p2);
-                            if (p1 != p2) layer.IsPlottable = p2;
-                            // IsFrozen
-                            bool.TryParse(dataRow1.GetCell(4)?.ToString(), out bool f1);
-                            bool.TryParse(dataRow2.GetCell(4)?.ToString(), out bool f2);
-                            if (f1 != f2) layer.IsFrozen = f2;
-                            // IsOff
-                            bool.TryParse(dataRow1.GetCell(5)?.ToString(), out bool o1);
-                            bool.TryParse(dataRow2.GetCell(5)?.ToString(), out bool o2);
-                            if (o1 != o2) layer.IsOff = o2;
-                            // IsLocked
-                            bool.TryParse(dataRow1.GetCell(6)?.ToString(), out bool l1);
-                            bool.TryParse(dataRow2.GetCell(6)?.ToString(), out bool l2);
-                            if (l1 != l2) layer.IsLocked = l2;
-                        }
-                    }
-                    tr.Commit();
-                }
 
-                lblStatus.ForeColor = AutoColor.Green;
-                lblStatus.Text = "✅ Cập nhật layer thành công!";
-            }
-            catch (Exception ex)
-            {
-                lblStatus.ForeColor = AutoColor.Red;
-                lblStatus.Text = "❌ " + ex.Message;
+                            // PlotStyleName (optional)
+                            string origPS = a["PlotStyleName"];
+                            string newPS = b["PlotStyleName"];
+                            if (newPS != origPS) ltr.PlotStyleName = newPS;
+                        }
+                        tr.Commit();
+                    }
+
+                    MessageBox.Show(errors.Count > 0
+                        ? string.Join("\n", errors)
+                        : "Import & cập nhật thành công!",
+                        "Kết quả",
+                        MessageBoxButtons.OK,
+                        errors.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+                }
+                catch (System.Exception ex)
+                {
+                    MessageBox.Show("Import lỗi:\n" + ex.Message,
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    if (wb != null) Marshal.ReleaseComObject(wb);
+                }
             }
         }
+
+        private void OnPurge(object sender, EventArgs e)
+        {
+            var doc = AcadApp.DocumentManager.MdiActiveDocument;
+            doc?.SendStringToExecute("_-PURGE _ALL\nY\n", true, false, false);
+            MessageBox.Show("Purge all completed.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private List<Dictionary<string, string>> ReadSheet(Excel.Worksheet ws)
+        {
+            var data = new List<Dictionary<string, string>>();
+            var used = ws.UsedRange; int rows = used.Rows.Count;
+            for (int r = 2; r <= rows; r++)
+            {
+                var name = (ws.Cells[r, 1].Value ?? "").ToString();
+                if (string.IsNullOrWhiteSpace(name)) break;
+                data.Add(new Dictionary<string, string>
+                {
+                    ["Name"] = name,
+                    ["ColorIndex"] = (ws.Cells[r, 2].Value ?? "0").ToString(),
+                    ["Linetype"] = (ws.Cells[r, 3].Value ?? "").ToString(),
+                    ["Lineweight"] = (ws.Cells[r, 4].Value ?? "").ToString(),
+                    ["PlotStyleName"] = (ws.Cells[r, 5].Value ?? "").ToString()
+                });
+            }
+            return data;
+        }
+
+        private Excel.Application GetExcelFromROT()
+        {
+            GetRunningObjectTable(0, out IRunningObjectTable rot);
+            rot.EnumRunning(out IEnumMoniker enumMoniker);
+            IMoniker[] monikers = new IMoniker[1];
+            while (enumMoniker.Next(1, monikers, IntPtr.Zero) == 0)
+            {
+                CreateBindCtx(0, out IBindCtx bindCtx);
+                monikers[0].GetDisplayName(bindCtx, null, out string name);
+                if (name.Contains("Excel"))
+                {
+                    rot.GetObject(monikers[0], out object comObj);
+                    return comObj as Excel.Application;
+                }
+            }
+            return new Excel.Application();
+        }
+
+        [DllImport("ole32.dll")]
+        private static extern int GetRunningObjectTable(int reserved, out IRunningObjectTable rot);
+        [DllImport("ole32.dll")] private static extern int CreateBindCtx(int reserved, out IBindCtx ctx);
     }
 }
