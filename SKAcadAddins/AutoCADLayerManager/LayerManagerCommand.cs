@@ -1,6 +1,6 @@
 ﻿// LayerExportImport.cs
 // AutoCAD Add-in: Export/Import/Purge Layers via Excel
-// Final complete code
+// Final complete code with sorted export, mm-formatted Lineweight, condensed UI
 
 using System;
 using System.Collections.Generic;
@@ -39,9 +39,7 @@ namespace MyAutoCADAddin
             var doc = AcadApp.DocumentManager.MdiActiveDocument;
             if (doc == null) return;
             using (var frm = new LayerExportImportForm())
-            {
                 AcadApp.ShowModalDialog(frm);
-            }
         }
     }
 
@@ -55,14 +53,14 @@ namespace MyAutoCADAddin
 
         public LayerExportImportForm()
         {
-            // Form settings
+            // Form properties
             Text = "Layer Manager - Shinken Group®";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(360, 180);
+            ClientSize = new Size(360, 200);
 
-            // Layout: 3 rows, 3 columns
+            // Layout: 3 columns, 3 rows
             layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -72,9 +70,9 @@ namespace MyAutoCADAddin
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));  // Header
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 10));  // Spacer
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));  // Buttons
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));  // header
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 10));  // spacer
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));  // buttons
 
             // Logo
             logoBox = new PictureBox
@@ -99,9 +97,9 @@ namespace MyAutoCADAddin
             layout.SetColumnSpan(lblTitle, 2);
 
             // Buttons
-            btnExport = new Button { Text = "Export...", Size = new Size(80, 24), Margin = new Padding(3) };
-            btnImport = new Button { Text = "Import...", Size = new Size(80, 24), Margin = new Padding(3) };
-            btnPurge = new Button { Text = "Purge All", Size = new Size(80, 24), Margin = new Padding(3) };
+            btnExport = new Button { Text = "Export...", Dock = DockStyle.Fill, Margin = new Padding(5) };
+            btnImport = new Button { Text = "Import...", Dock = DockStyle.Fill, Margin = new Padding(5) };
+            btnPurge = new Button { Text = "Purge All", Dock = DockStyle.Fill, Margin = new Padding(5) };
             btnExport.Click += OnExport;
             btnImport.Click += OnImport;
             btnPurge.Click += OnPurge;
@@ -143,18 +141,18 @@ namespace MyAutoCADAddin
                             ws2.Cells[row, i + 1] = headers[i];
                         }
                         row++;
-                        // Sort by Name
+                        // Sort layer names alphabetically
                         var sorted = lt.Cast<ObjectId>()
-                            .OrderBy(o => ((LayerTableRecord)tr.GetObject(o, OpenMode.ForRead)).Name)
-                            .ToList();
-                        foreach (ObjectId layerId in sorted)
+                            .OrderBy(id => ((LayerTableRecord)tr.GetObject(id, OpenMode.ForRead)).Name);
+                        foreach (var id in sorted)
                         {
-                            var rec = (LayerTableRecord)tr.GetObject(layerId, OpenMode.ForRead);
+                            var rec = (LayerTableRecord)tr.GetObject(id, OpenMode.ForRead);
                             ws1.Cells[row, 1] = rec.Name;
                             ws1.Cells[row, 2] = rec.Color.ColorIndex;
-                            ws1.Cells[row, 3] = rec.LinetypeObjectId.IsNull
+                            string ltName = rec.LinetypeObjectId.IsNull
                                 ? "ByLayer"
                                 : ((LinetypeTableRecord)tr.GetObject(rec.LinetypeObjectId, OpenMode.ForRead)).Name;
+                            ws1.Cells[row, 3] = ltName;
                             double lwMm = (int)rec.LineWeight / 100.0;
                             ws1.Cells[row, 4] = $"{lwMm:F2} mm";
                             ws1.Cells[row, 5] = rec.PlotStyleName ?? string.Empty;
@@ -164,10 +162,9 @@ namespace MyAutoCADAddin
                         }
                         tr.Commit();
                     }
-                    // SaveAs
+                    // SaveAs with full params
                     object missing = Missing.Value;
-                    wb.SaveAs(file,
-                        Excel.XlFileFormat.xlOpenXMLWorkbook,
+                    wb.SaveAs(file, Excel.XlFileFormat.xlOpenXMLWorkbook,
                         missing, missing, false, false,
                         Excel.XlSaveAsAccessMode.xlNoChange,
                         missing, missing, missing, missing, missing);
@@ -175,7 +172,7 @@ namespace MyAutoCADAddin
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show("Export lỗi:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Export lỗi:\n" + ex.Message);
                 }
                 finally
                 {
@@ -201,17 +198,17 @@ namespace MyAutoCADAddin
                 {
                     xlApp = GetExcelFromROT();
                     wb = xlApp.Workbooks.Cast<Excel.Workbook>()
-                        .FirstOrDefault(wb2 => string.Equals(wb2.FullName, file, StringComparison.OrdinalIgnoreCase))
+                        .FirstOrDefault(w => w.FullName == file)
                         ?? xlApp.Workbooks.Open(file, false, true,
                             Missing.Value, Missing.Value, Missing.Value,
                             false, Missing.Value, Missing.Value,
                             Missing.Value, Missing.Value,
-                            Missing.Value, Missing.Value,
-                            Missing.Value, Missing.Value);
-                    if (wb.Worksheets.Count < 2) throw new Exception("File phải có 2 Sheet.");
+                            Missing.Value, Missing.Value, Missing.Value, Missing.Value);
+                    if (wb.Worksheets.Count < 2) throw new Exception("Thiếu 2 sheet.");
                     var ws1 = (Excel.Worksheet)wb.Worksheets["Layers"];
                     var ws2 = (Excel.Worksheet)wb.Worksheets["LayerRename"];
                     if (ws1.UsedRange.Columns.Count != 5) throw new Exception("Sai số cột.");
+
                     var list1 = ReadSheet(ws1);
                     var list2 = ReadSheet(ws2);
                     if (list1.Count != list2.Count) throw new Exception("Sai số dòng.");
@@ -224,88 +221,102 @@ namespace MyAutoCADAddin
                             var a = list1[i];
                             var b = list2[i];
                             string oldName = a["Name"];
-                            if (!lt.Has(oldName)) { errors.Add($"Dòng {i + 2}: Layer '{oldName}' không tồn tại."); continue; }
+                            if (!lt.Has(oldName))
+                            {
+                                errors.Add($"Dòng {i + 2}: '{oldName}' không tồn tại.");
+                                continue;
+                            }
+                            string newName = b["Name"];
                             var recId = lt[oldName];
                             var ltr = (LayerTableRecord)tr.GetObject(recId, OpenMode.ForWrite);
-
-                            // Rename except '0'
-                            string newName = b["Name"];
-                            if (!string.Equals(oldName, "0", StringComparison.OrdinalIgnoreCase)
-                                && !string.Equals(newName, oldName, StringComparison.Ordinal))
+                            // Rename if not layer "0"
+                            if (!string.Equals(oldName, "0") && newName != oldName)
                             {
                                 if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
                                 {
-                                    try { ltr.Name = newName; recId = lt[newName]; ltr = (LayerTableRecord)tr.GetObject(recId, OpenMode.ForWrite); }
-                                    catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Rename lỗi '{ex.Message}'"); continue; }
+                                    try
+                                    {
+                                        ltr.Name = newName;
+                                        recId = lt[newName];
+                                        ltr = (LayerTableRecord)tr.GetObject(recId, OpenMode.ForWrite);
+                                    }
+                                    catch (System.Exception ex)
+                                    {
+                                        errors.Add($"Dòng {i + 2}: rename lỗi {ex.Message}");
+                                        continue;
+                                    }
                                 }
-                                else errors.Add($"Dòng {i + 2}: Tên '{newName}' không hợp lệ.");
+                                else errors.Add($"Dòng {i + 2}: tên không hợp lệ");
                             }
-
                             // Color
-                            short origCol = short.Parse(a["ColorIndex"]);
-                            short newCol = short.Parse(b["ColorIndex"]);
-                            if (newCol != origCol)
+                            short origC = short.Parse(a["ColorIndex"]);
+                            short newC = short.Parse(b["ColorIndex"]);
+                            if (newC != origC)
                             {
-                                try { ltr.Color = AcadColor.FromColorIndex(ColorMethod.ByAci, newCol); }
-                                catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Color lỗi '{ex.Message}'"); }
+                                try { ltr.Color = AcadColor.FromColorIndex(ColorMethod.ByAci, newC); }
+                                catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Color lỗi {ex.Message}"); }
                             }
-
                             // LineWeight
                             string lwText = b["Lineweight"];
                             if (!string.IsNullOrWhiteSpace(lwText))
                             {
-                                var parts = lwText.Split(' ');
-                                if (double.TryParse(parts[0], out double mmVal))
+                                var part = lwText.Split(' ')[0];
+                                if (double.TryParse(part, out double mmVal))
                                 {
                                     int lwVal = (int)Math.Round(mmVal * 100);
-                                    if (Enum.IsDefined(typeof(LineWeight), lwVal)
-                                        && (int)ltr.LineWeight != lwVal)
+                                    if (Enum.IsDefined(typeof(LineWeight), lwVal))
                                     {
                                         try { ltr.LineWeight = (LineWeight)lwVal; }
-                                        catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: LineWeight lỗi '{ex.Message}'"); }
+                                        catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: LW lỗi {ex.Message}"); }
                                     }
+                                    else errors.Add($"Dòng {i + 2}: LW '{lwText}' không hợp lệ");
                                 }
-                                else errors.Add($"Dòng {i + 2}: Không parse Lineweight '{lwText}'");
+                                else errors.Add($"Dòng {i + 2}: parse LW thất bại '{lwText}'");
                             }
-
                             // Linetype
-                            string origLt = a["Linetype"], newLt = b["Linetype"];
-                            if (!string.Equals(origLt, newLt, StringComparison.OrdinalIgnoreCase))
+                            string origLT = a["Linetype"], newLT = b["Linetype"];
+                            if (!string.Equals(origLT, newLT, StringComparison.OrdinalIgnoreCase))
                             {
                                 try
                                 {
                                     var ltt = (LinetypeTable)tr.GetObject(db.LinetypeTableId, OpenMode.ForRead);
-                                    if (!ltt.Has(newLt)) db.LoadLineTypeFile(newLt, "acad.lin");
-                                    if (ltt.Has(newLt)) ltr.LinetypeObjectId = ltt[newLt];
-                                    else errors.Add($"Dòng {i + 2}: Không tìm thấy Linetype '{newLt}'");
+                                    if (!ltt.Has(newLT)) db.LoadLineTypeFile(newLT, "acad.lin");
+                                    if (ltt.Has(newLT)) ltr.LinetypeObjectId = ltt[newLT];
+                                    else errors.Add($"Dòng {i + 2}: không tìm LT '{newLT}'");
                                 }
-                                catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: Linetype lỗi '{ex.Message}'"); }
+                                catch (System.Exception ex) { errors.Add($"Dòng {i + 2}: LT lỗi {ex.Message}"); }
                             }
-
                             // PlotStyleName (optional)
-                            string origPS = a["PlotStyleName"];
-                            string newPS = b["PlotStyleName"];
-                            if (newPS != origPS) ltr.PlotStyleName = newPS;
+                            string newPs = b["PlotStyleName"] ?? string.Empty;
+                            if (!string.IsNullOrEmpty(newPs) && !string.Equals(newPs, ltr.PlotStyleName ?? string.Empty, StringComparison.Ordinal))
+                            {
+                                try
+                                {
+                                    ltr.PlotStyleName = newPs;
+                                }
+                                catch (Autodesk.AutoCAD.Runtime.Exception ex)
+                                {
+                                    // Nếu đang ở ColorDependent mode, bỏ qua
+                                    if (ex.ErrorStatus == Autodesk.AutoCAD.Runtime.ErrorStatus.PlotStyleInColorDependentMode)
+                                    {
+                                        // CTB mode - ignore
+                                    }
+                                    else
+                                    {
+                                        errors.Add($"Dòng {i + 2}: PlotStyle lỗi: {ex.Message}");
+                                    }
+                                }
+                            }
                         }
                         tr.Commit();
                     }
-
-                    MessageBox.Show(errors.Count > 0
-                        ? string.Join("\n", errors)
-                        : "Import & cập nhật thành công!",
-                        "Kết quả",
-                        MessageBoxButtons.OK,
-                        errors.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+                    MessageBox.Show(errors.Count > 0 ? string.Join("\n", errors) : "Import OK", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show("Import lỗi:\n" + ex.Message,
-                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Import lỗi:\n" + ex.Message);
                 }
-                finally
-                {
-                    if (wb != null) Marshal.ReleaseComObject(wb);
-                }
+                finally { if (wb != null) Marshal.ReleaseComObject(wb); }
             }
         }
 
@@ -313,24 +324,25 @@ namespace MyAutoCADAddin
         {
             var doc = AcadApp.DocumentManager.MdiActiveDocument;
             doc?.SendStringToExecute("_-PURGE _ALL\nY\n", true, false, false);
-            MessageBox.Show("Purge all completed.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Purge all completed.");
         }
 
         private List<Dictionary<string, string>> ReadSheet(Excel.Worksheet ws)
         {
             var data = new List<Dictionary<string, string>>();
-            var used = ws.UsedRange; int rows = used.Rows.Count;
+            var used = ws.UsedRange;
+            int rows = used.Rows.Count;
             for (int r = 2; r <= rows; r++)
             {
-                var name = (ws.Cells[r, 1].Value ?? "").ToString();
+                var name = (ws.Cells[r, 1].Value ?? string.Empty).ToString();
                 if (string.IsNullOrWhiteSpace(name)) break;
                 data.Add(new Dictionary<string, string>
                 {
                     ["Name"] = name,
                     ["ColorIndex"] = (ws.Cells[r, 2].Value ?? "0").ToString(),
-                    ["Linetype"] = (ws.Cells[r, 3].Value ?? "").ToString(),
-                    ["Lineweight"] = (ws.Cells[r, 4].Value ?? "").ToString(),
-                    ["PlotStyleName"] = (ws.Cells[r, 5].Value ?? "").ToString()
+                    ["Linetype"] = (ws.Cells[r, 3].Value ?? string.Empty).ToString(),
+                    ["Lineweight"] = (ws.Cells[r, 4].Value ?? string.Empty).ToString(),
+                    ["PlotStyleName"] = (ws.Cells[r, 5].Value ?? string.Empty).ToString()
                 });
             }
             return data;
@@ -340,15 +352,15 @@ namespace MyAutoCADAddin
         {
             GetRunningObjectTable(0, out IRunningObjectTable rot);
             rot.EnumRunning(out IEnumMoniker enumMoniker);
-            IMoniker[] monikers = new IMoniker[1];
-            while (enumMoniker.Next(1, monikers, IntPtr.Zero) == 0)
+            IMoniker[] mon = new IMoniker[1];
+            while (enumMoniker.Next(1, mon, IntPtr.Zero) == 0)
             {
-                CreateBindCtx(0, out IBindCtx bindCtx);
-                monikers[0].GetDisplayName(bindCtx, null, out string name);
+                CreateBindCtx(0, out IBindCtx ctx);
+                mon[0].GetDisplayName(ctx, null, out string name);
                 if (name.Contains("Excel"))
                 {
-                    rot.GetObject(monikers[0], out object comObj);
-                    return comObj as Excel.Application;
+                    rot.GetObject(mon[0], out object o);
+                    return o as Excel.Application;
                 }
             }
             return new Excel.Application();
