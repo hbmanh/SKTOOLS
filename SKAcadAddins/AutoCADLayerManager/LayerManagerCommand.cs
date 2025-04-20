@@ -62,6 +62,7 @@ namespace SKAcadAddins.Commands
                 Location = new Point(100, 15),
                 Width = 250
             };
+            txtFilePath.ReadOnly = true;
 
             btnExport = new Button
             {
@@ -238,8 +239,10 @@ namespace SKAcadAddins.Commands
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
                             // Name
                             string newName = dataRow2.GetCell(0)?.ToString();
-                            if (!string.IsNullOrEmpty(newName) && newName != name)
+                            if (!string.IsNullOrEmpty(newName) && !newName.Equals(name, StringComparison.OrdinalIgnoreCase))
                             {
+                                if (name.Equals("Layer1", StringComparison.OrdinalIgnoreCase))
+                                    continue;
                                 char[] invalidChars = { '\\', '/', ':', ';', '<', '>', '?', '"', '|', '=', '`', '*', ',', ' ', '\t' };
                                 if (newName.IndexOfAny(invalidChars) >= 0)
                                 {
@@ -253,7 +256,6 @@ namespace SKAcadAddins.Commands
                                     lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} bị bỏ trống.";
                                     return;
                                 }
-                                // Kiểm tra trùng tên với bất kỳ layer nào khác (không chỉ trong bảng hiện tại)
                                 bool nameExists = false;
                                 foreach (ObjectId lid in layerTable)
                                 {
