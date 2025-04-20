@@ -257,11 +257,11 @@ namespace SKAcadAddins.Commands
                             // Kiểm tra tên mới hợp lệ
                             if (!string.IsNullOrEmpty(newName) && newName != name)
                             {
-                                char[] invalidChars = { '\\', '/', ':', ';', '<', '>', '?', '"', '|', '=', '`', '*', ',' };
+                                char[] invalidChars = { '\\', '/', ':', ';', '<', '>', '?', '"', '|', '=', '`', '*', ',', ' ', '\t' };
                                 if (newName.IndexOfAny(invalidChars) >= 0)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ: {newName}";
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ: {newName}. Không được chứa các ký tự: \\ / : ; < > ? \" | = ` * , hoặc khoảng trắng.";
                                     return;
                                 }
                                 if (string.IsNullOrWhiteSpace(newName))
@@ -284,7 +284,7 @@ namespace SKAcadAddins.Commands
                                 if (nameExists)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại: {newName}";
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại: {newName}. Vui lòng chọn tên khác.";
                                     return;
                                 }
                                 try
@@ -294,7 +294,7 @@ namespace SKAcadAddins.Commands
                                 catch (System.Exception ex)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Đổi tên layer ở dòng {row + 1} thất bại: {ex.Message}";
+                                    lblStatus.Text = $"❌ Đổi tên layer ở dòng {row + 1} thất bại: {ex.Message}. Hãy kiểm tra lại tên layer trong file Excel.";
                                     return;
                                 }
                             }
