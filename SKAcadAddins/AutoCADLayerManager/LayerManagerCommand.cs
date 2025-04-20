@@ -233,32 +233,18 @@ namespace SKAcadAddins.Commands
                                 lblStatus.Text = $"❌ Dòng {row + 1} bị thiếu dữ liệu.";
                                 return;
                             }
-                            // So sánh toàn bộ các cột, nếu giống hoàn toàn thì bỏ qua
-                            bool isDifferent = false;
-                            for (int col = 0; col < 7; col++)
-                            {
-                                var v1 = dataRow1.GetCell(col)?.ToString();
-                                var v2 = dataRow2.GetCell(col)?.ToString();
-                                if (v1 != v2)
-                                {
-                                    isDifferent = true;
-                                    break;
-                                }
-                            }
-                            if (!isDifferent) continue;
                             string name = dataRow1.GetCell(0)?.ToString();
                             if (string.IsNullOrEmpty(name) || !layerTable.Has(name)) continue;
                             LayerTableRecord layer = (LayerTableRecord)tr.GetObject(layerTable[name], OpenMode.ForWrite);
                             // Name
                             string newName = dataRow2.GetCell(0)?.ToString();
-                            // Kiểm tra tên mới hợp lệ
                             if (!string.IsNullOrEmpty(newName) && newName != name)
                             {
                                 char[] invalidChars = { '\\', '/', ':', ';', '<', '>', '?', '"', '|', '=', '`', '*', ',', ' ', '\t' };
                                 if (newName.IndexOfAny(invalidChars) >= 0)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ: {newName}. Không được chứa các ký tự: \\ / : ; < > ? \" | = ` * , hoặc khoảng trắng.";
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} chứa ký tự không hợp lệ: '{newName}'. Không được chứa các ký tự: \\ / : ; < > ? \" | = ` * , hoặc khoảng trắng.";
                                     return;
                                 }
                                 if (string.IsNullOrWhiteSpace(newName))
@@ -281,7 +267,7 @@ namespace SKAcadAddins.Commands
                                 if (nameExists)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại: {newName}. Vui lòng chọn tên khác.";
+                                    lblStatus.Text = $"❌ Tên layer mới ở dòng {row + 1} đã tồn tại: '{newName}'. Vui lòng chọn tên khác.";
                                     return;
                                 }
                                 try
@@ -291,7 +277,7 @@ namespace SKAcadAddins.Commands
                                 catch (System.Exception ex)
                                 {
                                     lblStatus.ForeColor = AutoColor.Red;
-                                    lblStatus.Text = $"❌ Đổi tên layer ở dòng {row + 1} thất bại: {ex.Message}. Hãy kiểm tra lại tên layer trong file Excel.";
+                                    lblStatus.Text = $"❌ Đổi tên layer ở dòng {row + 1} thất bại cho tên '{newName}': {ex.Message}. Hãy kiểm tra lại tên layer trong file Excel.";
                                     return;
                                 }
                             }
