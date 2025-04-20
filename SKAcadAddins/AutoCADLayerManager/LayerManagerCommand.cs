@@ -37,7 +37,7 @@ namespace SKAcadAddins.Commands
     public class LayerManagerForm : Form
     {
         private TextBox txtFilePath;
-        private Button btnBrowse, btnExport, btnImport;
+        private Button btnExport, btnImport;
         private Label lblStatus;
         static LayerManagerForm()
         {
@@ -62,14 +62,6 @@ namespace SKAcadAddins.Commands
                 Location = new Point(100, 15),
                 Width = 250
             };
-
-            btnBrowse = new Button
-            {
-                Text = "Browse",
-                Location = new Point(360, 13),
-                Width = 60
-            };
-            btnBrowse.Click += BtnBrowse_Click;
 
             btnExport = new Button
             {
@@ -97,26 +89,20 @@ namespace SKAcadAddins.Commands
 
             Controls.Add(lbl);
             Controls.Add(txtFilePath);
-            Controls.Add(btnBrowse);
             Controls.Add(btnExport);
             Controls.Add(btnImport);
             Controls.Add(lblStatus);
         }
 
-        private void BtnBrowse_Click(object sender, EventArgs e)
+        private void BtnExport_Click(object sender, EventArgs e)
         {
             SaveFileDialog dlg = new SaveFileDialog
             {
                 Filter = "Excel Files|*.xlsx",
-                Title = "Select Excel File"
+                Title = "Chọn nơi lưu file Excel"
             };
-            if (dlg.ShowDialog() == DialogResult.OK)
-                txtFilePath.Text = dlg.FileName;
-        }
-
-        private void BtnExport_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(txtFilePath.Text)) return;
+            if (dlg.ShowDialog() != DialogResult.OK) return;
+            txtFilePath.Text = dlg.FileName;
 
             Document doc = AcadApp.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
@@ -153,7 +139,6 @@ namespace SKAcadAddins.Commands
                         dataRow1.CreateCell(4).SetCellValue(layer.IsFrozen);
                         dataRow1.CreateCell(5).SetCellValue(layer.IsOff);
                         dataRow1.CreateCell(6).SetCellValue(layer.IsLocked);
-                        // Sheet2 giống sheet1
                         dataRow2.CreateCell(0).SetCellValue(layer.Name);
                         dataRow2.CreateCell(1).SetCellValue(layer.Color.ColorValue.ToArgb());
                         dataRow2.CreateCell(2).SetCellValue(layer.LinetypeObjectId.ToString());
@@ -164,7 +149,7 @@ namespace SKAcadAddins.Commands
                         row++;
                     }
 
-                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Create, FileAccess.Write))
+                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
                     {
                         workbook.Write(fs);
                     }
@@ -184,7 +169,19 @@ namespace SKAcadAddins.Commands
 
         private void BtnImport_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtFilePath.Text) || !File.Exists(txtFilePath.Text))
+            OpenFileDialog dlg = new OpenFileDialog
+            {
+                Filter = "Excel Files|*.xlsx",
+                Title = "Chọn file Excel để nhập"
+            };
+            if (dlg.ShowDialog() != DialogResult.OK)
+            {
+                lblStatus.ForeColor = AutoColor.Red;
+                lblStatus.Text = "❌ Chưa chọn file để nhập.";
+                return;
+            }
+            txtFilePath.Text = dlg.FileName;
+            if (!File.Exists(txtFilePath.Text))
             {
                 lblStatus.ForeColor = AutoColor.Red;
                 lblStatus.Text = "❌ File không tồn tại.";
@@ -199,7 +196,7 @@ namespace SKAcadAddins.Commands
                 using (Transaction tr = db.TransactionManager.StartTransaction())
                 {
                     LayerTable layerTable = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForWrite);
-                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Open, FileAccess.Read))
+                    using (var fs = new FileStream(txtFilePath.Text, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
                         IWorkbook workbook = new XSSFWorkbook(fs);
                         ISheet sheetRename = workbook.GetSheet("LayerRename");
