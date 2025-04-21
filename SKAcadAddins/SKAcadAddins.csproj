@@ -195,6 +195,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AutoCADLayerManager\LayerManagerCommand.cs" />
+    <Compile Include="BlocksRename\BlocksRename.cs" />
     <Compile Include="GroupLayer\GroupLayerCmd.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
