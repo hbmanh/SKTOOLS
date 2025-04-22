@@ -10,26 +10,19 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
-// Đăng ký lệnh để AutoCAD nhận diện
-[assembly: CommandClass(typeof(BatchLayerTools.Commands))]
+[assembly: CommandClass(typeof(BlockLayerManager.Commands))]
 
-namespace BatchLayerTools
+namespace BlockLayerManager
 {
     public class Commands
     {
-        private const string GroupName = "BatchLayerTools";
-
-        // Lệnh chính
-        [CommandMethod(GroupName, "BatchRenameLayerInBlocks", CommandFlags.Modal)]
-        public void BatchRenameLayerInBlocks()
+        [CommandMethod("REBLOCK", CommandFlags.Modal)]
+        public void Reblock()
         {
             var doc = Application.DocumentManager.MdiActiveDocument;
             var ed = doc.Editor;
 
-            // Chọn BlockReference
-            var filter = new SelectionFilter(new TypedValue[] {
-                new TypedValue((int)DxfCode.Start, "INSERT")
-            });
+            var filter = new SelectionFilter(new[] { new TypedValue((int)DxfCode.Start, "INSERT") });
             var pr = ed.GetSelection(filter);
             if (pr.Status != PromptStatus.OK)
             {
@@ -37,167 +30,189 @@ namespace BatchLayerTools
                 return;
             }
 
-            // Thu thập layer của các entity trong block definitions
-            var layerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var blockRefs = new List<ObjectId>();
+            var layerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             using (var tr = doc.TransactionManager.StartTransaction())
             {
                 foreach (SelectedObject sel in pr.Value)
                 {
-                    if (sel == null) continue;
+                    if (sel?.ObjectId == null) continue;
                     var bref = tr.GetObject(sel.ObjectId, OpenMode.ForRead) as BlockReference;
                     if (bref == null) continue;
-                    blockRefs.Add(sel.ObjectId);
-                    var btr = tr.GetObject(bref.BlockTableRecord, OpenMode.ForRead) as BlockTableRecord;
+
+                    blockRefs.Add(bref.ObjectId);
+                    layerNames.Add(bref.Layer);
+
+                    var btr = (BlockTableRecord)tr.GetObject(bref.BlockTableRecord, OpenMode.ForRead);
                     foreach (ObjectId id in btr)
                     {
-                        var ent = tr.GetObject(id, OpenMode.ForRead) as Entity;
-                        if (ent != null)
+                        if (tr.GetObject(id, OpenMode.ForRead) is Entity ent)
                             layerNames.Add(ent.Layer);
                     }
-                    layerNames.Add(bref.Layer); // layer của chính block reference
                 }
                 tr.Commit();
             }
-            if (layerNames.Count == 0)
-            {
-                ed.WriteMessage("\nKhông tìm thấy entity trong các block được chọn.");
-                return;
-            }
 
-            // Lấy tất cả layer trong bản vẽ
             List<string> allLayers;
             using (var tr = doc.TransactionManager.StartTransaction())
             {
                 var lt = (LayerTable)tr.GetObject(doc.Database.LayerTableId, OpenMode.ForRead);
                 allLayers = lt.Cast<ObjectId>()
                     .Select(id => ((LayerTableRecord)tr.GetObject(id, OpenMode.ForRead)).Name)
-                    .OrderBy(n => n)
-                    .ToList();
+                    .OrderBy(n => n).ToList();
                 tr.Commit();
             }
 
-            // Hiển thị form
-            var form = new LayerBatchRenameForm(doc, blockRefs, layerNames.ToList(), allLayers);
+            var form = new LayerManagerForm(doc, blockRefs, layerNames.ToList(), allLayers);
             Application.ShowModalDialog(form);
         }
-
-        // Alias lệnh tắt REBLOCK
-        [CommandMethod(GroupName, "REBLOCK", CommandFlags.Modal)]
-        public void Reblock() => BatchRenameLayerInBlocks();
     }
 
-    public class LayerBatchRenameForm : Form
+    public class AciColorCell : DataGridViewComboBoxCell
     {
-        private readonly Document _doc;
-        private readonly List<ObjectId> _selectedBlockRefs;
-        private readonly List<string> _layers;
-        private readonly List<string> _allLayers;
-        private CheckBox chkChangeBlockItself;
-        private CheckBox chkChangeInsideEntities;
-        private DataGridView dataGridView1;
-        private ComboBox cboBlockTargetLayer;
-        private Label lblBlockLayer;
-        private Button btnApply;
-        private Button btnCancel;
+        public override Type EditType => typeof(AciColorComboBox);
+    }
 
-        public LayerBatchRenameForm(Document doc, List<ObjectId> selectedBlockRefs, List<string> layers, List<string> allLayers)
+    public class AciColorComboBox : ComboBox, IDataGridViewEditingControl
+    {
+        public AciColorComboBox()
         {
-            _doc = doc;
-            _selectedBlockRefs = selectedBlockRefs;
-            _layers = layers;
-            _allLayers = allLayers;
-            InitializeComponent();
-            PopulateGrid();
+            DropDownStyle = ComboBoxStyle.DropDownList;
+            DrawMode = DrawMode.OwnerDrawFixed;
+            for (short i = 1; i <= 255; i++) Items.Add(i);
+            DrawItem += DrawPreview;
         }
 
-        private void InitializeComponent()
+        private void DrawPreview(object sender, DrawItemEventArgs e)
         {
-            this.dataGridView1 = new DataGridView();
-            this.btnApply = new Button();
-            this.btnCancel = new Button();
-            this.chkChangeBlockItself = new CheckBox();
-            this.chkChangeInsideEntities = new CheckBox();
-            this.cboBlockTargetLayer = new ComboBox();
-            this.lblBlockLayer = new Label();
+            if (e.Index < 0 || e.Index >= Items.Count) return;
 
-            var colCurrent = new DataGridViewTextBoxColumn
+            short aci = Convert.ToInt16(Items[e.Index]);
+            var acadColor = Autodesk.AutoCAD.Colors.Color.FromColorIndex(ColorMethod.ByAci, aci);
+            var sysColor = ColorTranslator.FromOle(acadColor.ColorValue.ToArgb());
+
+            e.DrawBackground();
+            using (Brush brush = new SolidBrush(sysColor))
             {
-                HeaderText = "Current Layer",
-                Name = "colCurrent",
-                ReadOnly = true,
-                Width = 180
+                e.Graphics.FillRectangle(brush, e.Bounds.X + 2, e.Bounds.Y + 2, 16, 14);
+                e.Graphics.DrawRectangle(Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, 16, 14);
+            }
+
+            e.Graphics.DrawString(aci.ToString(), e.Font, Brushes.Black, e.Bounds.X + 22, e.Bounds.Y + 2);
+        }
+
+        public DataGridView EditingControlDataGridView { get; set; }
+        public object EditingControlFormattedValue { get => SelectedItem?.ToString(); set => SelectedItem = value; }
+        public int EditingControlRowIndex { get; set; }
+        public bool EditingControlValueChanged { get; set; }
+        public Cursor EditingPanelCursor => Cursors.Default;
+        public bool RepositionEditingControlOnValueChange => false;
+
+        public void ApplyCellStyleToEditingControl(DataGridViewCellStyle dataGridViewCellStyle) { }
+        public bool EditingControlWantsInputKey(Keys key, bool dataGridViewWantsInputKey) => true;
+        public object GetEditingControlFormattedValue(DataGridViewDataErrorContexts context) => EditingControlFormattedValue;
+        public void PrepareEditingControlForEdit(bool selectAll) { }
+    }
+
+    public class LayerManagerForm : Form
+    {
+        private readonly Document _doc;
+        private readonly List<ObjectId> _blockRefs;
+        private readonly List<string> _layers;
+        private readonly List<string> _allLayers;
+        private readonly DataGridView dataGridView1;
+        private readonly ComboBox cboBlockTargetLayer;
+        private readonly CheckBox chkBlock, chkInside;
+        private readonly Button btnApply, btnCancel;
+        private readonly Label lblBlockLayer;
+
+        private const string LogoPath = @"C:\ProgramData\Autodesk\Revit\Addins\2023\SKTools.bundle\Contents\Resources\Images\shinken.png";
+
+        public LayerManagerForm(Document doc, List<ObjectId> blockRefs, List<string> layers, List<string> allLayers)
+        {
+            _doc = doc;
+            _blockRefs = blockRefs;
+            _layers = layers;
+            _allLayers = allLayers;
+
+            Text = "Block's Layer Manager";
+            Size = new Size(720, 520);
+            StartPosition = FormStartPosition.CenterScreen;
+
+            var headerPanel = new Panel
+            {
+                Size = new Size(700, 60),
+                Location = new Point(10, 10),
+                BackColor = System.Drawing.Color.WhiteSmoke
             };
-            var colNewLayer = new DataGridViewComboBoxColumn
+
+            var logo = new PictureBox
             {
-                HeaderText = "Select New Layer",
-                Name = "colNewLayer",
-                Width = 200,
-                DataSource = _allLayers,
-                FlatStyle = FlatStyle.Flat
+                Size = new Size(40, 40),
+                Location = new Point(10, 10),
+                SizeMode = PictureBoxSizeMode.StretchImage
             };
-            var colNewColor = new DataGridViewComboBoxColumn
+            if (System.IO.File.Exists(LogoPath))
+                logo.Image = System.Drawing.Image.FromFile(LogoPath);
+
+            var lblTitle = new Label
             {
-                HeaderText = "New Color (ACI)",
+                Text = "  Block's Layer Manager - Shinken Group®",
+                Location = new Point(60, 18),
+                AutoSize = true,
+                Font = new System.Drawing.Font("Segoe UI", 14, FontStyle.Bold)
+            };
+            headerPanel.Controls.Add(logo);
+            headerPanel.Controls.Add(lblTitle);
+            Controls.Add(headerPanel);
+
+            chkBlock = new CheckBox { Text = "Đổi layer của Block (bên ngoài)", Location = new Point(20, 80), Checked = true, AutoSize = true };
+            chkInside = new CheckBox { Text = "Đổi layer của đối tượng bên trong Block", Location = new Point(20, 105), Checked = true, AutoSize = true };
+
+            lblBlockLayer = new Label { Text = "Layer cho Block:", Location = new Point(40, 135), AutoSize = true };
+            cboBlockTargetLayer = new ComboBox { Location = new Point(160, 132), Size = new Size(200, 24), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboBlockTargetLayer.Items.AddRange(_allLayers.ToArray());
+            cboBlockTargetLayer.SelectedIndex = 0;
+
+            chkBlock.CheckedChanged += (s, e) =>
+            {
+                cboBlockTargetLayer.Enabled = chkBlock.Checked;
+                lblBlockLayer.Enabled = chkBlock.Checked;
+            };
+
+            dataGridView1 = new DataGridView
+            {
+                Location = new Point(20, 170),
+                Size = new Size(660, 250),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false
+            };
+
+            var colCurrent = new DataGridViewTextBoxColumn { HeaderText = "Current Layer", Name = "colCurrent", ReadOnly = true, Width = 200 };
+            var colNewLayer = new DataGridViewComboBoxColumn { HeaderText = "New Layer", Name = "colNewLayer", Width = 220, DataSource = _allLayers, FlatStyle = FlatStyle.Flat };
+            var colNewColor = new DataGridViewColumn(new AciColorCell())
+            {
+                HeaderText = "Color (ACI)",
                 Name = "colNewColor",
-                Width = 120,
-                FlatStyle = FlatStyle.Flat
-            };
-            for (int i = 1; i <= 255; i++) colNewColor.Items.Add(i.ToString());
-
-            this.dataGridView1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            this.dataGridView1.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridView1.Columns.AddRange(colCurrent, colNewLayer, colNewColor);
-            this.dataGridView1.Location = new Point(12, 90);
-            this.dataGridView1.Size = new Size(600, 250);
-
-            this.chkChangeBlockItself.Text = "Đổi layer của Block (bên ngoài)";
-            this.chkChangeBlockItself.Location = new Point(12, 10);
-            this.chkChangeBlockItself.Size = new Size(250, 20);
-            this.chkChangeBlockItself.Checked = true;
-            this.chkChangeBlockItself.CheckedChanged += (s, e) =>
-            {
-                cboBlockTargetLayer.Enabled = chkChangeBlockItself.Checked;
-                lblBlockLayer.Enabled = chkChangeBlockItself.Checked;
+                Width = 120
             };
 
-            this.chkChangeInsideEntities.Text = "Đổi layer của đối tượng bên trong Block";
-            this.chkChangeInsideEntities.Location = new Point(12, 30);
-            this.chkChangeInsideEntities.Size = new Size(300, 20);
-            this.chkChangeInsideEntities.Checked = true;
+            dataGridView1.Columns.AddRange(colCurrent, colNewLayer, colNewColor);
 
-            this.lblBlockLayer.Text = "Layer cho Block:";
-            this.lblBlockLayer.Location = new Point(30, 55);
-            this.lblBlockLayer.Size = new Size(100, 20);
+            btnApply = new Button { Text = "Apply", Location = new Point(500, 440), Size = new Size(80, 30), Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+            btnApply.Click += BtnApply_Click;
 
-            this.cboBlockTargetLayer.Location = new Point(140, 52);
-            this.cboBlockTargetLayer.Size = new Size(200, 24);
-            this.cboBlockTargetLayer.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cboBlockTargetLayer.Items.AddRange(_allLayers.ToArray());
-            if (_allLayers.Count > 0)
-                this.cboBlockTargetLayer.SelectedIndex = 0;
+            btnCancel = new Button { Text = "Cancel", Location = new Point(600, 440), Size = new Size(80, 30), Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+            btnCancel.Click += (s, e) => Close();
 
-            this.btnApply.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            this.btnApply.Location = new Point(420, 360);
-            this.btnApply.Size = new Size(80, 30);
-            this.btnApply.Text = "Apply";
-            this.btnApply.Click += BtnApply_Click;
+            Controls.AddRange(new Control[] {
+                chkBlock, chkInside, lblBlockLayer, cboBlockTargetLayer,
+                dataGridView1, btnApply, btnCancel
+            });
 
-            this.btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            this.btnCancel.Location = new Point(520, 360);
-            this.btnCancel.Size = new Size(80, 30);
-            this.btnCancel.Text = "Cancel";
-            this.btnCancel.Click += BtnCancel_Click;
-
-            this.ClientSize = new Size(624, 402);
-            this.Controls.Add(this.chkChangeBlockItself);
-            this.Controls.Add(this.chkChangeInsideEntities);
-            this.Controls.Add(this.lblBlockLayer);
-            this.Controls.Add(this.cboBlockTargetLayer);
-            this.Controls.Add(this.dataGridView1);
-            this.Controls.Add(this.btnApply);
-            this.Controls.Add(this.btnCancel);
-            this.Text = "Batch Change Layer in Blocks";
+            PopulateGrid();
         }
 
         private void PopulateGrid()
@@ -205,11 +220,21 @@ namespace BatchLayerTools
             dataGridView1.Rows.Clear();
             foreach (var layer in _layers.OrderBy(x => x))
             {
-                int idx = dataGridView1.Rows.Add();
-                var row = dataGridView1.Rows[idx];
+                int i = dataGridView1.Rows.Add();
+                var row = dataGridView1.Rows[i];
                 row.Cells["colCurrent"].Value = layer;
-                ((DataGridViewComboBoxCell)row.Cells["colNewLayer"]).Value = layer;
-                ((DataGridViewComboBoxCell)row.Cells["colNewColor"]).Value = "";
+
+                var cb = new DataGridViewComboBoxCell();
+                cb.Items.AddRange(_allLayers.ToArray());
+                cb.Value = layer;
+                row.Cells["colNewLayer"] = cb;
+
+                var aciCell = new AciColorCell();
+                for (short j = 1; j <= 255; j++)
+                    aciCell.Items.Add(j.ToString());
+
+                aciCell.Value = "";
+                row.Cells["colNewColor"] = aciCell;
             }
         }
 
@@ -217,54 +242,60 @@ namespace BatchLayerTools
         {
             using (var tr = _doc.TransactionManager.StartTransaction())
             {
-                foreach (ObjectId blockId in _selectedBlockRefs)
+                foreach (var blockId in _blockRefs)
                 {
-                    BlockReference bref = tr.GetObject(blockId, OpenMode.ForWrite) as BlockReference;
+                    var bref = tr.GetObject(blockId, OpenMode.ForWrite) as BlockReference;
                     if (bref == null) continue;
 
-                    // Đổi layer của chính block reference
-                    if (chkChangeBlockItself.Checked)
+                    if (chkBlock.Checked && cboBlockTargetLayer.SelectedItem != null)
+                        bref.Layer = cboBlockTargetLayer.SelectedItem.ToString();
+
+                    if (chkInside.Checked)
                     {
-                        if (cboBlockTargetLayer.SelectedItem != null)
-                            bref.Layer = cboBlockTargetLayer.SelectedItem.ToString();
-                    }
-
-                    // Đổi layer của entity bên trong block
-                    if (chkChangeInsideEntities.Checked)
-                    {
-                        BlockTableRecord btr = (BlockTableRecord)tr.GetObject(bref.BlockTableRecord, OpenMode.ForRead);
-                        foreach (ObjectId entId in btr)
-                        {
-                            Entity ent = tr.GetObject(entId, OpenMode.ForWrite) as Entity;
-                            if (ent == null) continue;
-
-                            foreach (DataGridViewRow row in dataGridView1.Rows)
-                            {
-                                if (row.Cells["colCurrent"].Value == null || row.Cells["colNewLayer"].Value == null)
-                                    continue;
-                                string oldLayer = row.Cells["colCurrent"].Value.ToString();
-                                string newLayer = row.Cells["colNewLayer"].Value.ToString();
-                                string aciStr = row.Cells["colNewColor"].Value?.ToString();
-                                short aci;
-                                short.TryParse(aciStr, out aci);
-
-                                if (ent.Layer == oldLayer)
-                                {
-                                    ent.Layer = newLayer;
-                                    if (aci >= 1 && aci <= 255)
-                                        ent.Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(ColorMethod.ByAci, aci);
-                                }
-                            }
-                        }
+                        var btr = (BlockTableRecord)tr.GetObject(bref.BlockTableRecord, OpenMode.ForRead);
+                        ApplyToEntitiesRecursive(tr, btr);
                     }
                 }
+
                 tr.Commit();
             }
 
-            MessageBox.Show("Đã cập nhật layer theo lựa chọn.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Đã cập nhật layer.", "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
             Close();
         }
 
-        private void BtnCancel_Click(object sender, EventArgs e) => Close();
+        private void ApplyToEntitiesRecursive(Transaction tr, BlockTableRecord btr)
+        {
+            foreach (ObjectId entId in btr)
+            {
+                var ent = tr.GetObject(entId, OpenMode.ForWrite) as Entity;
+                if (ent == null) continue;
+
+                if (ent is BlockReference nestedRef)
+                {
+                    var nestedBtr = (BlockTableRecord)tr.GetObject(nestedRef.BlockTableRecord, OpenMode.ForRead);
+                    ApplyToEntitiesRecursive(tr, nestedBtr);
+                }
+                else
+                {
+                    foreach (DataGridViewRow row in dataGridView1.Rows)
+                    {
+                        if (row.Cells["colCurrent"].Value == null || row.Cells["colNewLayer"].Value == null)
+                            continue;
+
+                        string oldLayer = row.Cells["colCurrent"].Value.ToString();
+                        string newLayer = row.Cells["colNewLayer"].Value.ToString();
+                        var colorValue = row.Cells["colNewColor"].Value;
+
+                        if (ent.Layer == oldLayer)
+                        {
+                            ent.Layer = newLayer;
+                            if (colorValue != null && short.TryParse(colorValue.ToString(), out short aci) && aci >= 1 && aci <= 255)
+                                ent.Color = Autodesk.AutoCAD.Colors.Color.FromColorIndex(ColorMethod.ByAci, aci);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
