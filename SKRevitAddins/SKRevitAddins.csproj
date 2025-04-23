@@ -144,15 +144,17 @@
     <Compile Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsRequestHandler.cs" />
     <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequest.cs" />
     <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequestHandler.cs" />
+    <Compile Include="Commands\CreateSheetsFromExcel\CreateSheetsFromExcelCmd.cs" />
+    <Compile Include="Commands\CreateSheetsFromExcel\ExcelHelper.cs" />
+    <Compile Include="Commands\CreateSheetsFromExcel\Forms.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Commands\CreateSpace\CreateSpaceCmd.cs" />
     <Compile Include="Commands\CreateSpace\CreateSpaceRequest.cs" />
     <Compile Include="Commands\CreateSpace\CreateSpaceRequestHandler.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
-    <Compile Include="Commands\CreateSheetsFromExcel\CreateSheetsFromExcel.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Commands\DWGExport\AciToRevit.cs" />
     <Compile Include="Commands\DWGExport\DWGExportCmd .cs" />
     <Compile Include="Commands\DWGExport\DWGExportWpfWindow.xaml.cs">
