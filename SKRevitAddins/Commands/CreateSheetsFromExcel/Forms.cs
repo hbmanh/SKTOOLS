@@ -57,6 +57,7 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
 
+            // Lấy danh sách FamilySymbol thuộc TitleBlock
             var titleBlocks = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilySymbol))
                 .OfCategory(BuiltInCategory.OST_TitleBlocks)
@@ -75,9 +76,9 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
             Button btnChoose = new Button
             {
-                Text = "Chọn file" + Environment.NewLine + "Excel...",
+                Text = "Chọn file\nExcel...",
                 Size = new Size(180, 40),
-                Location = new Point(40, 120),
+                Location = new Point(40, 130),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             btnChoose.Click += (s, e) =>
@@ -94,9 +95,9 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
             Button btnCreate = new Button
             {
-                Text = "Tạo mẫu" + Environment.NewLine + "Excel",
+                Text = "Tạo mẫu\nExcel",
                 Size = new Size(180, 40),
-                Location = new Point(240, 120),
+                Location = new Point(240, 130),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             btnCreate.Click += (s, e) =>
@@ -119,11 +120,14 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
     public class ProgressForm : Form
     {
         public ProgressBar progressBar;
+        private Label sheetLabel;
+        private Button cancelButton;
+        public bool IsCanceled { get; private set; } = false;
 
         public ProgressForm(int maxValue)
         {
             Text = "Shinken Group® - Đang xử lý";
-            Size = new Size(420, 100);
+            Size = new Size(480, 160);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -135,6 +139,14 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 Size = new Size(32, 32),
                 Location = new Point(10, 10),
                 SizeMode = PictureBoxSizeMode.StretchImage
+            };
+
+            sheetLabel = new Label
+            {
+                Text = "Đang xử lý sheet...",
+                Location = new Point(50, 15),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9)
             };
 
             progressBar = new ProgressBar
@@ -143,138 +155,35 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 Maximum = maxValue,
                 Minimum = 0,
                 Value = 0,
-                Location = new Point(50, 20),
-                Size = new Size(340, 25)
+                Location = new Point(50, 50),
+                Size = new Size(380, 25)
+            };
+
+            cancelButton = new Button
+            {
+                Text = "Hủy",
+                Size = new Size(80, 30),
+                Location = new Point(350, 90)
+            };
+            cancelButton.Click += (s, e) =>
+            {
+                IsCanceled = true;
+                cancelButton.Enabled = false;
+                sheetLabel.Text = "Đang dừng...";
             };
 
             Controls.Add(logo);
+            Controls.Add(sheetLabel);
             Controls.Add(progressBar);
+            Controls.Add(cancelButton);
         }
 
-        public void UpdateProgress(int value)
+        public void UpdateProgress(int value, string currentSheetName)
         {
-            progressBar.Value = value;
+            progressBar.Value = Math.Min(value, progressBar.Maximum);
+            int percent = (int)((value / (float)progressBar.Maximum) * 100);
+            sheetLabel.Text = $"[{percent}%] Đang xử lý: {currentSheetName}";
             Refresh();
-        }
-    }
-
-    public class SheetSelectionForm : Form
-    {
-        public List<string> SelectedSheets = new List<string>();
-        private DataGridView sheetGrid;
-
-        public SheetSelectionForm(List<(string number, string name)> existingSheets)
-        {
-            Text = "Shinken Group® - Chọn sheet để tạo lại";
-            Size = new Size(500, 540);
-            StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-
-            PictureBox logo = new PictureBox
-            {
-                Image = Image.FromFile("C:\\ProgramData\\Autodesk\\Revit\\Addins\\2023\\SKTools.bundle\\Contents\\Resources\\Images\\shinken.png"),
-                Size = new Size(32, 32),
-                Location = new Point(10, 10),
-                SizeMode = PictureBoxSizeMode.StretchImage
-            };
-
-            Label label = new Label
-            {
-                Text = "Các sheet đã tồn tại, chọn để tạo lại:",
-                Location = new Point(50, 15),
-                AutoSize = true
-            };
-
-            sheetGrid = new DataGridView
-            {
-                Location = new Point(20, 50),
-                Size = new Size(440, 320),
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                MultiSelect = true,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                RowHeadersVisible = false
-            };
-
-            sheetGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Sheet Number", Width = 150 });
-            sheetGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Sheet Name", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-
-            foreach (var sheet in existingSheets)
-                sheetGrid.Rows.Add(sheet.number, sheet.name);
-
-            sheetGrid.ClearSelection();
-
-            Button btnSelectAll = new Button
-            {
-                Text = "Chọn tất cả",
-                Width = 100,
-                Height = 30
-            };
-            btnSelectAll.Click += (s, e) => sheetGrid.SelectAll();
-
-            Button btnDeselectAll = new Button
-            {
-                Text = "Bỏ chọn",
-                Width = 100,
-                Height = 30
-            };
-            btnDeselectAll.Click += (s, e) => sheetGrid.ClearSelection();
-
-            FlowLayoutPanel selectPanel = new FlowLayoutPanel
-            {
-                FlowDirection = FlowDirection.LeftToRight,
-                Location = new Point(20, 380),
-                Size = new Size(440, 40)
-            };
-
-            selectPanel.Controls.Add(btnSelectAll);
-            selectPanel.Controls.Add(btnDeselectAll);
-
-            Button btnOk = new Button
-            {
-                Text = "OK",
-                DialogResult = DialogResult.OK,
-                Width = 75
-            };
-
-            Button btnCancel = new Button
-            {
-                Text = "Cancel",
-                DialogResult = DialogResult.Cancel,
-                Width = 75
-            };
-
-            FlowLayoutPanel buttonPanel = new FlowLayoutPanel
-            {
-                FlowDirection = FlowDirection.RightToLeft,
-                Dock = DockStyle.Bottom,
-                Padding = new Padding(0, 10, 10, 10),
-                AutoSize = true
-            };
-
-            buttonPanel.Controls.Add(btnCancel);
-            buttonPanel.Controls.Add(btnOk);
-
-            Controls.Add(logo);
-            Controls.Add(label);
-            Controls.Add(sheetGrid);
-            Controls.Add(selectPanel);
-            Controls.Add(buttonPanel);
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            SelectedSheets.Clear();
-            if (sheetGrid.SelectedRows.Count > 0)
-            {
-                foreach (DataGridViewRow row in sheetGrid.SelectedRows)
-                {
-                    SelectedSheets.Add(row.Cells[0].Value.ToString());
-                }
-            }
-            base.OnFormClosing(e);
         }
     }
 }
