@@ -16,12 +16,19 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
         public bool CreateTemplate { get; private set; } = false;
         public string SelectedTitleBlock { get; private set; }
 
+        public bool CreateWorkingView { get; private set; } = false;
+        public string WorkingViewSuffix { get; private set; } = "";
+        public bool CreateSheets { get; private set; } = true;
+        public bool CreateSheetViews { get; private set; } = true;
+
         private ComboBox titleBlockCombo;
+        private CheckBox cbSheetOnly, cbViewOnly, cbWorkingView;
+        private TextBox txtSuffix;
 
         public ExcelSelectionForm(Document doc)
         {
             Text = "Shinken Group® - Tạo Sheet từ Excel";
-            Size = new Size(480, 240);
+            Size = new Size(700, 300);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -52,12 +59,11 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
             titleBlockCombo = new ComboBox
             {
-                Location = new Point(160, 80),
-                Size = new Size(260, 28),
+                Location = new Point(160, 78),
+                Size = new Size(500, 28),
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
 
-            // Lấy danh sách FamilySymbol thuộc TitleBlock
             var titleBlocks = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilySymbol))
                 .OfCategory(BuiltInCategory.OST_TitleBlocks)
@@ -67,18 +73,28 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 .ToList();
 
             if (titleBlocks.Count == 0)
-            {
                 titleBlocks.Add("Không có khung tên nào");
-            }
 
             titleBlockCombo.Items.AddRange(titleBlocks.ToArray());
             titleBlockCombo.SelectedIndex = 0;
 
+            // ==== Options ====
+            cbSheetOnly = new CheckBox { Text = "Tạo Sheet", Width = 200,Location = new Point(40, 120), Checked = true };
+            cbViewOnly = new CheckBox { Text = "Tạo Sheet's View", Width = 200, Location = new Point(40, 150), Checked = true };
+            cbWorkingView = new CheckBox { Text = "Tạo Working's View (hậu tố):", Width = 200,Location = new Point(40, 180) };
+            txtSuffix = new TextBox { Location = new Point(250, 178), Width = 120, Enabled = false };
+
+            cbWorkingView.CheckedChanged += (s, e) =>
+            {
+                txtSuffix.Enabled = cbWorkingView.Checked;
+            };
+
+            // ==== Buttons ====
             Button btnChoose = new Button
             {
-                Text = "Chọn file\nExcel...",
-                Size = new Size(180, 40),
-                Location = new Point(40, 130),
+                Text = "Chọn file Excel...",
+                Size = new Size(180, 30),
+                Location = new Point(40, 220),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             btnChoose.Click += (s, e) =>
@@ -87,7 +103,7 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     SelectedFilePath = ofd.FileName;
-                    SelectedTitleBlock = titleBlockCombo.SelectedItem?.ToString();
+                    SetFormValues();
                     DialogResult = DialogResult.OK;
                     Close();
                 }
@@ -95,15 +111,15 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
             Button btnCreate = new Button
             {
-                Text = "Tạo mẫu\nExcel",
-                Size = new Size(180, 40),
-                Location = new Point(240, 130),
+                Text = "Tạo mẫu Excel",
+                Size = new Size(180, 30),
+                Location = new Point(240, 220),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             btnCreate.Click += (s, e) =>
             {
                 CreateTemplate = true;
-                SelectedTitleBlock = titleBlockCombo.SelectedItem?.ToString();
+                SetFormValues();
                 DialogResult = DialogResult.Yes;
                 Close();
             };
@@ -112,8 +128,21 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
             Controls.Add(infoLabel);
             Controls.Add(titleBlockLabel);
             Controls.Add(titleBlockCombo);
+            Controls.Add(cbSheetOnly);
+            Controls.Add(cbViewOnly);
+            Controls.Add(cbWorkingView);
+            Controls.Add(txtSuffix);
             Controls.Add(btnChoose);
             Controls.Add(btnCreate);
+        }
+
+        private void SetFormValues()
+        {
+            SelectedTitleBlock = titleBlockCombo.SelectedItem?.ToString();
+            CreateWorkingView = cbWorkingView.Checked;
+            WorkingViewSuffix = txtSuffix.Text.Trim();
+            CreateSheets = cbSheetOnly.Checked;
+            CreateSheetViews = cbViewOnly.Checked;
         }
     }
 

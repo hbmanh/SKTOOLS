@@ -36,15 +36,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="accoremgd">
-      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2022\accoremgd.dll</HintPath>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2022\acdbmgd.dll</HintPath>
-    </Reference>
-    <Reference Include="acmgd">
-      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2022\acmgd.dll</HintPath>
-    </Reference>
     <Reference Include="D3Lib">
       <HintPath>G:\Shared drives\KM-Tools\10_要求\241114_tab-panel-set\D3Lib.dll</HintPath>
     </Reference>
@@ -167,13 +158,6 @@
     <Compile Include="Commands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\LayoutsToDWG\AutoCADMergePlugin.cs" />
-    <Compile Include="Commands\LayoutsToDWG\Helpers.cs" />
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGCmd.cs" />
-    <Compile Include="Commands\LayoutsToDWG\LayoutsToDWGWindow.xaml.cs">
-      <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Commands\LayoutsToDWG\ViewModels.cs" />
     <Compile Include="Commands\RelayCommand.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelCmd.cs" />
     <Compile Include="Commands\ScanAndModel\ScanAndModelRequest.cs" />
@@ -306,10 +290,6 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="Commands\DWGExport\DWGExportWpfWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Commands\LayoutsToDWG\LayoutsToDWGWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

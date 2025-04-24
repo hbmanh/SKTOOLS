@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Windows.Forms;
+using HorizontalAlignment = NPOI.SS.UserModel.HorizontalAlignment;
 
 namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 {
@@ -41,47 +43,56 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 sheet.AutoSizeColumn(i);
             }
 
-            using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-            {
-                workbook.Write(fs);
-            }
-
             try
             {
-                Process.Start("explorer.exe", filePath);
+                using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    workbook.Write(fs);
+                }
+
+                // Mở file Excel trực tiếp
+                Process.Start(filePath);
             }
             catch (Exception ex)
             {
-                System.Windows.Forms.MessageBox.Show("Không thể mở file: " + ex.Message, "Lỗi", System.Windows.Forms.MessageBoxButtons.OK);
+                MessageBox.Show("Không thể tạo/mở file: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+
         }
 
         public static Dictionary<int, (string number, string name, string group, string createView, string level)> ReadExcel(string filePath)
         {
             var data = new Dictionary<int, (string, string, string, string, string)>();
 
-            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            try
             {
-                IWorkbook wb = new XSSFWorkbook(fs);
-                ISheet sheet = wb.GetSheetAt(0);
-                int rowCount = sheet.LastRowNum;
-
-                for (int i = 1; i <= rowCount; i++)
+                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 {
-                    var row = sheet.GetRow(i);
-                    if (row == null) continue;
+                    IWorkbook wb = new XSSFWorkbook(fs);
+                    ISheet sheet = wb.GetSheetAt(0);
+                    int rowCount = sheet.LastRowNum;
 
-                    string number = row.GetCell(0)?.ToString().Trim();
-                    string name = row.GetCell(1)?.ToString().Trim();
-                    string group = row.GetCell(2)?.ToString().Trim();
-                    string createView = row.GetCell(3)?.ToString().Trim().ToUpper();
-                    string level = row.GetCell(4)?.ToString().Trim();
+                    for (int i = 1; i <= rowCount; i++)
+                    {
+                        var row = sheet.GetRow(i);
+                        if (row == null) continue;
 
-                    if (string.IsNullOrWhiteSpace(number) || string.IsNullOrWhiteSpace(name))
-                        continue;
+                        string number = row.GetCell(0)?.ToString().Trim();
+                        string name = row.GetCell(1)?.ToString().Trim();
+                        string group = row.GetCell(2)?.ToString().Trim();
+                        string createView = row.GetCell(3)?.ToString().Trim().ToUpper();
+                        string level = row.GetCell(4)?.ToString().Trim();
 
-                    data[i] = (number, name, group, createView, level);
+                        if (string.IsNullOrWhiteSpace(number) || string.IsNullOrWhiteSpace(name))
+                            continue;
+
+                        data[i] = (number, name, group, createView, level);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi đọc Excel: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             return data;

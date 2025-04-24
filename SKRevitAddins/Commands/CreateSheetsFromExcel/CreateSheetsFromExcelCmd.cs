@@ -35,12 +35,35 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
             string excelPath = dialog.SelectedFilePath;
             string selectedTitleBlockName = dialog.SelectedTitleBlock;
+            bool createSheets = dialog.CreateSheets;
+            bool createSheetViews = dialog.CreateSheetViews;
+            bool createWorkingView = dialog.CreateWorkingView;
+            string workingViewSuffix = dialog.WorkingViewSuffix;
 
             var sheetData = ExcelHelper.ReadExcel(excelPath);
-            var existingSheets = new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>().ToDictionary(s => s.SheetNumber);
-            var existingViews = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>()
-                .Where(v => !v.IsTemplate && !string.IsNullOrWhiteSpace(v.Name))
-                .ToDictionary(v => v.Name, v => v, StringComparer.InvariantCultureIgnoreCase);
+
+            // Get existing sheets
+            var existingSheets = new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewSheet))
+                .Cast<ViewSheet>()
+                .GroupBy(s => s.SheetNumber)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // Fix: Create view dictionary with duplicate key checking
+            var viewDict = new Dictionary<string, View>(StringComparer.InvariantCultureIgnoreCase);
+            foreach (var v in new FilteredElementCollector(doc)
+                         .OfClass(typeof(View))
+                         .Cast<View>()
+                         .Where(v => !v.IsTemplate && !string.IsNullOrWhiteSpace(v.Name)))
+            {
+                string key = v.Name.Trim();
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    if (!viewDict.ContainsKey(key))
+                        viewDict.Add(key, v);
+                }
+            }
+            var existingViews = viewDict;
 
             var titleBlock = GetTitleBlock(doc, selectedTitleBlockName);
             if (titleBlock == null)
@@ -52,8 +75,28 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
             var progress = new ProgressForm(sheetData.Count);
             progress.Show();
 
-            var viewTypes = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>().ToDictionary(v => v.ViewFamily);
-            var levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().ToDictionary(l => l.Name, StringComparer.InvariantCultureIgnoreCase);
+            // Fix: Create viewTypes dictionary with duplicate key checking
+            var viewTypesDict = new Dictionary<ViewFamily, ViewFamilyType>();
+            foreach (var vft in new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewFamilyType))
+                .Cast<ViewFamilyType>())
+            {
+                if (!viewTypesDict.ContainsKey(vft.ViewFamily))
+                    viewTypesDict.Add(vft.ViewFamily, vft);
+            }
+            var viewTypes = viewTypesDict;
+
+            // Fix: Create levels dictionary with duplicate key checking
+            var levelsDict = new Dictionary<string, Level>(StringComparer.InvariantCultureIgnoreCase);
+            foreach (var level in new FilteredElementCollector(doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>())
+            {
+                string key = level.Name;
+                if (!string.IsNullOrWhiteSpace(key) && !levelsDict.ContainsKey(key))
+                    levelsDict.Add(key, level);
+            }
+            var levels = levelsDict;
 
             using (Transaction tx = new Transaction(doc, "Tạo Sheet và View"))
             {
@@ -72,16 +115,14 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
 
                     var (sheetNumber, sheetName, viewGroup, viewFlag, levelName) = entry.Value;
                     string viewFullName = $"{sheetNumber} - {sheetName}";
-
-                    progress.UpdateProgress(++count, $"{sheetNumber} - {sheetName}");
+                    progress.UpdateProgress(++count, viewFullName);
 
                     bool sheetExists = existingSheets.ContainsKey(sheetNumber);
                     bool viewExists = existingViews.ContainsKey(viewFullName);
 
                     View viewToPlace = null;
 
-                    // ❗ Nếu view chưa tồn tại, tạo mới
-                    if (!viewExists && !string.IsNullOrWhiteSpace(viewFlag))
+                    if (createSheetViews && !viewExists && !string.IsNullOrWhiteSpace(viewFlag))
                     {
                         string vf = viewFlag.ToUpper();
                         if (vf == "DV" && viewTypes.TryGetValue(ViewFamily.Drafting, out var draftingType))
@@ -109,8 +150,38 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                         viewToPlace = existingViews[viewFullName];
                     }
 
-                    // ❗ Nếu sheet chưa tồn tại → tạo sheet và đặt view (nếu có)
-                    if (!sheetExists)
+                    if (createWorkingView && !string.IsNullOrWhiteSpace(workingViewSuffix) && viewToPlace != null)
+                    {
+                        string workingViewName = $"{sheetNumber} - {sheetName}_{workingViewSuffix}";
+                        if (!existingViews.ContainsKey(workingViewName))
+                        {
+                            View workingView = null;
+
+                            if (viewToPlace is ViewDrafting && viewTypes.TryGetValue(ViewFamily.Drafting, out var draftingType))
+                            {
+                                workingView = ViewDrafting.Create(doc, draftingType.Id);
+                            }
+                            else if (viewToPlace is ViewPlan && !string.IsNullOrWhiteSpace(viewFlag))
+                            {
+                                var vf = viewFlag.ToUpper();
+                                var family = vf == "FL" ? ViewFamily.FloorPlan : ViewFamily.StructuralPlan;
+
+                                if (viewTypes.TryGetValue(family, out var viewType) &&
+                                    levels.TryGetValue(levelName, out var level))
+                                {
+                                    workingView = ViewPlan.Create(doc, viewType.Id, level.Id);
+                                }
+                            }
+
+                            if (workingView != null)
+                            {
+                                workingView.Name = workingViewName;
+                                existingViews[workingViewName] = workingView;
+                            }
+                        }
+                    }
+
+                    if (createSheets && !sheetExists)
                     {
                         var newSheet = ViewSheet.Create(doc, titleBlock.Id);
                         newSheet.get_Parameter(BuiltInParameter.SHEET_NUMBER).Set(sheetNumber);
@@ -152,8 +223,9 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                 .OfClass(typeof(FamilySymbol))
                 .OfCategory(BuiltInCategory.OST_TitleBlocks)
                 .Cast<FamilySymbol>()
-                .FirstOrDefault(tb => tb.Family.Name.Equals(familyName, StringComparison.InvariantCultureIgnoreCase)
-                                   && tb.Name.Equals(typeName, StringComparison.InvariantCultureIgnoreCase));
+                .FirstOrDefault(tb =>
+                    tb.Family.Name.Equals(familyName, StringComparison.InvariantCultureIgnoreCase)
+                    && tb.Name.Equals(typeName, StringComparison.InvariantCultureIgnoreCase));
         }
     }
 }
