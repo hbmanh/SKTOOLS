@@ -36,7 +36,7 @@ namespace SKToolsRibbon
             AddButton(GENPanel, 
                 "SelectElementsVer1Cmd", "Elements\nNumbering", "SKRevitAddins.Commands.SelectElementsVer1.SelectElementsVer1Cmd", "SelectElements.png");
             AddButton(GENPanel, 
-                "ReplaceTextNoteFromCadExploreCmd", "TextType\nChange", "SKRevitAddins.Commands.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
+                "ReplaceTextNoteFromCadExploreCmd", "TextNotes\nEditor", "SKRevitAddins.Commands.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
             AddButton(GENPanel, 
                 "ExportSchedulesToExcelCmd", "Schedules\nExport", "SKRevitAddins.Commands.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png");
             AddButton(GENPanel, 

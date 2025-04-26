@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -35,40 +34,49 @@ namespace SKAcadAddins
                 if (prefixResult.Status != PromptStatus.OK) return;
                 string prefixCode = prefixResult.StringResult;
 
-                List<Entity> entitiesToProcess = new List<Entity>();
-
-                // Đệ quy tất cả Entity và cả BlockReference
-                CollectEntities(ms, trans, entitiesToProcess);
-
-                foreach (Entity entity in entitiesToProcess)
-                {
-                    if (entity == null) continue;
-                    HandleEntityLayer(entity, trans, lt, prefixCode);
-                }
+                // ✅ Duyệt trực tiếp và xử lý luôn
+                ProcessEntities(ms, trans, lt, prefixCode);
 
                 trans.Commit();
                 ed.WriteMessage("\nĐã hoàn thành việc gộp và chuyển đổi Layer, vui lòng kiểm tra lại!");
             }
         }
 
-        private void CollectEntities(BlockTableRecord btr, Transaction trans, List<Entity> entities)
+        private void ProcessEntities(BlockTableRecord btr, Transaction trans, LayerTable lt, string prefixCode)
         {
             foreach (ObjectId id in btr)
             {
                 Entity ent = trans.GetObject(id, OpenMode.ForRead) as Entity;
                 if (ent == null) continue;
 
-                // ✅ BỔ SUNG: Đổi layer cho chính BlockReference
                 if (ent is BlockReference br)
                 {
-                    entities.Add(br); // Thêm BlockReference chính vào danh sách
+                    // ✅ Xử lý chính bản thân BlockReference
+                    HandleEntityLayer(br, trans, lt, prefixCode);
+
+                    // ✅ Xử lý AttributeReference nếu có
+                    foreach (ObjectId attId in br.AttributeCollection)
+                    {
+                        if (!attId.IsErased)
+                        {
+                            AttributeReference attRef = trans.GetObject(attId, OpenMode.ForRead) as AttributeReference;
+                            if (attRef != null)
+                            {
+                                HandleEntityLayer(attRef, trans, lt, prefixCode);
+                            }
+                        }
+                    }
+
+                    // ✅ Đệ quy các đối tượng trong BlockReference
                     BlockTableRecord nestedBtr = (BlockTableRecord)trans.GetObject(br.BlockTableRecord, OpenMode.ForRead);
-                    CollectEntities(nestedBtr, trans, entities); // Đệ quy vào bên trong
+                    ProcessEntities(nestedBtr, trans, lt, prefixCode);
                 }
                 else
                 {
                     if (IsSupportedEntity(ent))
-                        entities.Add(ent);
+                    {
+                        HandleEntityLayer(ent, trans, lt, prefixCode);
+                    }
                 }
             }
         }
@@ -76,7 +84,8 @@ namespace SKAcadAddins
         private bool IsSupportedEntity(Entity ent)
         {
             return ent is Line || ent is Arc || ent is Circle || ent is Polyline ||
-                   ent is DBText || ent is MText || ent is Ellipse;
+                   ent is DBText || ent is MText || ent is Ellipse ||
+                   ent is Hatch || ent is AttributeReference;
         }
 
         private void HandleEntityLayer(Entity entity, Transaction trans, LayerTable lt, string prefixCode)
@@ -87,6 +96,7 @@ namespace SKAcadAddins
 
             string newLayerLinetypeName = entity.Linetype;
             var newLayerLinetypeId = entity.LinetypeId;
+
             if (newLayerLinetypeName.Equals("BYLAYER", StringComparison.OrdinalIgnoreCase))
             {
                 LayerTableRecord layerRecord = trans.GetObject(entity.LayerId, OpenMode.ForRead) as LayerTableRecord;
@@ -127,6 +137,7 @@ namespace SKAcadAddins
             }
 
             string newLayerName = $"{prefixCode}_{newLayerLinetypeName}_{lineWeight}_{newLayerColor}";
+
             LayerTableRecord ltr = null;
 
             if (!lt.Has(newLayerName))
