@@ -243,6 +243,7 @@
     <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequest.cs" />
     <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequestHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Test.cs" />
     <Compile Include="Utils\APIDoc.cs" />
     <Compile Include="Utils\CadUtils.cs" />
     <Compile Include="Utils\CurveLoopHelperUtils.cs" />
