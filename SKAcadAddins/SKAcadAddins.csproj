@@ -160,6 +160,9 @@
       <HintPath>..\packages\NPOI.2.7.3\lib\net472\NPOI.OpenXmlFormats.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="PdfiumViewer, Version=2.13.0.0, Culture=neutral, PublicKeyToken=91e4789cfb0609e0, processorArchitecture=MSIL">
+      <HintPath>..\packages\PdfiumViewer.2.13.0.0\lib\net20\PdfiumViewer.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="SharpCompress, Version=0.10.3.0, Culture=neutral, PublicKeyToken=beaf6f427e128133, processorArchitecture=MSIL">
       <HintPath>..\packages\AutoCad.1.0.0\lib\SharpCompress.dll</HintPath>

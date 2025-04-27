@@ -237,6 +237,7 @@
     <Compile Include="Commands\CreateSpace\CreateSpaceWpfWindow.xaml.cs">
       <DependentUpon>CreateSpaceWpfWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Commands\ImportExcelOrPdfCommand.cs" />
     <Compile Include="Parameters\Define.cs" />
     <Compile Include="Parameters\SKParameters.cs" />
     <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadCmd.cs" />

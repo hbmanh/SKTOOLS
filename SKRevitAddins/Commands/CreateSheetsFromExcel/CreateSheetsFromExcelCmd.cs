@@ -180,7 +180,18 @@ namespace SKRevitAddins.Commands.CreateSheetsFromExcel
                             }
                         }
                     }
-
+                    // Set "View Type" parameter to "02 Sheet Views"
+                    Parameter viewTypeParam = viewToPlace.LookupParameter("View Type");
+                    if (viewTypeParam != null && !viewTypeParam.IsReadOnly)
+                    {
+                        viewTypeParam.Set("02 Sheet Views");
+                    }
+                    // Set "View Sub-Type" parameter to match the viewGroup value
+                    Parameter viewSubTypeParam = viewToPlace.LookupParameter("View Sub-Type");
+                    if (viewSubTypeParam != null && !viewSubTypeParam.IsReadOnly)
+                    {
+                        viewSubTypeParam.Set(viewGroup);
+                    }
                     if (createSheets && !sheetExists)
                     {
                         var newSheet = ViewSheet.Create(doc, titleBlock.Id);
