@@ -1,6 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -27,7 +26,7 @@ namespace SKRevitAddins.ViewModel
                     .OfClass(typeof(View))
                     .Cast<View>()
                     .Where(v => v.IsTemplate && v.ViewType != ViewType.Schedule)
-                    .Select(v => v.ViewType )
+                    .Select(v => v.ViewType)
                     .Distinct()
                     .OrderBy(v => v.ToString())
                     .ToList());
@@ -56,20 +55,17 @@ namespace SKRevitAddins.ViewModel
 
         #region Properties
 
-        private ObservableCollection<ViewType> _viewTypes { get; set; }
+        private ObservableCollection<ViewType> _viewTypes;
         public ObservableCollection<ViewType> ViewTypes
         {
-            get { return _viewTypes; }
-            set
-            {
-                _viewTypes = value;
-                OnPropertyChanged(nameof(ViewTypes));
-            }
+            get => _viewTypes;
+            set { _viewTypes = value; OnPropertyChanged(nameof(ViewTypes)); }
         }
+
         private ViewType _selViewType;
         public ViewType SelViewType
         {
-            get { return _selViewType; }
+            get => _selViewType;
             set
             {
                 _selViewType = value;
@@ -77,89 +73,65 @@ namespace SKRevitAddins.ViewModel
                 UpdateViewTemplate();
             }
         }
-        private ObservableCollection<ViewType> _viewsTypeTarget { get; set; }
+
+        private ObservableCollection<ViewType> _viewsTypeTarget;
         public ObservableCollection<ViewType> ViewsTypeTarget
         {
-            get { return _viewsTypeTarget; }
-            set
-            {
-                _viewsTypeTarget = value;
-                OnPropertyChanged(nameof(ViewsTypeTarget));
-            }
+            get => _viewsTypeTarget;
+            set { _viewsTypeTarget = value; OnPropertyChanged(nameof(ViewsTypeTarget)); }
         }
-        private ObservableCollection<View> _viewTemplates { get; set; }
 
+        private ObservableCollection<View> _viewTemplates;
         public ObservableCollection<View> ViewTemplates
         {
-            get { return _viewTemplates; }
-            set
-            {
-                _viewTemplates = value;
-                OnPropertyChanged(nameof(ViewTemplates));
-            }
+            get => _viewTemplates;
+            set { _viewTemplates = value; OnPropertyChanged(nameof(ViewTemplates)); }
         }
 
         private View _selViewTemplate;
         public View SelViewTemplate
         {
-            get { return _selViewTemplate; }
+            get => _selViewTemplate;
             set
             {
                 _selViewTemplate = value;
                 OnPropertyChanged(nameof(SelViewTemplate));
                 UpdateFilters();
-                //UpdateViewTarget();
             }
         }
-        private ObservableCollection<FilterObj> _filters { get; set; }
 
+        private ObservableCollection<FilterObj> _filters;
         public ObservableCollection<FilterObj> Filters
         {
-            get { return _filters; }
-            set
-            {
-                _filters = value;
-                OnPropertyChanged(nameof(Filters));
-            }
+            get => _filters;
+            set { _filters = value; OnPropertyChanged(nameof(Filters)); }
         }
-        private ObservableCollection<FilterObj> _selFilter;
 
+        private ObservableCollection<FilterObj> _selFilter;
         public ObservableCollection<FilterObj> SelFilter
         {
-            get { return _selFilter; }
-            set
-            {
-                _selFilter = value;
-                OnPropertyChanged(nameof(SelFilter));
-            }
+            get => _selFilter;
+            set { _selFilter = value; OnPropertyChanged(nameof(SelFilter)); }
         }
-        private ObservableCollection<View> _viewTargets { get; set; }
+
+        private ObservableCollection<View> _viewTargets;
         public ObservableCollection<View> ViewTargets
         {
-            get { return _viewTargets; }
-            set
-            {
-                _viewTargets = value;
-                OnPropertyChanged(nameof(ViewTargets));
-            }
+            get => _viewTargets;
+            set { _viewTargets = value; OnPropertyChanged(nameof(ViewTargets)); }
         }
 
         private ObservableCollection<View> _selViewTarget;
         public ObservableCollection<View> SelViewTarget
         {
-            get { return _selViewTarget; }
-            set
-            {
-                _selViewTarget = value;
-                OnPropertyChanged(nameof(SelViewTarget));
-            }
+            get => _selViewTarget;
+            set { _selViewTarget = value; OnPropertyChanged(nameof(SelViewTarget)); }
         }
 
         private ViewType _selViewTypeTarget;
-
         public ViewType SelViewTypeTarget
         {
-            get { return _selViewTypeTarget; }
+            get => _selViewTypeTarget;
             set
             {
                 _selViewTypeTarget = value;
@@ -167,77 +139,81 @@ namespace SKRevitAddins.ViewModel
                 UpdateViewTarget();
             }
         }
-        public bool _allCopyBOX;
 
+        // --- Option Checkboxes ---
+        private bool _allCopyBOX;
         public bool AllCopyBOX
         {
-            get { return _allCopyBOX; }
+            get => _allCopyBOX;
             set
             {
                 _allCopyBOX = value;
                 OnPropertyChanged(nameof(AllCopyBOX));
+                UpdateOptionState();
             }
         }
 
-        public bool _patternCopyBOX;
-
+        private bool _patternCopyBOX;
         public bool PatternCopyBOX
         {
-            get { return _patternCopyBOX; }
+            get => _patternCopyBOX;
             set
             {
                 _patternCopyBOX = value;
+                if (_patternCopyBOX) AllCopyBOX = false;
                 OnPropertyChanged(nameof(PatternCopyBOX));
+                UpdateOptionState();
             }
         }
 
-        public bool _cutSetCopyBOX;
-
+        private bool _cutSetCopyBOX;
         public bool CutSetCopyBOX
         {
-            get { return _cutSetCopyBOX; }
+            get => _cutSetCopyBOX;
             set
             {
                 _cutSetCopyBOX = value;
+                if (_cutSetCopyBOX) AllCopyBOX = false;
                 OnPropertyChanged(nameof(CutSetCopyBOX));
+                UpdateOptionState();
             }
+        }
+
+        private bool _patternCopyEnabled = true;
+        public bool PatternCopyEnabled
+        {
+            get => _patternCopyEnabled;
+            set { _patternCopyEnabled = value; OnPropertyChanged(nameof(PatternCopyEnabled)); }
+        }
+
+        private bool _cutSetCopyEnabled = true;
+        public bool CutSetCopyEnabled
+        {
+            get => _cutSetCopyEnabled;
+            set { _cutSetCopyEnabled = value; OnPropertyChanged(nameof(CutSetCopyEnabled)); }
         }
 
         public class FilterObj : INotifyPropertyChanged
         {
             public event PropertyChangedEventHandler PropertyChanged;
-            public FilterObj(Document doc,ElementId filterElementId)
+            public FilterObj(Document doc, ElementId filterElementId)
             {
                 FilterId = filterElementId;
                 FilterName = doc.GetElement(filterElementId).Name;
             }
-            public bool IsMatch(View view)
-            {
-                return view.Name.Contains(this.FilterName);
-            }
-            private ElementId _filterId;
 
+            private ElementId _filterId;
             public ElementId FilterId
             {
-                get { return _filterId; }
-                set
-                {
-                    _filterId = value;
-                    OnPropertyChanged(nameof(FilterId));
-                
-                }
+                get => _filterId;
+                set { _filterId = value; OnPropertyChanged(nameof(FilterId)); }
             }
 
             private string _filterName;
-
             public string FilterName
             {
-                get { return _filterName; }
-                set
-                {
-                    _filterName = value;
-                    OnPropertyChanged(nameof(FilterName));
-                }
+                get => _filterName;
+                set { _filterName = value; OnPropertyChanged(nameof(FilterName)); }
             }
 
             protected void OnPropertyChanged(string propertyName)
@@ -245,6 +221,7 @@ namespace SKRevitAddins.ViewModel
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
+
         #endregion
 
         private void UpdateViewTemplate()
@@ -257,80 +234,35 @@ namespace SKRevitAddins.ViewModel
                     .Where(v => v.IsTemplate && v.ViewType == SelViewType)
                     .OrderBy(v => v.Name)
                     .ToList());
-
-                //var templatesForSelectedType = new FilteredElementCollector(ThisDoc)
-                //    .OfClass(typeof(View))
-                //    .Cast<View>()
-                //    .Where(v => v.IsTemplate /*&& v.ViewType == SelViewType.ViewFamily*/)
-                //    .ToList();
-
-
-                //if (templatesForSelectedType.Count > 0)
-                //{
-                //    Filters = new ObservableCollection<FilterObj>(
-                //        templatesForSelectedType[0].GetFilters()
-                //            .Select(id => new FilterObj(ThisDoc, id)).ToList());
-                //}
-                //else
-                //{
-                //    Filters.Clear();
-                //}
             }
         }
+
         private void UpdateFilters()
         {
             if (SelViewTemplate != null)
             {
-                Filters = new ObservableCollection<FilterObj>(SelViewTemplate.GetFilters().Select(id => new FilterObj(ThisDoc,id)).ToList());
+                Filters = new ObservableCollection<FilterObj>(
+                    SelViewTemplate.GetFilters()
+                        .Select(id => new FilterObj(ThisDoc, id))
+                        .ToList());
             }
         }
 
         private void UpdateViewTarget()
         {
-            ViewTargets = new ObservableCollection<View>(new FilteredElementCollector(ThisDoc)
-                .OfClass(typeof(View))
-                .Cast<View>()
-                .Where(v => !v.IsTemplate && v.IsViewValidForTemplateCreation() && v.ViewType == SelViewTypeTarget)
-                .OrderBy(n => n.Name)
-                .ToList());
-
-            var viewColl = new FilteredElementCollector(ThisDoc)
-                .OfClass(typeof(View))
-                .Cast<View>()
-                .ToList();
-            foreach (var view in viewColl)
-            {
-                Debug.WriteLine(view.Category);
-            }
-
-            ///Test
-
-            //var viewColl = new FilteredElementCollector(ThisDoc)
-            //    .OfClass(typeof(View))
-            //    .Cast<View>()
-            //    .Where(v => !v.IsTemplate && v.IsViewValidForTemplateCreation() && v.ViewType == SelViewTypeTarget)
-            //    .OrderBy(n => n.Name)
-            //    .ToList();
-            //foreach (var view in viewColl)
-            //{
-            //    string[] viewGroup = view.Title.Split(':');
-            //}
+            ViewTargets = new ObservableCollection<View>(
+                new FilteredElementCollector(ThisDoc)
+                    .OfClass(typeof(View))
+                    .Cast<View>()
+                    .Where(v => !v.IsTemplate && v.IsViewValidForTemplateCreation() && v.ViewType == SelViewTypeTarget)
+                    .OrderBy(v => v.Name)
+                    .ToList());
         }
 
-        /// Get target view based on Selected View Template
-        //private void UpdateViewTarget()
-        //{
-        //    if (SelViewTemplate != null)
-        //    {
-        //        var targetType = SelViewTemplate.ViewType;
-
-        //        ViewTargets = new ObservableCollection<View>(new FilteredElementCollector(ThisDoc)
-        //            .OfClass(typeof(View))
-        //            .Cast<View>()
-        //            .Where(v => !v.IsTemplate && v.ViewType == targetType && v.IsViewValidForTemplateCreation())
-        //            .OrderBy(n => n.Name)
-        //            .ToList());
-        //    }
-        //}
+        private void UpdateOptionState()
+        {
+            PatternCopyEnabled = !AllCopyBOX;
+            CutSetCopyEnabled = !AllCopyBOX;
+        }
     }
 }
