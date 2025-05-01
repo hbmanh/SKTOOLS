@@ -5,7 +5,6 @@ using SKRevitAddins.Commands.ChangeBwTypeAndIns;
 using SKRevitAddins.Commands.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.Commands.CreateSpace;
 using SKRevitAddins.Commands.DeleteTypeOfTextNotesDontUse;
-using SKRevitAddins.Commands.DWGExport;
 using SKRevitAddins.Commands.ExportSchedulesToExcel;
 using SKRevitAddins.Commands.FindDWGNotUseAndDel;
 using SKRevitAddins.Commands.PermissibleRangeFrame;
@@ -33,7 +32,6 @@ namespace SKRevitAddins
         private PlaceElementsFromBlocksCadWpfWindow m_PlaceElementsFromBlocksCadWpfWindow;
         private PermissibleRangeFrameWpfWindow m_PermissibleRangeFrameWpfWindow;
         private ExportSchedulesToExcelWpfWindow m_ExportSchedulesToExcelWpfWindow;
-        private DWGExportWpfWindow m_ExportLayersWindow;
 
 
         public Result OnShutdown(UIControlledApplication application)
@@ -86,10 +84,6 @@ namespace SKRevitAddins
                 m_PlaceElementsFromBlocksCadWpfWindow.Close();
             }
 
-            if (m_ExportLayersWindow != null && m_ExportLayersWindow.IsVisible)
-            {
-                m_ExportLayersWindow.Close();
-            }
             return Result.Succeeded;
         }
 

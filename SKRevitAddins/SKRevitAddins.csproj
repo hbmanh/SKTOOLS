@@ -146,15 +146,6 @@
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
-    <Compile Include="Commands\DWGExport\AciToRevit.cs" />
-    <Compile Include="Commands\DWGExport\DWGExportCmd .cs" />
-    <Compile Include="Commands\DWGExport\DWGExportWpfWindow.xaml.cs">
-      <DependentUpon>DWGExportWpfWindow.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Commands\DWGExport\DWGExportRequest.cs" />
-    <Compile Include="Commands\DWGExport\DWGExportRequestHandler.cs" />
-    <Compile Include="Commands\DWGExport\DWGExportViewModel.cs" />
-    <Compile Include="Commands\DWGExport\RelayCommand.cs" />
     <Compile Include="Commands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -291,10 +282,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Commands\DWGExport\DWGExportWpfWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="Commands\PermissibleRangeFrame\PreviewReportWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
