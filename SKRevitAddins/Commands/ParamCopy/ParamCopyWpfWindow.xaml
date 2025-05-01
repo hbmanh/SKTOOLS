@@ -1,0 +1,220 @@
+﻿<Window x:Class="SKRevitAddins.ExportSchedulesToExcel.ParamCopy.ParamCopyWpfWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ParamCopy"
+        mc:Ignorable="d"
+        Title="パラメータコピー" Height="640" Width="600" ResizeMode="NoResize" Topmost="True" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <local:MultiValueConverter x:Key="MultiValueConverter"/>
+    </Window.Resources>
+    <Grid>
+        <Button x:Name="sourceSelectBtn" Content="参照元の選択​" HorizontalAlignment="Left" Margin="10,148,0,0" VerticalAlignment="Top" Height="30" Width="125"
+                Command="{Binding SelectSourceICommand}"/>
+        <Button x:Name="linkedSourceSelectBtn" Content="RVTリンク選択​" HorizontalAlignment="Left" Margin="155,148,0,0" VerticalAlignment="Top" Height="30" Width="125"
+            Command="{Binding SelectLinkedSourceICommand}"/>
+        <Button x:Name="setTargetSameAsSource" Content="同一ファミリ間" Margin="300,148,0,0" VerticalAlignment="Top" Height="30" HorizontalAlignment="Left" Width="125"
+                IsEnabled="{Binding IsSourceNotFromLink}"
+                Command="{Binding SetTargetSameAsSourceICommand}"/>
+        <Button x:Name="targetSelectBtn" Content="参照先の選択" Margin="445,148,0,0" VerticalAlignment="Top" Height="30" HorizontalAlignment="Left" Width="125"
+                Command="{Binding SelectTargetICommand}"/>
+        <TabControl x:Name="sourceTabs" Margin="10,194,0,0" HorizontalAlignment="Left" Width="270" Height="353" VerticalAlignment="Top">
+            <TabItem Header="インスタンス" IsSelected="{Binding IsSourceInstTabEnabled}">
+                <Grid Background="#FFE5E5E5" Margin="0,0,0,0">
+                    <DataGrid 
+                        x:Name="sourceInstanceParamDg"
+                        ItemsSource="{Binding SourceInstParams, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        SelectedItem="{Binding SelectedSourceParam}"
+                        AutoGenerateColumns="False"
+                        IsReadOnly="True">
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="SlateBlue"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="パラメーター" Binding="{Binding ParamName}" Width="100">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="値" Binding="{Binding ParamValueString}" Width="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="タイプ" IsSelected="{Binding IsSourceTypeTabEnabled}">
+                <Grid Background="#FFE5E5E5" Margin="0,0,0,0">
+                    <DataGrid 
+                        x:Name="sourceTypeParamDg" 
+                        ItemsSource="{Binding SourceTypeParams, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        SelectedItem="{Binding SelectedSourceParam}"
+                        AutoGenerateColumns="False"
+                        IsReadOnly="True">
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="SlateBlue"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="パラメーター" Binding="{Binding ParamName}" Width="100">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="値" Binding="{Binding ParamValueString}" Width="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <TabControl x:Name="targetTabs" Margin="300,194,0,0" HorizontalAlignment="Left" Width="270" Height="353" VerticalAlignment="Top">
+            <TabItem Header="インスタンス" IsSelected="{Binding IsTargetInstTabEnabled}">
+                <Grid Background="#FFE5E5E5" Margin="0,0,0,0">
+                    <DataGrid 
+                        x:Name="targetInstanceParamDg" 
+                        ItemsSource="{Binding TargetInstParams, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        SelectedItem="{Binding SelectedTargetParam}"
+                        AutoGenerateColumns="False"
+                        IsReadOnly="True">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="IsEnabled" Value="{Binding IsModifiable}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding WasUpdated}" Value="True">
+                                        <Setter Property="Background" Value="ForestGreen"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="SlateBlue"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="パラメーター" Binding="{Binding ParamName}" Width="100">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="値" Binding="{Binding ParamValueString}" Width="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="タイプ" IsSelected="{Binding IsTargetTypeTabEnabled}">
+                <Grid Background="#FFE5E5E5" Margin="0,0,0,0">
+                    <DataGrid 
+                        x:Name="targetTypeParamDg" 
+                        ItemsSource="{Binding TargetTypeParams, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        SelectedItem="{Binding SelectedTargetParam}"
+                        AutoGenerateColumns="False"
+                        IsReadOnly="True">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="IsEnabled" Value="{Binding IsModifiable}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding WasUpdated}" Value="True">
+                                        <Setter Property="Background" Value="ForestGreen"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="SlateBlue"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="パラメーター" Binding="{Binding ParamName}" Width="100">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="値" Binding="{Binding ParamValueString}" Width="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <Button x:Name="instanceApplyBtn" Content="インスタンスコピー" HorizontalAlignment="Left" Margin="10,0,0,17" Width="90" Height="30" VerticalAlignment="Bottom"
+                Command="{Binding InstanceCopyICommand}"/>
+        <Button x:Name="familyApplyBtn" Content="ファミリコピー" HorizontalAlignment="Left" Margin="128,0,0,17" Width="90" Height="30" VerticalAlignment="Bottom"
+                Command="{Binding FamilyCopyICommand}"/>
+        <Button x:Name="categoryApplyBtn" Content="カテゴリーコピー" HorizontalAlignment="Left" Margin="246,0,0,17" Width="90" Height="30" VerticalAlignment="Bottom"
+                Command="{Binding CategoryCopyICommand}"/>
+        <Button x:Name="allEleApplyBtn" Content="全要素コピー" HorizontalAlignment="Left" Margin="366,0,0,17" Width="90" Height="30" VerticalAlignment="Bottom"
+                Command="{Binding AllEleCopyICommand}"/>
+        <Button x:Name="cancelBtn" Content="キャンセル" HorizontalAlignment="Left" Margin="480,0,0,17" Width="90" Height="30" VerticalAlignment="Bottom"/>
+        <Label x:Name="sourceFamilyLbl" Content="ファミリ：" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="sourceTypeLbl" Content="タイプ：" HorizontalAlignment="Left" Margin="10,36,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="sourceIdLbl" Content="ID：" HorizontalAlignment="Left" Margin="10,62,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="targetFamilyLbl" Content="ファミリ：" HorizontalAlignment="Left" Margin="300,10,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="targetTypeLbl" Content="タイプ：" HorizontalAlignment="Left" Margin="300,36,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="targetIdLbl" Content="ID：" HorizontalAlignment="Left" Margin="300,62,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="sourceFamilyText" Content="{Binding SourceEleFamilyName}" HorizontalAlignment="Left" Margin="64,10,0,0" VerticalAlignment="Top" Width="186" Height="26"/>
+        <Label x:Name="sourceTypeText" Content="{Binding SourceEleTypeName}" HorizontalAlignment="Left" Margin="64,36,0,0" VerticalAlignment="Top" Width="186" Height="26"/>
+        <Label x:Name="sourceIdText" Content="{Binding SourceEleId}" HorizontalAlignment="Left" Margin="64,62,0,0" VerticalAlignment="Top" Width="186" Height="26"/>
+        <Label x:Name="targetFamilyText_" Content="{Binding TargetEleFamilyName}" HorizontalAlignment="Left" Margin="354,10,0,0" VerticalAlignment="Top" Width="186" Height="26"/>
+        <Label x:Name="targetTypeText" Content="{Binding TargetEleTypeName}" HorizontalAlignment="Left" Margin="354,36,0,0" VerticalAlignment="Top" Width="186" Height="26"/>
+        <Label x:Name="targetIdText" Content="{Binding TargetEleId}" HorizontalAlignment="Left" Margin="354,62,0,0" VerticalAlignment="Top" Width="186" Height="26"/>
+        <TextBox x:Name="roundTbx" HorizontalAlignment="Left" Margin="519,103,0,0" TextWrapping="Wrap" 
+                 Text="{Binding RoundValue}" VerticalAlignment="Top" Width="51" Height="26"
+                 IsEnabled="{Binding IsRounded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        <CheckBox x:Name="roundCbx" Content="四捨五入" HorizontalAlignment="Left" Margin="445,108,0,0" VerticalAlignment="Top" 
+                  IsChecked="{Binding IsRounded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        <Button x:Name="refreshBtn" Content="更新" Margin="300,101,0,0" VerticalAlignment="Top" Height="30" HorizontalAlignment="Left" Width="125"
+            Command="{Binding RefreshICommand}"/>
+
+    </Grid>
+</Window>
