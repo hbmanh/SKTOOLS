@@ -13,25 +13,34 @@ namespace EquipmentClassificationProcessor
         {
             Document doc = commandData.Application.ActiveUIDocument.Document;
 
-            // Bước 1: Thu thập tất cả FamilyInstance
             FilteredElementCollector collector = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilyInstance))
                 .WhereElementIsNotElementType();
 
-            // Bước 2: Đếm riêng theo từng Type trong từng nhóm Classification
-            Dictionary<(string ecValue, ElementId typeId), int> ecTypeCounts = new Dictionary<(string, ElementId), int>();
-            Dictionary<(string ecValue, ElementId typeId), FamilySymbol> symbolMap = new Dictionary<(string, ElementId), FamilySymbol>();
+            // Bổ sung phân loại theo Classification, Equipment ID, và Level
+            Dictionary<(string classification, string equipmentId, string levelName, ElementId typeId), int> ecTypeCounts =
+                new Dictionary<(string, string, string, ElementId), int>();
+
+            Dictionary<(string, string, string, ElementId typeId), FamilySymbol> symbolMap =
+                new Dictionary<(string, string, string, ElementId), FamilySymbol>();
 
             foreach (FamilyInstance fi in collector)
             {
                 FamilySymbol symbol = fi.Symbol;
                 Parameter ecParam = symbol.LookupParameter("Equipment Classification-SP");
-                if (ecParam == null || ecParam.StorageType != StorageType.String) continue;
+                Parameter eidParam = symbol.LookupParameter("Equipment ID-SP");
+                Level level = doc.GetElement(fi.LevelId) as Level;
+
+                if (ecParam == null || eidParam == null || level == null) continue;
+                if (ecParam.StorageType != StorageType.String || eidParam.StorageType != StorageType.String) continue;
 
                 string ecValue = ecParam.AsString();
-                if (string.IsNullOrWhiteSpace(ecValue)) continue;
+                string eidValue = eidParam.AsString();
+                string levelName = level.Name;
 
-                var key = (ecValue, symbol.Id);
+                if (string.IsNullOrWhiteSpace(ecValue) || string.IsNullOrWhiteSpace(eidValue)) continue;
+
+                var key = (ecValue, eidValue, levelName, symbol.Id);
                 if (!ecTypeCounts.ContainsKey(key))
                     ecTypeCounts[key] = 0;
 
@@ -39,23 +48,23 @@ namespace EquipmentClassificationProcessor
                 symbolMap[key] = symbol;
             }
 
-            // Bước 3: Ghi kết quả đếm vào các Type Parameters
-            using (Transaction tx = new Transaction(doc, "Update Equipment Quantities by Type and Classification"))
+            using (Transaction tx = new Transaction(doc, "Update Equipment Quantities by Classification, ID, Level"))
             {
                 tx.Start();
 
                 foreach (var kvp in ecTypeCounts)
                 {
-                    string ecValue = kvp.Key.ecValue;
-                    ElementId typeId = kvp.Key.typeId;
+                    string ecValue = kvp.Key.classification;
                     int count = kvp.Value;
-                    bool isCU = string.Equals(ecValue, "CU", StringComparison.OrdinalIgnoreCase);
+                    ElementId typeId = kvp.Key.typeId;
 
-                    if (!symbolMap.TryGetValue((ecValue, typeId), out FamilySymbol symbol))
+                    if (!symbolMap.TryGetValue(kvp.Key, out FamilySymbol symbol))
                         continue;
 
                     Parameter indoor = symbol.LookupParameter("Q'ty Indoor Unit-SP");
                     Parameter outdoor = symbol.LookupParameter("Q'ty Outdoor Unit-SP");
+
+                    bool isCU = string.Equals(ecValue, "CU", StringComparison.OrdinalIgnoreCase);
 
                     if (isCU)
                     {
@@ -76,7 +85,7 @@ namespace EquipmentClassificationProcessor
                 tx.Commit();
             }
 
-            TaskDialog.Show("Hoàn tất", "Đã đếm và cập nhật số lượng theo từng Type trong mỗi nhóm Equipment Classification-SP.");
+            TaskDialog.Show("Hoàn tất", "Đã đếm và cập nhật số lượng theo từng Classification, Equipment ID và Level.");
             return Result.Succeeded;
         }
     }
