@@ -53,8 +53,6 @@ namespace SKToolsRibbon
             AddButton(CADPanel, 
                 "AutoCreatePileFromCadCmd", "Piles\n Create", "SKRevitAddins.AutoCreatePileFromCad.AutoCreatePileFromCadCmd", "PileFCADCreate.png", "Create Pile From DWG");
             AddButton(GENPanel,
-                "DWGExportCmd", "DWG\nExport", "SKRevitAddins.DWGExport.DWGExportCmd", "DWGExport.png");
-            AddButton(GENPanel,
                 "LayoutsToDWGCmd", "Layout\nExport", "SKRevitAddins.LayoutsToDWG.LayoutsToDWGCmd", "DWGExport.png");
             // MEP Panel
             AddButton(MEPPanel, 

@@ -146,6 +146,16 @@
     <Compile Include="GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="LayoutsToDWG\ExportUtils.cs" />
+    <Compile Include="LayoutsToDWG\LayoutsToDWGCmd.cs" />
+    <Compile Include="LayoutsToDWG\LayoutsToDWGRequestHandler.cs" />
+    <Compile Include="LayoutsToDWG\LayoutsToDWGViewModel.cs" />
+    <Compile Include="LayoutsToDWG\SheetSelectionWindow.xaml.cs">
+      <DependentUpon>SheetSelectionWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="LayoutsToDWG\LayoutsToDWGWindow.xaml.cs">
+      <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ParamCopy\App.cs" />
     <Compile Include="ParamCopy\MultiValueConverter.cs" />
     <Compile Include="ParamCopy\ParamCopyCmd.cs" />
@@ -289,6 +299,14 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="LayoutsToDWG\SheetSelectionWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="LayoutsToDWG\LayoutsToDWGWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="ParamCopy\ParamCopyWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
