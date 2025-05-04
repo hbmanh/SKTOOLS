@@ -1,16 +1,14 @@
 ﻿using Autodesk.Revit.UI;
 using SKRevitAddins.AutoCreatePileFromCad;
-using SKRevitAddins.Commands.AutoCreatePileFromCad;
-using SKRevitAddins.Commands.ChangeBwTypeAndIns;
-using SKRevitAddins.Commands.CopySetOfFilterFromViewTemp;
-using SKRevitAddins.Commands.CreateSpace;
-using SKRevitAddins.Commands.DeleteTypeOfTextNotesDontUse;
-using SKRevitAddins.Commands.ExportSchedulesToExcel;
-using SKRevitAddins.Commands.FindDWGNotUseAndDel;
-using SKRevitAddins.Commands.PermissibleRangeFrame;
-using SKRevitAddins.Commands.PlaceElementsFromBlocksCad;
-using SKRevitAddins.Commands.SelectElements;
-using SKRevitAddins.Commands.SelectElementsVer1;
+using SKRevitAddins.CopySetOfFilterFromViewTemp;
+using SKRevitAddins.CreateSpace;
+using SKRevitAddins.DeleteTypeOfTextNotesDontUse;
+using SKRevitAddins.ExportSchedulesToExcel;
+using SKRevitAddins.FindDWGNotUseAndDel;
+using SKRevitAddins.PermissibleRangeFrame;
+using SKRevitAddins.PlaceElementsFromBlocksCad;
+using SKRevitAddins.SelectElements;
+using SKRevitAddins.SelectElementsVer1;
 using SKRevitAddins.ExportSchedulesToExcel;
 using SKRevitAddins.Forms;
 using SKRevitAddins.ViewModel;
@@ -22,7 +20,6 @@ namespace SKRevitAddins
 
         internal static App thisApp = null;
         private CreateSpaceWpfWindow m_CreateSpaceWpfWindow;
-        private ChangeBwTypeAndInsWpfWindow m_ChangeBwTypeAndInsWpfWindow;
         private CopySetOfFilterFromViewTempWpfWindow m_CopySetOfFilterFromViewTempWpfWindow;
         private SelectElementsWpfWindow m_SelectElementsWpfWindow;
         private SelectElementsVer1WpfWindow m_SelectElementsVer1WpfWindow;
@@ -39,11 +36,6 @@ namespace SKRevitAddins
             if (m_CreateSpaceWpfWindow != null && m_CreateSpaceWpfWindow.IsVisible)
             {
                 m_CreateSpaceWpfWindow.Close();
-            }
-
-            if (m_ChangeBwTypeAndInsWpfWindow != null && m_ChangeBwTypeAndInsWpfWindow.IsVisible)
-            {
-                m_ChangeBwTypeAndInsWpfWindow.Close();
             }
 
             if (m_CopySetOfFilterFromViewTempWpfWindow != null && m_CopySetOfFilterFromViewTempWpfWindow.IsVisible)
@@ -90,7 +82,6 @@ namespace SKRevitAddins
         public Result OnStartup(UIControlledApplication application)
         {
             m_CreateSpaceWpfWindow = null;
-            m_ChangeBwTypeAndInsWpfWindow = null;
             thisApp = this;
             return Result.Succeeded;
         }
@@ -104,17 +95,7 @@ namespace SKRevitAddins
                 m_CreateSpaceWpfWindow.Show();
             }
         }
-        public void ShowChangeBwTypeAndInsViewModel(UIApplication uiapp, ChangeBwTypeAndInsViewModel viewModel)
-        {
-            if (m_ChangeBwTypeAndInsWpfWindow == null || !m_ChangeBwTypeAndInsWpfWindow.IsVisible)
-            {
-                ChangeBwTypeAndInsRequestHandler handler = new ChangeBwTypeAndInsRequestHandler(viewModel);
-                ExternalEvent exEvent = ExternalEvent.Create(handler);
-                m_ChangeBwTypeAndInsWpfWindow = new ChangeBwTypeAndInsWpfWindow(exEvent, handler, viewModel);
-                m_ChangeBwTypeAndInsWpfWindow.Show();
-            }
-        }
-
+        
         public void ShowCopySetFilterFromViewTempViewModel(UIApplication uiapp,
             CopySetOfFilterFromViewTempViewModel viewModel)
         {

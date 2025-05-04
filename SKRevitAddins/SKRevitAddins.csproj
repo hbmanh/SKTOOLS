@@ -125,134 +125,125 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
-    <Compile Include="Commands\AutoCreatePileFromCad\AutoCreatePileFromCadCmd.cs" />
-    <Compile Include="Commands\AutoCreatePileFromCad\AutoCreatePileFromCadRequest.cs" />
-    <Compile Include="Commands\AutoCreatePileFromCad\AutoCreatePileFromCadRequestHandler.cs" />
-    <Compile Include="Commands\CadImportReplaceLineStyle\CadImportReplaceLineStyleCmd.cs" />
-    <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempCmd.cs" />
-    <Compile Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsCmd.cs" />
-    <Compile Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsRequest.cs" />
-    <Compile Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsRequestHandler.cs" />
-    <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequest.cs" />
-    <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequestHandler.cs" />
-    <Compile Include="Commands\CreateSheetsFromExcel\CreateSheetsFromExcelCmd.cs" />
-    <Compile Include="Commands\CreateSheetsFromExcel\ExcelHelper.cs" />
-    <Compile Include="Commands\CreateSheetsFromExcel\Forms.cs">
+    <Compile Include="AutoCreatePileFromCad\AutoCreatePileFromCadCmd.cs" />
+    <Compile Include="AutoCreatePileFromCad\AutoCreatePileFromCadRequest.cs" />
+    <Compile Include="AutoCreatePileFromCad\AutoCreatePileFromCadRequestHandler.cs" />
+    <Compile Include="CadImportReplaceLineStyle\CadImportReplaceLineStyleCmd.cs" />
+    <Compile Include="CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempCmd.cs" />
+    <Compile Include="CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequest.cs" />
+    <Compile Include="CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequestHandler.cs" />
+    <Compile Include="CreateSheetsFromExcel\CreateSheetsFromExcelCmd.cs" />
+    <Compile Include="CreateSheetsFromExcel\ExcelHelper.cs" />
+    <Compile Include="CreateSheetsFromExcel\Forms.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\CreateSpace\CreateSpaceCmd.cs" />
-    <Compile Include="Commands\CreateSpace\CreateSpaceRequest.cs" />
-    <Compile Include="Commands\CreateSpace\CreateSpaceRequestHandler.cs" />
-    <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
-    <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
-    <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
-    <Compile Include="Commands\GridTools\GridToolsCmd.cs">
+    <Compile Include="CreateSpace\CreateSpaceCmd.cs" />
+    <Compile Include="CreateSpace\CreateSpaceRequest.cs" />
+    <Compile Include="CreateSpace\CreateSpaceRequestHandler.cs" />
+    <Compile Include="DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
+    <Compile Include="DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
+    <Compile Include="DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
+    <Compile Include="GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\ParamCopy\App.cs" />
-    <Compile Include="Commands\ParamCopy\MultiValueConverter.cs" />
-    <Compile Include="Commands\ParamCopy\ParamCopyCmd.cs" />
-    <Compile Include="Commands\ParamCopy\ParamCopyRequest.cs" />
-    <Compile Include="Commands\ParamCopy\ParamCopyRequestHandler.cs" />
-    <Compile Include="Commands\ParamCopy\ParamCopyViewModel.cs" />
-    <Compile Include="Commands\ParamCopy\ParamCopyWpfWindow.xaml.cs">
+    <Compile Include="ParamCopy\App.cs" />
+    <Compile Include="ParamCopy\MultiValueConverter.cs" />
+    <Compile Include="ParamCopy\ParamCopyCmd.cs" />
+    <Compile Include="ParamCopy\ParamCopyRequest.cs" />
+    <Compile Include="ParamCopy\ParamCopyRequestHandler.cs" />
+    <Compile Include="ParamCopy\ParamCopyViewModel.cs" />
+    <Compile Include="ParamCopy\ParamCopyWpfWindow.xaml.cs">
       <DependentUpon>ParamCopyWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\ParamCopy\Properties\AssemblyInfo.cs" />
-    <Compile Include="Commands\ParamCopy\Properties\Resources.Designer.cs" />
-    <Compile Include="Commands\ParamCopy\RelayCommand.cs" />
-    <Compile Include="Commands\ParamCopy\Utils\ElementUtils.cs" />
-    <Compile Include="Commands\ParamCopy\Utils\ParamUtils.cs" />
-    <Compile Include="Commands\ParamCopy\Utils\WpfUtils.cs" />
-    <Compile Include="Commands\ParamCopy\ViewModelBase.cs" />
-    <Compile Include="Commands\RelayCommand.cs" />
-    <Compile Include="Commands\ScanAndModel\ScanAndModelCmd.cs" />
-    <Compile Include="Commands\ScanAndModel\ScanAndModelRequest.cs" />
-    <Compile Include="Commands\ScanAndModel\ScanAndModelRequestHandler.cs" />
-    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelCmd.cs" />
-    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelRequest.cs" />
-    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelRequestHandler.cs" />
-    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelCmd.cs" />
-    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelRequest.cs" />
-    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelRequestHandler.cs" />
-    <Compile Include="Commands\CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
-    <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
-    <Compile Include="Commands\DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
-    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameRequestHandler.cs" />
-    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameRequest.cs" />
-    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameCmd.cs" />
-    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameCmdTEST.cs" />
-    <Compile Include="Commands\ParameterAssignment\ParameterAssignmentForm .cs">
+    <Compile Include="ParamCopy\Properties\AssemblyInfo.cs" />
+    <Compile Include="ParamCopy\Properties\Resources.Designer.cs" />
+    <Compile Include="ParamCopy\RelayCommand.cs" />
+    <Compile Include="ParamCopy\Utils\ElementUtils.cs" />
+    <Compile Include="ParamCopy\Utils\ParamUtils.cs" />
+    <Compile Include="ParamCopy\Utils\WpfUtils.cs" />
+    <Compile Include="ParamCopy\ViewModelBase.cs" />
+    <Compile Include="ScanAndModel\ScanAndModelCmd.cs" />
+    <Compile Include="ScanAndModel\ScanAndModelRequest.cs" />
+    <Compile Include="ScanAndModel\ScanAndModelRequestHandler.cs" />
+    <Compile Include="ExportSchedulesToExcel\ExportSchedulesToExcelCmd.cs" />
+    <Compile Include="ExportSchedulesToExcel\ExportSchedulesToExcelRequest.cs" />
+    <Compile Include="ExportSchedulesToExcel\ExportSchedulesToExcelRequestHandler.cs" />
+    <Compile Include="FindDWGNotUseAndDel\FindDWGNotUseAndDelCmd.cs" />
+    <Compile Include="FindDWGNotUseAndDel\FindDWGNotUseAndDelRequest.cs" />
+    <Compile Include="FindDWGNotUseAndDel\FindDWGNotUseAndDelRequestHandler.cs" />
+    <Compile Include="CadImportReplaceTextType\CadImportReplaceTextTypeCmd.cs" />
+    <Compile Include="DuctPipePlaceholderAndFittings\ConvertPlaceholdersToDuctsAndPipesCmd.cs" />
+    <Compile Include="DuctPipePlaceholderAndFittings\ConvertDuctsAndPipesToPalceholdersCmd.cs" />
+    <Compile Include="PermissibleRangeFrame\PermissibleRangeFrameRequestHandler.cs" />
+    <Compile Include="PermissibleRangeFrame\PermissibleRangeFrameRequest.cs" />
+    <Compile Include="PermissibleRangeFrame\PermissibleRangeFrameCmd.cs" />
+    <Compile Include="PermissibleRangeFrame\PermissibleRangeFrameCmdTEST.cs" />
+    <Compile Include="ParameterAssignment\ParameterAssignmentForm .cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Commands\ParameterAssignment\ParameterAssignmentForm .Designer.cs">
+    <Compile Include="ParameterAssignment\ParameterAssignmentForm .Designer.cs">
       <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
     </Compile>
-    <Compile Include="Commands\PlaceElementsFromBlocksCmd - Copy.cs" />
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1Cmd.cs" />
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1Request.cs" />
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1RequestHandler.cs" />
-    <Compile Include="Commands\SelectElements\SelectElementsCmd.cs" />
-    <Compile Include="Commands\SelectElements\SelectElementsRequest.cs" />
-    <Compile Include="Commands\SelectElements\SelectElementsRequestHandler.cs" />
-    <Compile Include="Commands\PlaceElementsFromBlocksCmd.cs" />
-    <Compile Include="Commands\DuctPipePlaceholderAndFittings\PlaceDuctsAndPipesBaseonCadCmd.cs" />
-    <Compile Include="Commands\ParameterAssignment\ParameterAssignmentCmd.cs" />
-    <Compile Include="Commands\ExportSchedulesExcel.cs" />
-    <Compile Include="Commands\PermissibleRangeFrame\PreviewReportWindow.xaml.cs">
+    <Compile Include="TEST\PlaceElementsFromBlocksCmd - Copy.cs" />
+    <Compile Include="SelectElementsVer1\SelectElementsVer1Cmd.cs" />
+    <Compile Include="SelectElementsVer1\SelectElementsVer1Request.cs" />
+    <Compile Include="SelectElementsVer1\SelectElementsVer1RequestHandler.cs" />
+    <Compile Include="SelectElements\SelectElementsCmd.cs" />
+    <Compile Include="SelectElements\SelectElementsRequest.cs" />
+    <Compile Include="SelectElements\SelectElementsRequestHandler.cs" />
+    <Compile Include="TEST\PlaceElementsFromBlocksCmd.cs" />
+    <Compile Include="DuctPipePlaceholderAndFittings\PlaceDuctsAndPipesBaseonCadCmd.cs" />
+    <Compile Include="ParameterAssignment\ParameterAssignmentCmd.cs" />
+    <Compile Include="TEST\ExportSchedulesExcel.cs" />
+    <Compile Include="PermissibleRangeFrame\PreviewReportWindow.xaml.cs">
       <DependentUpon>PreviewReportWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\ScanAndModel\ScanAndModelWpfWindow.xaml.cs">
+    <Compile Include="ScanAndModel\ScanAndModelWpfWindow.xaml.cs">
       <DependentUpon>ScanAndModelWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelWpfWindow.xaml.cs">
+    <Compile Include="ExportSchedulesToExcel\ExportSchedulesToExcelWpfWindow.xaml.cs">
       <DependentUpon>ExportSchedulesToExcelWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameWpfWindow.xaml.cs">
+    <Compile Include="PermissibleRangeFrame\PermissibleRangeFrameWpfWindow.xaml.cs">
       <DependentUpon>PermissibleRangeFrameWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadWpfWindow.xaml.cs">
+    <Compile Include="PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadWpfWindow.xaml.cs">
       <DependentUpon>PlaceElementsFromBlocksCadWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseWpfWindow.xaml.cs">
+    <Compile Include="DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseWpfWindow.xaml.cs">
       <DependentUpon>DeleteTypeOfTextNotesDontUseWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelWpfWindow.xaml.cs">
+    <Compile Include="FindDWGNotUseAndDel\FindDWGNotUseAndDelWpfWindow.xaml.cs">
       <DependentUpon>FindDWGNotUseAndDelWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\AutoCreatePileFromCad\AutoCreatePileFromCadWpfWindow.xaml.cs">
+    <Compile Include="AutoCreatePileFromCad\AutoCreatePileFromCadWpfWindow.xaml.cs">
       <DependentUpon>AutoCreatePileFromCadWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1ReplaceTextWpfWindow.xaml.cs">
+    <Compile Include="SelectElementsVer1\SelectElementsVer1ReplaceTextWpfWindow.xaml.cs">
       <DependentUpon>SelectElementsVer1ReplaceTextWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1NumberingRuleWpfWindow.xaml.cs">
+    <Compile Include="SelectElementsVer1\SelectElementsVer1NumberingRuleWpfWindow.xaml.cs">
       <DependentUpon>SelectElementsVer1NumberingRuleWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\SelectElements\SelectElementsWpfWindow.xaml.cs">
+    <Compile Include="SelectElements\SelectElementsWpfWindow.xaml.cs">
       <DependentUpon>SelectElementsWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1WpfWindow.xaml.cs">
+    <Compile Include="SelectElementsVer1\SelectElementsVer1WpfWindow.xaml.cs">
       <DependentUpon>SelectElementsVer1WpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsWpfWindow.xaml.cs">
-      <DependentUpon>ChangeBwTypeAndInsWpfWindow.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempWpfWindow.xaml.cs">
+    <Compile Include="CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempWpfWindow.xaml.cs">
       <DependentUpon>CopySetOfFilterFromViewTempWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\CreateSpace\CreateSpaceWpfWindow.xaml.cs">
+    <Compile Include="CreateSpace\CreateSpaceWpfWindow.xaml.cs">
       <DependentUpon>CreateSpaceWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Commands\ImportExcelOrPdfCommand.cs" />
-    <Compile Include="Commands\EquipmentClassificationProcessor.cs" />
-    <Compile Include="Parameters\Define.cs" />
-    <Compile Include="Parameters\SKParameters.cs" />
-    <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadCmd.cs" />
-    <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequest.cs" />
-    <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequestHandler.cs" />
+    <Compile Include="TEST\ImportExcelOrPdfCommand.cs" />
+    <Compile Include="TEST\EquipmentClassificationProcessor.cs" />
+    <Compile Include="PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadCmd.cs" />
+    <Compile Include="PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequest.cs" />
+    <Compile Include="PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequestHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Test.cs" />
+    <Compile Include="TEST\Test.cs" />
     <Compile Include="Utils\APIDoc.cs" />
     <Compile Include="Utils\CadUtils.cs" />
     <Compile Include="Utils\CurveLoopHelperUtils.cs" />
@@ -278,20 +269,19 @@
     <Compile Include="Utils\TUnionUtils.cs" />
     <Compile Include="Utils\UnitUtils.cs" />
     <Compile Include="Utils\WpfUtils.cs" />
-    <Compile Include="Commands\ScanAndModel\ScanAndModelViewModel .cs" />
-    <Compile Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelViewModel .cs" />
-    <Compile Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameViewModel.cs" />
-    <Compile Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadViewModel.cs" />
-    <Compile Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseViewModel.cs" />
-    <Compile Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelViewModel.cs" />
-    <Compile Include="Commands\AutoCreatePileFromCad\AutoCreatePileFromCadViewModel.cs" />
-    <Compile Include="Commands\SelectElements\SelectElementsViewModel.cs" />
-    <Compile Include="Commands\SelectElementsVer1\SelectElementsVer1ViewModel.cs" />
-    <Compile Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempViewModel.cs" />
-    <Compile Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsViewModel.cs" />
-    <Compile Include="Commands\CreateSpace\CreateSpaceViewModel.cs" />
-    <Compile Include="ViewModel\RelayCommand.cs" />
-    <Compile Include="ViewModel\ViewModelBase.cs" />
+    <Compile Include="ScanAndModel\ScanAndModelViewModel .cs" />
+    <Compile Include="ExportSchedulesToExcel\ExportSchedulesToExcelViewModel .cs" />
+    <Compile Include="PermissibleRangeFrame\PermissibleRangeFrameViewModel.cs" />
+    <Compile Include="PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadViewModel.cs" />
+    <Compile Include="DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseViewModel.cs" />
+    <Compile Include="FindDWGNotUseAndDel\FindDWGNotUseAndDelViewModel.cs" />
+    <Compile Include="AutoCreatePileFromCad\AutoCreatePileFromCadViewModel.cs" />
+    <Compile Include="SelectElements\SelectElementsViewModel.cs" />
+    <Compile Include="SelectElementsVer1\SelectElementsVer1ViewModel.cs" />
+    <Compile Include="CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempViewModel.cs" />
+    <Compile Include="CreateSpace\CreateSpaceViewModel.cs" />
+    <Compile Include="Utils\RelayCommand.cs" />
+    <Compile Include="Utils\ViewModelBase.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -299,124 +289,76 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Commands\ParamCopy\ParamCopyWpfWindow.xaml">
+    <Page Include="ParamCopy\ParamCopyWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\PermissibleRangeFrame\PreviewReportWindow.xaml">
+    <Page Include="PermissibleRangeFrame\PreviewReportWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\ScanAndModel\ScanAndModelWpfWindow.xaml">
+    <Page Include="ScanAndModel\ScanAndModelWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\ExportSchedulesToExcel\ExportSchedulesToExcelWpfWindow.xaml">
+    <Page Include="ExportSchedulesToExcel\ExportSchedulesToExcelWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\PermissibleRangeFrame\PermissibleRangeFrameWpfWindow.xaml">
+    <Page Include="PermissibleRangeFrame\PermissibleRangeFrameWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadWpfWindow.xaml">
+    <Page Include="PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseWpfWindow.xaml">
+    <Page Include="DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\FindDWGNotUseAndDel\FindDWGNotUseAndDelWpfWindow.xaml">
+    <Page Include="FindDWGNotUseAndDel\FindDWGNotUseAndDelWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\AutoCreatePileFromCad\AutoCreatePileFromCadWpfWindow.xaml">
+    <Page Include="AutoCreatePileFromCad\AutoCreatePileFromCadWpfWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Commands\SelectElementsVer1\SelectElementsVer1ReplaceTextWpfWindow.xaml">
+    <Page Include="SelectElementsVer1\SelectElementsVer1ReplaceTextWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\SelectElementsVer1\SelectElementsVer1NumberingRuleWpfWindow.xaml">
+    <Page Include="SelectElementsVer1\SelectElementsVer1NumberingRuleWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\SelectElements\SelectElementsWpfWindow.xaml">
+    <Page Include="SelectElements\SelectElementsWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\SelectElementsVer1\SelectElementsVer1WpfWindow.xaml">
+    <Page Include="SelectElementsVer1\SelectElementsVer1WpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\ChangeBwTypeAndIns\ChangeBwTypeAndInsWpfWindow.xaml">
+    <Page Include="CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Commands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempWpfWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Commands\CreateSpace\CreateSpaceWpfWindow.xaml">
+    <Page Include="CreateSpace\CreateSpaceWpfWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="WPF\Resource\ButtonStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\CheckBoxStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\ComboBoxStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\DataGridStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\GroupBoxStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\ProgressBarStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\RadiobuttonStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\Styles.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\TextBoxStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="WPF\Resource\WrapPanelStyle.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Commands\ParamCopy\Resources\ParamCopy_16x16.png" />
-    <Resource Include="Commands\ParamCopy\Resources\ParamCopy_32x32.png" />
-    <Resource Include="Commands\ParamCopy\Resources\コピー_パラメータ_16px_R22.png" />
-    <Resource Include="Commands\ParamCopy\Resources\コピー_パラメータ_16px_R24_明.png" />
-    <Resource Include="Commands\ParamCopy\Resources\コピー_パラメータ_16px_R24_暗.png" />
-    <Resource Include="Commands\ParamCopy\Resources\コピー_パラメータ_32px_R22.png" />
-    <Resource Include="Commands\ParamCopy\Resources\コピー_パラメータ_32px_R24_明.png" />
-    <Resource Include="Commands\ParamCopy\Resources\コピー_パラメータ_32px_R24_暗.png" />
-    <Content Include="Forms\Resources\CreateGrids.png" />
-    <Content Include="Forms\Resources\DimensionGrids.png" />
-    <Resource Include="Resources\CreateGrids.png" />
-    <Resource Include="Resources\DimensionGrids.png" />
+    <Resource Include="ParamCopy\Resources\ParamCopy_16x16.png" />
+    <Resource Include="ParamCopy\Resources\ParamCopy_32x32.png" />
+    <Resource Include="ParamCopy\Resources\コピー_パラメータ_16px_R22.png" />
+    <Resource Include="ParamCopy\Resources\コピー_パラメータ_16px_R24_明.png" />
+    <Resource Include="ParamCopy\Resources\コピー_パラメータ_16px_R24_暗.png" />
+    <Resource Include="ParamCopy\Resources\コピー_パラメータ_32px_R22.png" />
+    <Resource Include="ParamCopy\Resources\コピー_パラメータ_32px_R24_明.png" />
+    <Resource Include="ParamCopy\Resources\コピー_パラメータ_32px_R24_暗.png" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML">
@@ -466,8 +408,8 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Commands\ParamCopy\Properties\Resources.resx" />
-    <EmbeddedResource Include="Commands\ParameterAssignment\ParameterAssignmentForm .resx">
+    <EmbeddedResource Include="ParamCopy\Properties\Resources.resx" />
+    <EmbeddedResource Include="ParameterAssignment\ParameterAssignmentForm .resx">
       <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>

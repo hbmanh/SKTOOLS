@@ -32,39 +32,39 @@ namespace SKToolsRibbon
 
             // GEN Panel
             AddButton(GENPanel, 
-                "CopySetOfFilterFromViewTempCmd", "Filter\nCopy", "SKRevitAddins.Commands.CopySetOfFilterFromViewTemp.CopySetOfFilterFromViewTempCmd", "CopySetOfFilterFromViewTemp.png");
+                "CopySetOfFilterFromViewTempCmd", "Filter\nCopy", "SKRevitAddins.CopySetOfFilterFromViewTemp.CopySetOfFilterFromViewTempCmd", "CopySetOfFilterFromViewTemp.png");
             AddButton(GENPanel, 
-                "SelectElementsVer1Cmd", "Elements\nNumbering", "SKRevitAddins.Commands.SelectElementsVer1.SelectElementsVer1Cmd", "SelectElements.png");
+                "SelectElementsVer1Cmd", "Elements\nNumbering", "SKRevitAddins.SelectElementsVer1.SelectElementsVer1Cmd", "SelectElements.png");
             AddButton(GENPanel, 
-                "ReplaceTextNoteFromCadExploreCmd", "TextNotes\nEditor", "SKRevitAddins.Commands.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
+                "ReplaceTextNoteFromCadExploreCmd", "TextNotes\nEditor", "SKRevitAddins.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
             AddButton(GENPanel, 
-                "ExportSchedulesToExcelCmd", "Schedules\nExport", "SKRevitAddins.Commands.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png");
+                "ExportSchedulesToExcelCmd", "Schedules\nExport", "SKRevitAddins.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png");
             AddButton(GENPanel, 
-                "ScanAndModelCmd", "PCL\nModel", "SKRevitAddins.Commands.ScanAndModel.ScanAndModelCmd", "ScanAndModel.png");
+                "ScanAndModelCmd", "PCL\nModel", "SKRevitAddins.ScanAndModel.ScanAndModelCmd", "ScanAndModel.png");
             AddButton(GENPanel, 
-                "CreateSheetsFromExcelCmd", "Sheet\nCreate", "SKRevitAddins.Commands.CreateSheetsFromExcel.CreateSheetsFromExcelCmd", "CreateSheetsFromExcel.png");
+                "CreateSheetsFromExcelCmd", "Sheet\nCreate", "SKRevitAddins.CreateSheetsFromExcel.CreateSheetsFromExcelCmd", "CreateSheetsFromExcel.png");
             AddButton(GENPanel,
-                "GridToolsCmd", "Grid\nTools", "SKRevitAddins.Commands.GridTools.GridToolsCmd", "GridTools.png");
+                "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
             // CAD Panel
             AddButton(CADPanel, 
-                "PlaceElementsFromBlocksCadCmd", "EleFrB\nCreate", "SKRevitAddins.Commands.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png", "Creeate elements from Blocks");
+                "PlaceElementsFromBlocksCadCmd", "EleFrB\nCreate", "SKRevitAddins.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png", "Creeate elements from Blocks");
             AddButton(CADPanel, 
-                "FindDWGNotUseAndDelCmd", "CADFind\nDelete", "SKRevitAddins.Commands.FindDWGNotUseAndDel.FindDWGNotUseAndDelCmd", "FindDWGNotUsed.png", "Find DWG and Delete");
+                "FindDWGNotUseAndDelCmd", "CADFind\nDelete", "SKRevitAddins.FindDWGNotUseAndDel.FindDWGNotUseAndDelCmd", "FindDWGNotUsed.png", "Find DWG and Delete");
             AddButton(CADPanel, 
-                "AutoCreatePileFromCadCmd", "Piles\n Create", "SKRevitAddins.Commands.AutoCreatePileFromCad.AutoCreatePileFromCadCmd", "PileFCADCreate.png", "Create Pile From DWG");
+                "AutoCreatePileFromCadCmd", "Piles\n Create", "SKRevitAddins.AutoCreatePileFromCad.AutoCreatePileFromCadCmd", "PileFCADCreate.png", "Create Pile From DWG");
             AddButton(GENPanel,
-                "DWGExportCmd", "DWG\nExport", "SKRevitAddins.Commands.DWGExport.DWGExportCmd", "DWGExport.png");
+                "DWGExportCmd", "DWG\nExport", "SKRevitAddins.DWGExport.DWGExportCmd", "DWGExport.png");
             AddButton(GENPanel,
-                "LayoutsToDWGCmd", "Layout\nExport", "SKRevitAddins.Commands.LayoutsToDWG.LayoutsToDWGCmd", "DWGExport.png");
+                "LayoutsToDWGCmd", "Layout\nExport", "SKRevitAddins.LayoutsToDWG.LayoutsToDWGCmd", "DWGExport.png");
             // MEP Panel
             AddButton(MEPPanel, 
-                "PlaceDuctsAndPipesBaseonCadCmd", "Duct・Pipes\n Create", "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.PlaceDuctsAndPipesBaseonCadCmd", "PlaceDuctsAndPipesBaseonCad.png", "Create Duct/ Pipes from DWG");
+                "PlaceDuctsAndPipesBaseonCadCmd", "Duct・Pipes\n Create", "SKRevitAddins.DuctPipePlaceholderAndFittings.PlaceDuctsAndPipesBaseonCadCmd", "PlaceDuctsAndPipesBaseonCad.png", "Create Duct/ Pipes from DWG");
             AddButton(MEPPanel, 
-                "ConvertDuctsAndPipesToPlaceholdersCmd", "Duct・Pipes\n Convert", "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.ConvertDuctsAndPipesToPlaceholdersCmd", "ConvertDuctsAndPipesToPalceholders.png");
+                "ConvertDuctsAndPipesToPlaceholdersCmd", "Duct・Pipes\n Convert", "SKRevitAddins.DuctPipePlaceholderAndFittings.ConvertDuctsAndPipesToPlaceholdersCmd", "ConvertDuctsAndPipesToPalceholders.png");
             AddButton(MEPPanel, 
-                "ConvertPlaceholdersToDuctsAndPipesCmd", "Placeholders\n Convert", "SKRevitAddins.Commands.DuctPipePlaceholderAndFittings.ConvertPlaceholdersToDuctsAndPipesCmd", "ConvertPlaceholdersToDuctsAndPipes.png");
+                "ConvertPlaceholdersToDuctsAndPipesCmd", "Placeholders\n Convert", "SKRevitAddins.DuctPipePlaceholderAndFittings.ConvertPlaceholdersToDuctsAndPipesCmd", "ConvertPlaceholdersToDuctsAndPipes.png");
             AddButton(MEPPanel, 
-                "IntersectWithFrameCmd", "Permissible\n Check", "SKRevitAddins.Commands.PermissibleRangeFrame.PermissibleRangeFrameCmd", "PermissibleRangeFramePunching.png");
+                "IntersectWithFrameCmd", "Permissible\n Check", "SKRevitAddins.PermissibleRangeFrame.PermissibleRangeFrameCmd", "PermissibleRangeFramePunching.png");
         }
     }
 }
