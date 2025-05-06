@@ -221,7 +221,7 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             // 👉 VALIDATE định dạng file
             if (!LayerExportHelper.IsValidLayerMappingFile(filePath))
             {
-                TaskDialog.Show("Lỗi", "File layer mapping không hợp lệ. Vui lòng kiểm tra định dạng.");
+                TaskDialog.Show("Lỗi", "File layer‑mapping không hợp lệ.");
                 return;
             }
 
