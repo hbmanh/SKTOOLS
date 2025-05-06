@@ -6,7 +6,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using SKRevitAddins.Utils;        // RelayCommand
+using SKRevitAddins.Utils;
+using Microsoft.VisualBasic;
+
 
 namespace SKRevitAddins.LayoutsToDWG.ViewModel
 {
@@ -72,6 +74,8 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
                 ?? TitleblockParams.Skip(1).FirstOrDefault();
 
             ExportLayerSettingsCmd = new RelayCommand(_ => ExportLayerSettings());
+            ImportLayerSettingsCmd = new RelayCommand(_ => ImportLayerSettings());
+
         }
 
         //── Collections ─────────────────────────────────────────
@@ -126,12 +130,138 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
 
         //──────── ICommand: Export layer settings ───────────────
         public ICommand ExportLayerSettingsCmd { get; }
+        public ICommand ImportLayerSettingsCmd { get; }
 
         void ExportLayerSettings()
         {
-            TaskDialog.Show("Export Layer Settings",
-                            "Chức năng đang được phát triển.");
+            if (string.IsNullOrWhiteSpace(SelectedExportSetup))
+            {
+                TaskDialog.Show("Export Layer Settings", "Vui lòng chọn một Export Setup.");
+                return;
+            }
+
+            // Chọn nơi lưu file
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Save Layer Mapping",
+                Filter = "Text File (*.txt)|*.txt",
+                FileName = $"LayerMapping_{SelectedExportSetup}.txt"
+            };
+
+            if (dlg.ShowDialog() != true)
+                return;
+
+            try
+            {
+                LayerExportHelper.ExportLayerMappingToTxt(Doc, SelectedExportSetup, dlg.FileName);
+                TaskDialog.Show("Export Completed", $"Đã xuất bảng layer thành công:\n{dlg.FileName}");
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Error", ex.Message);
+            }
         }
+
+        void ImportLayerSettings()
+        {
+            string setupName = SelectedExportSetup;
+
+            // Nếu chưa chọn, hỏi người dùng đặt tên
+            if (string.IsNullOrWhiteSpace(setupName))
+            {
+                var input = Microsoft.VisualBasic.Interaction.InputBox(
+                    "Bạn chưa chọn Export Setup. Vui lòng nhập tên để tạo mới:",
+                    "Tạo Export Setup mới",
+                    "MyExportSetup");
+
+                if (string.IsNullOrWhiteSpace(input))
+                    return;
+
+                setupName = input;
+
+                using (Transaction tx = new Transaction(Doc, "Create DWG Export Setup"))
+                {
+                    tx.Start();
+
+                    var existing = new FilteredElementCollector(Doc)
+                        .OfClass(typeof(ExportDWGSettings))
+                        .Cast<ExportDWGSettings>()
+                        .FirstOrDefault(x => x.Name == setupName);
+
+                    if (existing == null)
+                        ExportDWGSettings.Create(Doc, setupName);
+
+                    tx.Commit();
+                }
+
+                // 👉 REFRESH danh sách ExportSetups sau khi tạo mới
+                ExportSetups.Clear();
+                foreach (var s in new FilteredElementCollector(Doc)
+                                    .OfClass(typeof(ExportDWGSettings))
+                                    .Cast<ExportDWGSettings>()
+                                    .Select(x => x.Name)
+                                    .OrderBy(n => n))
+                    ExportSetups.Add(s);
+
+                SelectedExportSetup = setupName;
+            }
+
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Chọn file .txt để import layer mapping",
+                Filter = "Layer Mapping (*.txt)|*.txt",
+                DefaultExt = ".txt"
+            };
+
+            if (dlg.ShowDialog() != true)
+                return;
+
+            string filePath = dlg.FileName;
+
+            // 👉 VALIDATE định dạng file
+            if (!LayerExportHelper.IsValidLayerMappingFile(filePath))
+            {
+                TaskDialog.Show("Lỗi", "File layer mapping không hợp lệ. Vui lòng kiểm tra định dạng.");
+                return;
+            }
+
+            try
+            {
+                var dwgSettings = new FilteredElementCollector(Doc)
+                    .OfClass(typeof(ExportDWGSettings))
+                    .Cast<ExportDWGSettings>()
+                    .FirstOrDefault(x => x.Name == SelectedExportSetup);
+
+                if (dwgSettings == null)
+                {
+                    TaskDialog.Show("Error", $"Không tìm thấy export setup: {SelectedExportSetup}");
+                    return;
+                }
+
+                using (Transaction tx = new Transaction(Doc, "Import Layer Mapping"))
+                {
+                    tx.Start();
+
+                    var dwgOptions = dwgSettings.GetDWGExportOptions();
+
+                    ((BaseExportOptions)dwgOptions).LayerMapping = filePath;
+
+                    var layerTable = dwgOptions.GetExportLayerTable();
+                    ((BaseExportOptions)dwgOptions).SetExportLayerTable(layerTable);
+
+                    dwgSettings.SetDWGExportOptions(dwgOptions);
+
+                    tx.Commit();
+                }
+
+                TaskDialog.Show("Import Layer Settings", "Đã import layer mapping thành công.");
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Lỗi", ex.Message);
+            }
+        }
+
 
         //───────────────────────── 4.  Helper methods ───────────
         void LoadSheetSets()
@@ -151,23 +281,27 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             if (string.IsNullOrEmpty(SelectedSheetSet)) return;
 
             var set = new FilteredElementCollector(Doc)
-                        .OfClass(typeof(ViewSheetSet))
-                        .Cast<ViewSheetSet>()
-                        .FirstOrDefault(s => s.Name == SelectedSheetSet);
+                .OfClass(typeof(ViewSheetSet))
+                .Cast<ViewSheetSet>()
+                .FirstOrDefault(s => s.Name == SelectedSheetSet);
             if (set == null) return;
 
             SheetItems.Clear();
             int idx = 1;
-            foreach (var vs in set.Views.Cast<ViewSheet>().OrderBy(v => v.SheetNumber))
+
+            foreach (var view in set.Views)
             {
-                SheetItems.Add(new SheetItem
+                if (view is ViewSheet vs)
                 {
-                    Sheet = vs,
-                    SheetNumber = vs.SheetNumber,
-                    SheetName = vs.Name,
-                    Order = idx++,
-                    IsSelected = true
-                });
+                    SheetItems.Add(new SheetItem
+                    {
+                        Sheet = vs,
+                        SheetNumber = vs.SheetNumber,
+                        SheetName = vs.Name,
+                        Order = idx++,
+                        IsSelected = true
+                    });
+                }
             }
         }
 

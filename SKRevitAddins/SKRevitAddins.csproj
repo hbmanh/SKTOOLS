@@ -71,6 +71,7 @@
       <HintPath>..\packages\Microsoft.Extensions.Primitives.8.0.0\lib\net462\Microsoft.Extensions.Primitives.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="RevitAPI">
@@ -146,6 +147,7 @@
     <Compile Include="GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="LayoutsToDWG\LayerExportHelper.cs" />
     <Compile Include="LayoutsToDWG\LayoutsToDWGWindow.xaml.cs">
       <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
     </Compile>

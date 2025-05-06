@@ -144,13 +144,19 @@
                 </StackPanel>
             </GroupBox>
 
-            <!-- EXPORT LAYER SETTINGS -->
-            <DockPanel Margin="0,0,0,10">
+            <!-- EXPORT/ IMPORT LAYER SETTINGS -->
+            <DockPanel Margin="0,0,0,10" HorizontalAlignment="Center">
                 <Button Content="EXPORT LAYER SETTINGS"
-                        Width="200" Height="25" Margin="50,0,0,0"
+                        Width="200" Height="25" Margin="10,0"
                         Background="#3399FF" Foreground="White"
                         Command="{Binding ExportLayerSettingsCmd}"/>
+
+                <Button Content="IMPORT LAYER SETTINGS"
+                        Width="200" Height="25" Margin="10,0"
+                        Background="#4CAF50" Foreground="White"
+                        Command="{Binding ImportLayerSettingsCmd}"/>
             </DockPanel>
+
 
             <!-- Open folder -->
             <CheckBox Content="Open folder after export"
