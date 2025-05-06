@@ -3,7 +3,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Collections.Generic;
 
 namespace SKRevitAddins.LayoutsToDWG
 {
@@ -28,7 +27,7 @@ namespace SKRevitAddins.LayoutsToDWG
             string[] skipExts = { ".dwg", ".dxf", ".nwc", ".nwd", ".ifc" };
 
             var sb = new StringBuilder(8192);
-            sb.AppendLine("# MLabs - Revit Export Layers");
+            sb.AppendLine("# shinken - Revit Export Layers");            // <‑‑ CHANGED
             sb.AppendLine("# Maps Categories and Subcategories to layer names and color numbers");
             sb.AppendLine("# Category <> Subcategory <> Layer name <> Color number <> Cut layer name <> Cut color number");
             sb.AppendLine("# -----------------------------------------------------");

@@ -1,14 +1,16 @@
-﻿using Autodesk.Revit.DB;
+﻿// LayoutsToDWGViewModel.cs
+//----------------------------------------------------------------
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Microsoft.Win32;
 using SKRevitAddins.Utils;
-using Microsoft.VisualBasic;
-
 
 namespace SKRevitAddins.LayoutsToDWG.ViewModel
 {
@@ -29,10 +31,18 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
         public string SheetName { get; set; }
 
         bool _isSel;
-        public bool IsSelected { get => _isSel; set { _isSel = value; OnPropertyChanged(); } }
+        public bool IsSelected
+        {
+            get => _isSel;
+            set { _isSel = value; OnPropertyChanged(); }
+        }
 
         int _order;
-        public int Order { get => _order; set { _order = value; OnPropertyChanged(); } }
+        public int Order
+        {
+            get => _order;
+            set { _order = value; OnPropertyChanged(); }
+        }
     }
 
     //───────────────────────── 3.  MAIN ViewModel  ───────────────
@@ -50,7 +60,7 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             SheetSets = new ObservableCollection<string>();
             ExportSetups = new ObservableCollection<string>();
 
-            // DWG Export setups
+            // DWG Export setups hiện có
             foreach (var s in new FilteredElementCollector(Doc)
                                 .OfClass(typeof(ExportDWGSettings))
                                 .Cast<ExportDWGSettings>()
@@ -64,7 +74,7 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             LoadSheetSets();
             LoadTitleblockParams();          // populate TitleblockParams
 
-            //──‑‑‑‑‑ Mặc định Middle/Ending ‑‑‑‑‑────────────────
+            //── Mặc định Middle/Ending ──────────────────────────
             SheetNumberParam = TitleblockParams
                 .FirstOrDefault(n => n.Equals("Sheet Number", StringComparison.OrdinalIgnoreCase))
                 ?? TitleblockParams.FirstOrDefault();
@@ -75,7 +85,6 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
 
             ExportLayerSettingsCmd = new RelayCommand(_ => ExportLayerSettings());
             ImportLayerSettingsCmd = new RelayCommand(_ => ImportLayerSettings());
-
         }
 
         //── Collections ─────────────────────────────────────────
@@ -128,33 +137,37 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             set { _sheetNameParam = value; OnPropertyChanged(); }
         }
 
-        //──────── ICommand: Export layer settings ───────────────
+        //──────── ICommand: Export / Import Layer Settings ──────
         public ICommand ExportLayerSettingsCmd { get; }
         public ICommand ImportLayerSettingsCmd { get; }
 
+        //=================================================================
+        //  A. EXPORT layer‑mapping  (file = <Tên Setup>.txt)
+        //=================================================================
         void ExportLayerSettings()
         {
             if (string.IsNullOrWhiteSpace(SelectedExportSetup))
             {
-                TaskDialog.Show("Export Layer Settings", "Vui lòng chọn một Export Setup.");
+                TaskDialog.Show("Export Layer Settings",
+                                "Vui lòng chọn một Export Setup.");
                 return;
             }
 
-            // Chọn nơi lưu file
-            var dlg = new Microsoft.Win32.SaveFileDialog
+            var dlg = new SaveFileDialog
             {
                 Title = "Save Layer Mapping",
                 Filter = "Text File (*.txt)|*.txt",
-                FileName = $"LayerMapping_{SelectedExportSetup}.txt"
+                FileName = $"{SelectedExportSetup}.txt"          // CHANGED
             };
-
-            if (dlg.ShowDialog() != true)
-                return;
+            if (dlg.ShowDialog() != true) return;
 
             try
             {
-                LayerExportHelper.ExportLayerMappingToTxt(Doc, SelectedExportSetup, dlg.FileName);
-                TaskDialog.Show("Export Completed", $"Đã xuất bảng layer thành công:\n{dlg.FileName}");
+                LayerExportHelper.ExportLayerMappingToTxt(
+                    Doc, SelectedExportSetup, dlg.FileName);
+
+                TaskDialog.Show("Export Completed",
+                                $"Đã xuất bảng layer thành công:\n{dlg.FileName}");
             }
             catch (Exception ex)
             {
@@ -162,106 +175,60 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             }
         }
 
+        //=================================================================
+        //  B. IMPORT layer‑mapping
+        //     - setup tồn tại ➜ gán file .txt
+        //     - setup chưa có ➜ tạo mới tên = tên file rồi gán
+        //=================================================================
         void ImportLayerSettings()
         {
-            string setupName = SelectedExportSetup;
-
-            // Nếu chưa chọn, hỏi người dùng đặt tên
-            if (string.IsNullOrWhiteSpace(setupName))
-            {
-                var input = Microsoft.VisualBasic.Interaction.InputBox(
-                    "Bạn chưa chọn Export Setup. Vui lòng nhập tên để tạo mới:",
-                    "Tạo Export Setup mới",
-                    "MyExportSetup");
-
-                if (string.IsNullOrWhiteSpace(input))
-                    return;
-
-                setupName = input;
-
-                using (Transaction tx = new Transaction(Doc, "Create DWG Export Setup"))
-                {
-                    tx.Start();
-
-                    var existing = new FilteredElementCollector(Doc)
-                        .OfClass(typeof(ExportDWGSettings))
-                        .Cast<ExportDWGSettings>()
-                        .FirstOrDefault(x => x.Name == setupName);
-
-                    if (existing == null)
-                        ExportDWGSettings.Create(Doc, setupName);
-
-                    tx.Commit();
-                }
-
-                // 👉 REFRESH danh sách ExportSetups sau khi tạo mới
-                ExportSetups.Clear();
-                foreach (var s in new FilteredElementCollector(Doc)
-                                    .OfClass(typeof(ExportDWGSettings))
-                                    .Cast<ExportDWGSettings>()
-                                    .Select(x => x.Name)
-                                    .OrderBy(n => n))
-                    ExportSetups.Add(s);
-
-                SelectedExportSetup = setupName;
-            }
-
-            var dlg = new Microsoft.Win32.OpenFileDialog
+            // ➊ Chọn file trước
+            var dlg = new OpenFileDialog
             {
                 Title = "Chọn file .txt để import layer mapping",
                 Filter = "Layer Mapping (*.txt)|*.txt",
                 DefaultExt = ".txt"
             };
-
-            if (dlg.ShowDialog() != true)
-                return;
+            if (dlg.ShowDialog() != true) return;
 
             string filePath = dlg.FileName;
+            string setupName = Path.GetFileNameWithoutExtension(filePath);
 
-            // 👉 VALIDATE định dạng file
+            // ➋ Validate file
             if (!LayerExportHelper.IsValidLayerMappingFile(filePath))
             {
                 TaskDialog.Show("Lỗi", "File layer‑mapping không hợp lệ.");
                 return;
             }
 
-            try
+            // ➌ Tìm hoặc tạo ExportDWGSettings
+            ExportDWGSettings dwgSettings = new FilteredElementCollector(Doc)
+                .OfClass(typeof(ExportDWGSettings))
+                .Cast<ExportDWGSettings>()
+                .FirstOrDefault(x => x.Name == setupName);
+
+            using (var tx = new Transaction(Doc, "Import Layer Mapping"))
             {
-                var dwgSettings = new FilteredElementCollector(Doc)
-                    .OfClass(typeof(ExportDWGSettings))
-                    .Cast<ExportDWGSettings>()
-                    .FirstOrDefault(x => x.Name == SelectedExportSetup);
+                tx.Start();
 
                 if (dwgSettings == null)
-                {
-                    TaskDialog.Show("Error", $"Không tìm thấy export setup: {SelectedExportSetup}");
-                    return;
-                }
+                    dwgSettings = ExportDWGSettings.Create(Doc, setupName);
 
-                using (Transaction tx = new Transaction(Doc, "Import Layer Mapping"))
-                {
-                    tx.Start();
+                var opt = dwgSettings.GetDWGExportOptions();
+                ((BaseExportOptions)opt).LayerMapping = filePath;   // gán file
+                dwgSettings.SetDWGExportOptions(opt);
 
-                    var dwgOptions = dwgSettings.GetDWGExportOptions();
-
-                    ((BaseExportOptions)dwgOptions).LayerMapping = filePath;
-
-                    var layerTable = dwgOptions.GetExportLayerTable();
-                    ((BaseExportOptions)dwgOptions).SetExportLayerTable(layerTable);
-
-                    dwgSettings.SetDWGExportOptions(dwgOptions);
-
-                    tx.Commit();
-                }
-
-                TaskDialog.Show("Import Layer Settings", "Đã import layer mapping thành công.");
+                tx.Commit();
             }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("Lỗi", ex.Message);
-            }
+
+            // ➍ Cập nhật UI
+            if (!ExportSetups.Contains(setupName))
+                ExportSetups.Add(setupName);
+            SelectedExportSetup = setupName;
+
+            TaskDialog.Show("Import Layer Settings",
+                            $"Đã import layer mapping cho setup “{setupName}” thành công.");
         }
-
 
         //───────────────────────── 4.  Helper methods ───────────
         void LoadSheetSets()
@@ -307,7 +274,6 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
 
         void LoadTitleblockParams()
         {
-            // Lấy 1 titleblock bất kỳ để liệt kê Parameter
             var tb = new FilteredElementCollector(Doc)
                         .OfClass(typeof(FamilyInstance))
                         .Cast<FamilyInstance>()
