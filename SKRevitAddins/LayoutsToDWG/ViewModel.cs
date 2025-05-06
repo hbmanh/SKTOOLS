@@ -1,6 +1,4 @@
-﻿// LayoutsToDWGViewModel.cs
-//----------------------------------------------------------------
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.ObjectModel;
@@ -14,7 +12,6 @@ using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.LayoutsToDWG.ViewModel
 {
-    //───────────────────────── 1.  Base  ─────────────────────────
     public class ViewModelBase : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -22,78 +19,60 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     }
 
-    //───────────────────────── 2.  Item cho DataGrid  ────────────
     public class SheetItem : ViewModelBase
     {
-        public ViewSheet Sheet { get; set; }
-        public ElementId SheetId => Sheet?.Id;
-        public string SheetNumber { get; set; }
-        public string SheetName { get; set; }
-
-        bool _isSel;
-        public bool IsSelected
+        public SheetItem(ViewSheet sheet, string num, string name)
         {
-            get => _isSel;
-            set { _isSel = value; OnPropertyChanged(); }
+            Sheet = sheet;
+            SheetNumber = num;
+            SheetName = name;
         }
+
+        public ViewSheet Sheet { get; }
+        public string SheetNumber { get; }
+        public string SheetName { get; }
+
+        bool _isSel = true;
+        public bool IsSelected { get => _isSel; set { _isSel = value; OnPropertyChanged(); } }
 
         int _order;
-        public int Order
-        {
-            get => _order;
-            set { _order = value; OnPropertyChanged(); }
-        }
+        public int Order { get => _order; set { _order = value; OnPropertyChanged(); } }
     }
 
-    //───────────────────────── 3.  MAIN ViewModel  ───────────────
     public class LayoutsToDWGViewModel : ViewModelBase
     {
         readonly UIDocument _uiDoc;
-        public Document Doc => _uiDoc.Document;
+        Document Doc => _uiDoc.Document;
 
-        //── ctor ────────────────────────────────────────────────
+        readonly ExportSheetsHandler _handler = new();
+        readonly ExternalEvent _evt;
+
         public LayoutsToDWGViewModel(UIDocument uiDoc)
         {
             _uiDoc = uiDoc;
+            _evt = ExternalEvent.Create(_handler);
 
-            SheetItems = new ObservableCollection<SheetItem>();
-            SheetSets = new ObservableCollection<string>();
-            ExportSetups = new ObservableCollection<string>();
-
-            // DWG Export setups hiện có
-            foreach (var s in new FilteredElementCollector(Doc)
-                                .OfClass(typeof(ExportDWGSettings))
-                                .Cast<ExportDWGSettings>()
-                                .Select(x => x.Name)
-                                .OrderBy(n => n))
-                ExportSetups.Add(s);
-
-            SelectedExportSetup = ExportSetups.FirstOrDefault();
-            OpenFolderAfterExport = true;
-
+            LoadExportSetups();
             LoadSheetSets();
-            LoadTitleblockParams();          // populate TitleblockParams
+            LoadTitleblockParams();
 
-            //── Mặc định Middle/Ending ──────────────────────────
-            SheetNumberParam = TitleblockParams
-                .FirstOrDefault(n => n.Equals("Sheet Number", StringComparison.OrdinalIgnoreCase))
-                ?? TitleblockParams.FirstOrDefault();
-
-            SheetNameParam = TitleblockParams
-                .FirstOrDefault(n => n.Equals("Sheet Name", StringComparison.OrdinalIgnoreCase))
-                ?? TitleblockParams.Skip(1).FirstOrDefault();
-
-            ExportLayerSettingsCmd = new RelayCommand(_ => ExportLayerSettings());
-            ImportLayerSettingsCmd = new RelayCommand(_ => ImportLayerSettings());
+            BrowseFolderCmd = new RelayCommand(_ => BrowseFolder());
+            ExportLayerCmd = new RelayCommand(_ => ExportLayerMapping());
+            StartExportSheetsCmd = new RelayCommand(_ => StartExport());
         }
 
-        //── Collections ─────────────────────────────────────────
-        public ObservableCollection<SheetItem> SheetItems { get; }
-        public ObservableCollection<string> SheetSets { get; }
-        public ObservableCollection<string> ExportSetups { get; }
+        //──────────────── Collections ──────────────────────────
+        public ObservableCollection<string> ExportSetups { get; } = new();
+        public ObservableCollection<string> SheetSets { get; } = new();
+        public ObservableCollection<SheetItem> SheetItems { get; } = new();
         public ObservableCollection<string> TitleblockParams { get; } = new();
 
-        //── Sheet‑set lựa chọn ──────────────────────────────────
+        //──────────────── Bindable props ───────────────────────
+        public string SelectedExportSetup { get; set; }
+
+        string _exportPath;
+        public string ExportPath { get => _exportPath; set { _exportPath = value; OnPropertyChanged(); } }
+
         string _selSet;
         public string SelectedSheetSet
         {
@@ -101,55 +80,33 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             set { _selSet = value; OnPropertyChanged(); LoadSheetsFromSet(); }
         }
 
-        //── DWG export setup ────────────────────────────────────
-        public string SelectedExportSetup { get; set; }
-
-        //── Export path ─────────────────────────────────────────
-        string _exportPath;
-        public string ExportPath
-        {
-            get => _exportPath;
-            set { _exportPath = value; OnPropertyChanged(); }
-        }
-
-        //── Mở Explorer sau export ──────────────────────────────
-        bool _openFolder;
-        public bool OpenFolderAfterExport
-        {
-            get => _openFolder;
-            set { _openFolder = value; OnPropertyChanged(); }
-        }
-
-        //──────── FILE NAME STRUCTURE ───────────────────────────
         public string Prefix { get; set; }
+        public string SheetNumberParam { get; set; }
+        public string SheetNameParam { get; set; }
+        public bool OpenFolderAfterExport { get; set; } = true;
 
-        string _sheetNumParam;
-        public string SheetNumberParam
+        bool _isBusy;
+        public bool IsBusy { get => _isBusy; set { _isBusy = value; OnPropertyChanged(); } }
+
+        //──────────────── Commands ─────────────────────────────
+        public ICommand BrowseFolderCmd { get; }
+        public ICommand ExportLayerCmd { get; }
+        public ICommand StartExportSheetsCmd { get; }
+
+        //──────────────── Browse folder ───────────────────────
+        void BrowseFolder()
         {
-            get => _sheetNumParam;
-            set { _sheetNumParam = value; OnPropertyChanged(); }
+            var dlg = new System.Windows.Forms.FolderBrowserDialog();
+            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                ExportPath = dlg.SelectedPath;
         }
 
-        string _sheetNameParam;
-        public string SheetNameParam
-        {
-            get => _sheetNameParam;
-            set { _sheetNameParam = value; OnPropertyChanged(); }
-        }
-
-        //──────── ICommand: Export / Import Layer Settings ──────
-        public ICommand ExportLayerSettingsCmd { get; }
-        public ICommand ImportLayerSettingsCmd { get; }
-
-        //=================================================================
-        //  A. EXPORT layer‑mapping  (file = <Tên Setup>.txt)
-        //=================================================================
-        void ExportLayerSettings()
+        //──────────────── Export layer mapping ────────────────
+        void ExportLayerMapping()
         {
             if (string.IsNullOrWhiteSpace(SelectedExportSetup))
             {
-                TaskDialog.Show("Export Layer Settings",
-                                "Vui lòng chọn một Export Setup.");
+                TaskDialog.Show("Export Layer Settings", "Vui lòng chọn Export Setup.");
                 return;
             }
 
@@ -157,89 +114,67 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             {
                 Title = "Save Layer Mapping",
                 Filter = "Text File (*.txt)|*.txt",
-                FileName = $"{SelectedExportSetup}.txt"          // CHANGED
+                FileName = $"{SelectedExportSetup}.txt"
             };
             if (dlg.ShowDialog() != true) return;
 
             try
             {
-                LayerExportHelper.ExportLayerMappingToTxt(
-                    Doc, SelectedExportSetup, dlg.FileName);
-
-                TaskDialog.Show("Export Completed",
-                                $"Đã xuất bảng layer thành công:\n{dlg.FileName}");
+                LayerExportHelper.WriteLayerMapping(Doc, SelectedExportSetup, dlg.FileName);
+                TaskDialog.Show("Completed", $"Đã xuất layer mapping:\n{dlg.FileName}");
             }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("Error", ex.Message);
-            }
+            catch (Exception ex) { TaskDialog.Show("Error", ex.Message); }
         }
 
-        //=================================================================
-        //  B. IMPORT layer‑mapping
-        //     - setup tồn tại ➜ gán file .txt
-        //     - setup chưa có ➜ tạo mới tên = tên file rồi gán
-        //=================================================================
-        void ImportLayerSettings()
+        //──────────────── Start export DWG ─────────────────────
+        void StartExport()
         {
-            // ➊ Chọn file trước
-            var dlg = new OpenFileDialog
-            {
-                Title = "Chọn file .txt để import layer mapping",
-                Filter = "Layer Mapping (*.txt)|*.txt",
-                DefaultExt = ".txt"
-            };
-            if (dlg.ShowDialog() != true) return;
+            var sel = SheetItems.Where(x => x.IsSelected).ToList();
+            if (!sel.Any()) { Msg("No sheet selected."); return; }
+            if (!Directory.Exists(ExportPath)) { Msg("Path invalid."); return; }
 
-            string filePath = dlg.FileName;
-            string setupName = Path.GetFileNameWithoutExtension(filePath);
-
-            // ➋ Validate file
-            if (!LayerExportHelper.IsValidLayerMappingFile(filePath))
+            try
             {
-                TaskDialog.Show("Lỗi", "File layer‑mapping không hợp lệ.");
-                return;
+                var dwgOpt = new FilteredElementCollector(Doc)
+                                .OfClass(typeof(ExportDWGSettings))
+                                .Cast<ExportDWGSettings>()
+                                .First(x => x.Name == SelectedExportSetup)
+                                .GetDWGExportOptions();
+
+                _handler.ViewIds = sel.Select(x => x.Sheet.Id).ToList();
+                _handler.TargetPath = ExportPath;
+                _handler.Options = dwgOpt;
+                _handler.FilePattern = $"{Prefix}-{{num}}_{{name}}";
+                _handler.OpenFolder = OpenFolderAfterExport;
+                _handler.BusySetter = v => IsBusy = v;
+
+                _evt.Raise();   // chạy trong API context
             }
-
-            // ➌ Tìm hoặc tạo ExportDWGSettings
-            ExportDWGSettings dwgSettings = new FilteredElementCollector(Doc)
-                .OfClass(typeof(ExportDWGSettings))
-                .Cast<ExportDWGSettings>()
-                .FirstOrDefault(x => x.Name == setupName);
-
-            using (var tx = new Transaction(Doc, "Import Layer Mapping"))
-            {
-                tx.Start();
-
-                if (dwgSettings == null)
-                    dwgSettings = ExportDWGSettings.Create(Doc, setupName);
-
-                var opt = dwgSettings.GetDWGExportOptions();
-                ((BaseExportOptions)opt).LayerMapping = filePath;   // gán file
-                dwgSettings.SetDWGExportOptions(opt);
-
-                tx.Commit();
-            }
-
-            // ➍ Cập nhật UI
-            if (!ExportSetups.Contains(setupName))
-                ExportSetups.Add(setupName);
-            SelectedExportSetup = setupName;
-
-            TaskDialog.Show("Import Layer Settings",
-                            $"Đã import layer mapping cho setup “{setupName}” thành công.");
+            catch (Exception ex) { Msg(ex.Message); }
         }
 
-        //───────────────────────── 4.  Helper methods ───────────
+        //──────────────── Helper load data ─────────────────────
+        void LoadExportSetups()
+        {
+            ExportSetups.Clear();
+            foreach (var n in new FilteredElementCollector(Doc)
+                                  .OfClass(typeof(ExportDWGSettings))
+                                  .Cast<ExportDWGSettings>()
+                                  .Select(x => x.Name)
+                                  .OrderBy(n => n))
+                ExportSetups.Add(n);
+            SelectedExportSetup = ExportSetups.FirstOrDefault();
+        }
+
         void LoadSheetSets()
         {
             SheetSets.Clear();
-            foreach (var s in new FilteredElementCollector(Doc)
+            foreach (var n in new FilteredElementCollector(Doc)
                                   .OfClass(typeof(ViewSheetSet))
                                   .Cast<ViewSheetSet>()
-                                  .OrderBy(s => s.Name))
-                SheetSets.Add(s.Name);
-
+                                  .OrderBy(s => s.Name)
+                                  .Select(s => s.Name))
+                SheetSets.Add(n);
             SelectedSheetSet = SheetSets.FirstOrDefault();
         }
 
@@ -248,45 +183,33 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             if (string.IsNullOrEmpty(SelectedSheetSet)) return;
 
             var set = new FilteredElementCollector(Doc)
-                .OfClass(typeof(ViewSheetSet))
-                .Cast<ViewSheetSet>()
-                .FirstOrDefault(s => s.Name == SelectedSheetSet);
+                        .OfClass(typeof(ViewSheetSet))
+                        .Cast<ViewSheetSet>()
+                        .FirstOrDefault(s => s.Name == SelectedSheetSet);
             if (set == null) return;
 
             SheetItems.Clear();
-            int idx = 1;
-
-            foreach (var view in set.Views)
-            {
-                if (view is ViewSheet vs)
-                {
-                    SheetItems.Add(new SheetItem
-                    {
-                        Sheet = vs,
-                        SheetNumber = vs.SheetNumber,
-                        SheetName = vs.Name,
-                        Order = idx++,
-                        IsSelected = true
-                    });
-                }
-            }
+            int order = 1;
+            foreach (var vs in set.Views.OfType<ViewSheet>())
+                SheetItems.Add(new SheetItem(vs, vs.SheetNumber, vs.Name) { Order = order++ });
         }
 
         void LoadTitleblockParams()
         {
             var tb = new FilteredElementCollector(Doc)
-                        .OfClass(typeof(FamilyInstance))
-                        .Cast<FamilyInstance>()
-                        .FirstOrDefault(fi => fi.Category?.Id.IntegerValue ==
-                                              (int)BuiltInCategory.OST_TitleBlocks);
+                       .OfClass(typeof(FamilyInstance))
+                       .Cast<FamilyInstance>()
+                       .FirstOrDefault(fi => fi.Category?.Id.IntegerValue ==
+                                             (int)BuiltInCategory.OST_TitleBlocks);
             if (tb == null) return;
 
             foreach (Parameter p in tb.Parameters)
-            {
-                string name = p.Definition.Name;
-                if (!TitleblockParams.Contains(name))
-                    TitleblockParams.Add(name);
-            }
+                TitleblockParams.Add(p.Definition.Name);
+
+            SheetNumberParam = TitleblockParams.FirstOrDefault();
+            SheetNameParam = TitleblockParams.Skip(1).FirstOrDefault();
         }
+
+        static void Msg(string t) => System.Windows.MessageBox.Show(t);
     }
 }

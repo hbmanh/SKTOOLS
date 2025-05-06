@@ -1,8 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using System;
-using System.Diagnostics;
-using System.IO;
+﻿using Autodesk.Revit.UI;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,14 +6,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using SKRevitAddins.LayoutsToDWG.ViewModel;
 using Point = System.Windows.Point;
-using SheetItem = SKRevitAddins.LayoutsToDWG.ViewModel.SheetItem;
-using WinForms = System.Windows.Forms;
 
 namespace SKRevitAddins.LayoutsToDWG
 {
-    /// <summary>
-    /// Interaction logic for LayoutsToDWGWindow.xaml
-    /// </summary>
+    /// <summary>Interaction logic for LayoutsToDWGWindow.xaml</summary>
     public partial class LayoutsToDWGWindow : Window
     {
         readonly LayoutsToDWGViewModel _vm;
@@ -30,66 +22,8 @@ namespace SKRevitAddins.LayoutsToDWG
             DataContext = _vm;
         }
 
-        //──────── Buttons ──────────────────────────────────────
+        //──────── Cancel ───────────────────────────────────────
         void Cancel_Click(object sender, RoutedEventArgs e) => Close();
-
-        void BrowseFolder_Click(object sender, RoutedEventArgs e)
-        {
-            using var dlg = new WinForms.FolderBrowserDialog();
-            if (dlg.ShowDialog() == WinForms.DialogResult.OK)
-                _vm.ExportPath = dlg.SelectedPath;
-        }
-
-        void Export_Click(object sender, RoutedEventArgs e)
-        {
-            var sheets = _vm.SheetItems.Where(x => x.IsSelected)
-                                       .OrderBy(x => x.Order)
-                                       .ToList();
-            if (!sheets.Any()) { Msg("No sheets selected."); return; }
-            if (!Directory.Exists(_vm.ExportPath)) { Msg("Path invalid."); return; }
-
-            try
-            {
-                var dwgOpt = new FilteredElementCollector(_vm.Doc)
-                    .OfClass(typeof(ExportDWGSettings))
-                    .Cast<ExportDWGSettings>()
-                    .First(x => x.Name == _vm.SelectedExportSetup)
-                    .GetDWGExportOptions();
-
-                foreach (var si in sheets)                // xuất từng sheet
-                {
-                    ViewSheet vs = si.Sheet;
-                    string numVal = GetParam(vs, _vm.SheetNumberParam);
-                    string nameVal = GetParam(vs, _vm.SheetNameParam);
-
-                    string fileName = $"{_vm.Prefix}-{numVal}_{nameVal}";
-                    fileName = SanitizeFileName(fileName);
-
-                    _vm.Doc.Export(_vm.ExportPath, fileName,
-                                   new[] { vs.Id }, dwgOpt);
-                }
-
-                if (_vm.OpenFolderAfterExport)
-                    Process.Start("explorer.exe", _vm.ExportPath);
-
-                Close();
-            }
-            catch (Exception ex) { Msg(ex.Message); }
-        }
-
-        static void Msg(string t) => System.Windows.MessageBox.Show(t);
-
-        //──────── Helper: lấy tham số titleblock ───────────────
-        static string GetParam(ViewSheet vs, string paramName)
-            => vs?.LookupParameter(paramName)?.AsString() ?? "";
-
-        //──────── Helper: tên file hợp lệ Win ──────────────────
-        static string SanitizeFileName(string s)
-        {
-            foreach (char c in Path.GetInvalidFileNameChars())
-                s = s.Replace(c, '_');
-            return s.Trim();
-        }
 
         //──────── Drag‑drop reorder ────────────────────────────
         void SheetDataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
