@@ -1,6 +1,8 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
+using SKRevitAddins.LayoutsToDWG;
+using SKRevitAddins.Utils;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -8,21 +10,16 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Data;
 using System.Windows.Input;
-using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.LayoutsToDWG.ViewModel
 {
-    #region ───────── Helpers ──────────────────────────────────
     public class InvertBoolConverter : System.Windows.Data.IValueConverter
     {
-        public object Convert(object v, Type t, object p, System.Globalization.CultureInfo c)
-            => !(bool)v;
-        public object ConvertBack(object v, Type t, object p, System.Globalization.CultureInfo c)
-            => !(bool)v;
+        public object Convert(object v, Type t, object p, System.Globalization.CultureInfo c) => !(bool)v;
+        public object ConvertBack(object v, Type t, object p, System.Globalization.CultureInfo c) => !(bool)v;
     }
 
     public class ViewModelBase : INotifyPropertyChanged
@@ -34,81 +31,81 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
 
     public class SheetItem : ViewModelBase
     {
-        public SheetItem(ViewSheet sheet) => Sheet = sheet;
+        public SheetItem(ViewSheet s) => Sheet = s;
         public ViewSheet Sheet { get; }
         public string SheetNumber => Sheet.SheetNumber;
         public string SheetName => Sheet.Name;
-
         bool _sel = true;
         public bool IsSelected { get => _sel; set { _sel = value; OnPropertyChanged(); } }
     }
 
-    internal static class SettingsHelper
+    public class FileNameItem : ViewModelBase
     {
-        const string FOLDER = "SheetsToDWG";
-        const string FILE = "settings.json";
+        public FileNameItem(string param, string sep)
+        { SelectedParam = param; Sep = sep; }
+        public string SelectedParam { get => _param; set { _param = value; OnPropertyChanged(); } }
+        public string Sep { get => _sep; set { _sep = value; OnPropertyChanged(); } }
+        string _param, _sep;
+    }
 
-        static string FullPath =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                         "Shinken", FOLDER, FILE);
-
-        internal class ExportSettings
+    class NaturalSheetComparer : IComparer<string>
+    {
+        static readonly Regex Rx = new(@"(\d+)|(\D+)", RegexOptions.Compiled);
+        public int Compare(string a, string b)
         {
-            public string Prefix { get; set; }
-            public string SheetNumberParam { get; set; }
-            public string SheetNameParam { get; set; }
-            public string ExportPath { get; set; }
-        }
-
-        public static ExportSettings Load()
-        {
-            try
+            if (a == null) return b == null ? 0 : -1;
+            if (b == null) return 1;
+            var ma = Rx.Matches(a);
+            var mb = Rx.Matches(b);
+            for (int i = 0; i < Math.Min(ma.Count, mb.Count); i++)
             {
-                if (File.Exists(FullPath))
-                    return JsonSerializer.Deserialize<ExportSettings>(File.ReadAllText(FullPath))
-                           ?? new ExportSettings();
+                var xa = ma[i].Value;
+                var xb = mb[i].Value;
+                if (int.TryParse(xa, out int na) && int.TryParse(xb, out int nb))
+                {
+                    int c = na.CompareTo(nb);
+                    if (c != 0) return c;
+                }
+                else
+                {
+                    int c = string.CompareOrdinal(xa, xb);
+                    if (c != 0) return c;
+                }
             }
-            catch { }
-            return new ExportSettings();
-        }
-
-        public static void Save(ExportSettings s)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(FullPath)!);
-            File.WriteAllText(FullPath, JsonSerializer.Serialize(s,
-                new JsonSerializerOptions { WriteIndented = true }));
+            return ma.Count.CompareTo(mb.Count);
         }
     }
-    #endregion
 
     public class LayoutsToDWGViewModel : ViewModelBase
     {
         readonly UIDocument _uiDoc;
-        readonly ExportSheetsHandler _handler = new();
+        readonly ExportSheetsHandler _handler;
         readonly ExternalEvent _evt;
-
         Document Doc => _uiDoc.Document;
 
         public LayoutsToDWGViewModel(UIDocument uiDoc)
         {
             _uiDoc = uiDoc;
+            _handler = new ExportSheetsHandler();
             _evt = ExternalEvent.Create(_handler);
 
             LoadExportSetups();
             LoadSheetSets();
-            LoadTitleblockParams();
-            LoadSaved();
+            LoadParamOptions();
+            InitFileNameItems();
+            LoadSavedSettings();
 
             BrowseFolderCmd = new RelayCommand(_ => BrowseFolder(), _ => !IsBusy);
             ExportLayerCmd = new RelayCommand(_ => ExportLayerMapping(), _ => !IsBusy);
             StartExportSheetsCmd = new RelayCommand(_ => StartExport(), _ => !IsBusy);
+            CancelCmd = new RelayCommand(_ => RequestClose?.Invoke());
         }
 
-        #region ─── Collections & bindable ─────────────────────
         public ObservableCollection<string> ExportSetups { get; } = new();
         public ObservableCollection<string> SheetSets { get; } = new();
         public ObservableCollection<SheetItem> SheetItems { get; } = new();
-        public ObservableCollection<string> TitleblockParams { get; } = new();
+        public ObservableCollection<FileNameItem> FileNameItems { get; } = new();
+        public ObservableCollection<string> ParamOptions { get; } = new();
 
         public string SelectedExportSetup { get; set; }
 
@@ -122,13 +119,7 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             set { _selSet = value; OnPropertyChanged(); LoadSheetsFromSet(); }
         }
 
-        public string Prefix { get; set; }
-        public string SheetNumberParam { get; set; }
-        public string SheetNameParam { get; set; }
         public bool OpenFolderAfterExport { get; set; } = true;
-
-        double _progress;
-        public double Progress { get => _progress; set { _progress = value; OnPropertyChanged(); } }
 
         bool _busy;
         public bool IsBusy
@@ -136,112 +127,157 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             get => _busy;
             set { _busy = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); }
         }
-        #endregion
 
-        #region ─── Commands ───────────────────────────────────
         public ICommand BrowseFolderCmd { get; }
         public ICommand ExportLayerCmd { get; }
         public ICommand StartExportSheetsCmd { get; }
-        #endregion
+        public ICommand CancelCmd { get; }
 
-        #region ─── Core: StartExport ─────────────────────────
+        public Action RequestClose { get; set; }
+        void LoadParamOptions()
+        {
+            ParamOptions.Clear();
+            var tb = new FilteredElementCollector(Doc)
+               .OfClass(typeof(FamilyInstance))
+               .Cast<FamilyInstance>()
+               .FirstOrDefault(fi => fi.Category?.Id.IntegerValue == (int)BuiltInCategory.OST_TitleBlocks);
+            if (tb != null)
+                foreach (Parameter p in tb.Parameters)
+                    if (!ParamOptions.Contains(p.Definition.Name))
+                        ParamOptions.Add(p.Definition.Name);
+
+            string[] def = {
+                "AWS Code-SP","AWS Originator-SP","AWS Zone-SP",
+                "AWS Level-SP","AWS Type-SP","Sheet Number","Sheet Name" };
+            foreach (string d in def.Reverse())
+                if (ParamOptions.Contains(d))
+                    ParamOptions.Move(ParamOptions.IndexOf(d), 0);
+                else
+                    ParamOptions.Insert(0, d);
+        }
+
+        void InitFileNameItems()
+        {
+            FileNameItems.Clear();
+            FileNameItems.Add(new FileNameItem("AWS Code-SP", "-"));
+            FileNameItems.Add(new FileNameItem("AWS Originator-SP", "-"));
+            FileNameItems.Add(new FileNameItem("AWS Zone-SP", "-"));
+            FileNameItems.Add(new FileNameItem("AWS Level-SP", "-"));
+            FileNameItems.Add(new FileNameItem("AWS Type-SP", "-"));
+            FileNameItems.Add(new FileNameItem("Sheet Number", "_"));
+            FileNameItems.Add(new FileNameItem("Sheet Name", ""));
+        }
+
+        string GetParamValue(ViewSheet sheet, string paramName)
+        {
+            var param = sheet.LookupParameter(paramName);
+            if (param != null && param.HasValue)
+                return param.AsString();
+
+            var tb = new FilteredElementCollector(Doc)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .Cast<FamilyInstance>()
+                .FirstOrDefault(f => f.OwnerViewId == sheet.Id);
+
+            return tb?.LookupParameter(paramName)?.AsString() ?? "";
+        }
+
+        string BuildFileName(ViewSheet sheet)
+        {
+            var parts = new List<string>();
+            foreach (var row in FileNameItems)
+            {
+                string value;
+                if (row.SelectedParam == "Sheet Number")
+                    value = sheet.SheetNumber;
+                else if (row.SelectedParam == "Sheet Name")
+                    value = sheet.LookupParameter("Sheet Name")?.AsString() ?? sheet.Name;
+                else
+                {
+                    var p = sheet.LookupParameter(row.SelectedParam);
+                    if (p != null && p.HasValue)
+                        value = p.AsString();
+                    else
+                        value = GetParamValue(sheet, row.SelectedParam);
+                }
+
+                value = LayerExportHelper.Sanitize(value);
+                parts.Add(value + row.Sep);
+            }
+
+            return string.Join("", parts).TrimEnd('-', '_', '‒');
+        }
+
         void StartExport()
         {
             if (IsBusy) return;
-
             var sel = SheetItems.Where(s => s.IsSelected).ToList();
             if (!sel.Any()) { Msg("No sheet selected."); return; }
             if (!Directory.Exists(ExportPath)) { Msg("Path invalid."); return; }
 
-            // duplicate check
-            if (!DupCheck(sel, $"{Prefix}-{{num}}_{{name}}", ExportPath, out string warn))
+            var fileNames = sel.ToDictionary(s => s.Sheet.Id, s => BuildFileName(s.Sheet));
+            if (!CheckDuplicates(fileNames, ExportPath, out string warn))
             { Msg(warn); return; }
 
-            try
-            {
-                var dwgSet = new FilteredElementCollector(Doc)
-                                .OfClass(typeof(ExportDWGSettings))
-                                .Cast<ExportDWGSettings>()
-                                .First(x => x.Name == SelectedExportSetup);
-                var opt = dwgSet.GetDWGExportOptions();
-                opt.MergedViews = false;          // always 1 sheet = 1 DWG
+            var setup = new FilteredElementCollector(Doc)
+                          .OfClass(typeof(ExportDWGSettings))
+                          .Cast<ExportDWGSettings>()
+                          .FirstOrDefault(x => x.Name == SelectedExportSetup);
+            if (setup == null) { Msg("Export setup not found."); return; }
 
-                _handler.ViewIds = sel.Select(s => s.Sheet.Id).ToList();
-                _handler.TargetPath = ExportPath;
-                _handler.Options = opt;
-                _handler.FilePattern = $"{Prefix}-{{num}}_{{name}}";
-                _handler.OpenFolder = OpenFolderAfterExport;
-                _handler.BusySetter = v => IsBusy = v;
-                _handler.ProgressReport = (c, t) => Progress = (double)c / t;
+            var opt = setup.GetDWGExportOptions(); opt.MergedViews = true;
 
-                Progress = 0;
-                IsBusy = true;
-                _evt.Raise();
-            }
-            catch (Exception ex) { Msg(ex.Message); }
+            _handler.ViewIds = sel.Select(s => s.Sheet.Id).ToList();
+            _handler.TargetPath = ExportPath;
+            _handler.Options = opt;
+            _handler.FileNames = fileNames;
+            _handler.OpenFolder = OpenFolderAfterExport;
+            _handler.BusySetter = v => IsBusy = v;
+
+            IsBusy = true;
+            _evt.Raise();
+            SaveCurrentSettings(); // lưu sau export
         }
-        #endregion
 
-        #region ─── Helpers ───────────────────────────────────
-        static bool DupCheck(IEnumerable<SheetItem> sheets, string pattern, string dir, out string msg)
+        static bool CheckDuplicates(Dictionary<ElementId, string> fileNames, string dir, out string msg)
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in sheets)
+            foreach (var name in fileNames.Values)
             {
-                string fname = LayerExportHelper.Sanitize(
-                                   pattern.Replace("{num}", s.SheetNumber)
-                                          .Replace("{name}", s.SheetName)) + ".dwg";
-
-                if (!names.Add(fname)) { msg = $"Tên lặp: {fname}"; return false; }
-                if (File.Exists(Path.Combine(dir, fname))) { msg = $"File tồn tại: {fname}"; return false; }
+                string file = name + ".dwg";
+                if (!names.Add(file)) { msg = $"Duplicate: {file}"; return false; }
+                if (File.Exists(Path.Combine(dir, file))) { msg = $"Exists: {file}"; return false; }
             }
             msg = null; return true;
         }
 
-        void BrowseFolder()
-        {
-            var dlg = new System.Windows.Forms.FolderBrowserDialog();
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                ExportPath = dlg.SelectedPath;
-        }
-
-        void ExportLayerMapping()
-        {
-            if (string.IsNullOrEmpty(SelectedExportSetup))
-            { TaskDialog.Show("Export Layer Settings", "Vui lòng chọn Export Setup."); return; }
-
-            var dlg = new SaveFileDialog
-            {
-                Title = "Save Layer Mapping",
-                Filter = "Text File (*.txt)|*.txt",
-                FileName = $"{SelectedExportSetup}.txt"
-            };
-            if (dlg.ShowDialog() != true) return;
-
-            try
-            {
-                LayerExportHelper.WriteLayerMapping(Doc, SelectedExportSetup, dlg.FileName);
-                TaskDialog.Show("Completed", $"Đã xuất layer mapping:\n{dlg.FileName}");
-            }
-            catch (Exception ex) { TaskDialog.Show("Error", ex.Message); }
-        }
-
         void LoadExportSetups()
         {
+            ExportSetups.Clear();
             foreach (var n in new FilteredElementCollector(Doc)
-                              .OfClass(typeof(ExportDWGSettings))
-                              .Cast<ExportDWGSettings>().Select(x => x.Name).OrderBy(n => n))
+                               .OfClass(typeof(ExportDWGSettings))
+                               .Cast<ExportDWGSettings>()
+                               .Select(x => x.Name)
+                               .OrderBy(n => n))
                 ExportSetups.Add(n);
+
             SelectedExportSetup = ExportSetups.FirstOrDefault();
         }
+
         void LoadSheetSets()
         {
+            SheetSets.Clear();
             foreach (var n in new FilteredElementCollector(Doc)
-                              .OfClass(typeof(ViewSheetSet))
-                              .Cast<ViewSheetSet>().Select(s => s.Name).OrderBy(n => n))
+                               .OfClass(typeof(ViewSheetSet))
+                               .Cast<ViewSheetSet>()
+                               .Select(s => s.Name)
+                               .OrderBy(n => n))
                 SheetSets.Add(n);
+
             SelectedSheetSet = SheetSets.FirstOrDefault();
         }
+
         void LoadSheetsFromSet()
         {
             var set = new FilteredElementCollector(Doc)
@@ -251,46 +287,64 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             if (set == null) return;
 
             SheetItems.Clear();
-            foreach (var vs in set.Views.OfType<ViewSheet>())
+            var comparer = new NaturalSheetComparer();
+
+            foreach (var vs in set.Views.OfType<ViewSheet>()
+                        .OrderBy(v => v.SheetNumber, comparer))
                 SheetItems.Add(new SheetItem(vs));
         }
-        void LoadTitleblockParams()
+
+        void BrowseFolder()
         {
-            var tb = new FilteredElementCollector(Doc)
-                       .OfClass(typeof(FamilyInstance))
-                       .Cast<FamilyInstance>()
-                       .FirstOrDefault(fi => fi.Category?.Id.IntegerValue ==
-                                             (int)BuiltInCategory.OST_TitleBlocks);
-            if (tb == null) return;
-
-            foreach (Parameter p in tb.Parameters)
-                TitleblockParams.Add(p.Definition.Name);
-
-            SheetNumberParam = TitleblockParams.FirstOrDefault();
-            SheetNameParam = TitleblockParams.Skip(1).FirstOrDefault();
+            using var dlg = new System.Windows.Forms.FolderBrowserDialog();
+            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                ExportPath = dlg.SelectedPath;
         }
 
-        void LoadSaved()
+        void ExportLayerMapping()
         {
-            var s = SettingsHelper.Load();
-            if (s == null) return;
-            if (s.Prefix != null) Prefix = s.Prefix;
-            if (s.SheetNumberParam != null) SheetNumberParam = s.SheetNumberParam;
-            if (s.SheetNameParam != null) SheetNameParam = s.SheetNameParam;
-            if (s.ExportPath != null) ExportPath = s.ExportPath;
-        }
-
-        public void SaveCurrent()
-        {
-            SettingsHelper.Save(new SettingsHelper.ExportSettings
+            if (string.IsNullOrWhiteSpace(SelectedExportSetup))
             {
-                Prefix = Prefix,
-                SheetNumberParam = SheetNumberParam,
-                SheetNameParam = SheetNameParam,
-                ExportPath = ExportPath
-            });
+                TaskDialog.Show("Layer", "Choose export setup.");
+                return;
+            }
+
+            var dlg = new SaveFileDialog { Filter = "TXT|*.txt", FileName = $"{SelectedExportSetup}.txt" };
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                LayerExportHelper.WriteLayerMapping(Doc, SelectedExportSetup, dlg.FileName);
+                TaskDialog.Show("Completed", dlg.FileName);
+            }
+            catch (Exception ex) { TaskDialog.Show("Error", ex.Message); }
         }
-        #endregion
+
+        void LoadSavedSettings()
+        {
+            var s = LayerExportHelper.LoadSettings();
+            if (s == null) return;
+            if (Directory.Exists(s.ExportPath)) ExportPath = s.ExportPath;
+
+            if (s.Params != null && s.Seps != null &&
+                s.Params.Count == FileNameItems.Count &&
+                s.Seps.Count == FileNameItems.Count)
+            {
+                for (int i = 0; i < FileNameItems.Count; i++)
+                {
+                    FileNameItems[i].SelectedParam = s.Params[i];
+                    FileNameItems[i].Sep = s.Seps[i];
+                }
+            }
+        }
+
+        public void SaveCurrentSettings()
+            => LayerExportHelper.SaveSettings(new LayerExportHelper.ExportSettings
+            {
+                ExportPath = ExportPath,
+                Params = FileNameItems.Select(r => r.SelectedParam).ToList(),
+                Seps = FileNameItems.Select(r => r.Sep).ToList()
+            });
 
         static void Msg(string t) => MessageBox.Show(t);
     }

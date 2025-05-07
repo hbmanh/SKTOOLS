@@ -1,7 +1,7 @@
-﻿using Autodesk.Revit.DB;
+﻿// SKRevitAddins.LayoutsToDWG.ExportSheetsHandler.cs
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -15,11 +15,12 @@ namespace SKRevitAddins.LayoutsToDWG
         public IList<ElementId> ViewIds { get; set; }
         public string TargetPath { get; set; }
         public DWGExportOptions Options { get; set; }
-        public string FilePattern { get; set; }   // {num} {name}
         public bool OpenFolder { get; set; }
 
         public Action<bool> BusySetter { get; set; }
-        public Action<int, int> ProgressReport { get; set; }
+
+        // NEW: Dictionary mapping ViewId → filename
+        public Dictionary<ElementId, string> FileNames { get; set; }
 
         public void Execute(UIApplication app)
         {
@@ -27,55 +28,47 @@ namespace SKRevitAddins.LayoutsToDWG
             {
                 BusySetter?.Invoke(true);
                 var doc = app.ActiveUIDocument.Document;
-                var sw = Stopwatch.StartNew();
 
-                // 1) Export từng sheet để có % progress
-                int done = 0, total = ViewIds.Count;
+                // Export từng sheet
                 foreach (var vid in ViewIds)
                 {
                     doc.Export(TargetPath, "", new List<ElementId> { vid }, Options);
-                    ProgressReport?.Invoke(++done, total);
                 }
 
-                // 2) Rename song song
-                var log = new ConcurrentBag<string>();
-                Parallel.ForEach(ViewIds,
-                    new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
-                    id =>
+                // Đổi tên file
+                foreach (var id in ViewIds)
+                {
+                    var vs = doc.GetElement(id) as ViewSheet;
+                    if (vs == null) continue;
+
+                    string dstCore = FileNames.TryGetValue(id, out var name)
+                        ? name : vs.SheetNumber;
+
+                    string srcDwg = Directory.GetFiles(TargetPath, $"*{vs.SheetNumber}*.dwg")
+                        .FirstOrDefault(f => Path.GetFileName(f)
+                            .IndexOf("View -", StringComparison.OrdinalIgnoreCase) < 0);
+
+                    if (srcDwg != null)
                     {
-                        var vs = (ViewSheet)doc.GetElement(id);
-                        string num = vs.SheetNumber;
-                        string name = vs.Name;
-
-                        string src = Path.Combine(TargetPath, $"{num}.dwg");
-                        if (!File.Exists(src))
-                            src = Directory.GetFiles(TargetPath, $"{num}*.dwg").FirstOrDefault();
-
-                        string dst = Path.Combine(TargetPath,
-                                       LayerExportHelper.Sanitize(
-                                           FilePattern.Replace("{num}", num)
-                                                      .Replace("{name}", name)) + ".dwg");
-
-                        if (src != null && File.Exists(src))
-                        {
-                            if (File.Exists(dst)) File.Delete(dst);
-                            File.Move(src, dst);
-                        }
-                        log.Add($"{num},{dst}");
-                    });
-
-                File.WriteAllLines(Path.Combine(TargetPath, "_ExportLog.csv"), log.OrderBy(l => l));
-
-                sw.Stop();
-                TaskDialog.Show("DWG Export",
-                    $"Xuất thành công {ViewIds.Count} sheet.\nThời gian: {sw.Elapsed:mm\\:ss}.");
+                        string dstDwg = Path.Combine(TargetPath, dstCore + ".dwg");
+                        if (File.Exists(dstDwg)) File.Delete(dstDwg);
+                        File.Move(srcDwg, dstDwg);
+                    }
+                }
 
                 if (OpenFolder)
                     Process.Start("explorer.exe", TargetPath);
             }
-            catch (Exception ex) { TaskDialog.Show("Error", ex.Message); }
-            finally { BusySetter?.Invoke(false); }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("DWG Export", $"Error: {ex.Message}");
+            }
+            finally
+            {
+                BusySetter?.Invoke(false);
+            }
         }
+
         public string GetName() => "Export Sheets Handler";
     }
 }

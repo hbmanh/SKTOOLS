@@ -20,7 +20,7 @@ namespace SKRevitAddins.LayoutsToDWG
             new WindowInteropHelper(_win).Owner = cd.Application.MainWindowHandle;
             _win.Closed += (_, __) => _win = null;
 
-            _win.ShowDialog();            // modal => API context còn sống
+            _win.Show();                     // modeless
             return Result.Succeeded;
         }
     }

@@ -1,15 +1,13 @@
 ﻿using Autodesk.Revit.UI;
-using System.Linq;
+using SKRevitAddins.LayoutsToDWG.ViewModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using SKRevitAddins.LayoutsToDWG.ViewModel;
 using Point = System.Windows.Point;
 
 namespace SKRevitAddins.LayoutsToDWG
 {
-    /// <summary>Interaction logic for LayoutsToDWGWindow.xaml</summary>
     public partial class LayoutsToDWGWindow : Window
     {
         readonly LayoutsToDWGViewModel _vm;
@@ -20,14 +18,11 @@ namespace SKRevitAddins.LayoutsToDWG
             InitializeComponent();
             _vm = new LayoutsToDWGViewModel(uiDoc);
             DataContext = _vm;
+            _vm.RequestClose = Close;
         }
 
-        //──────── Cancel ───────────────────────────────────────
-        void Cancel_Click(object sender, RoutedEventArgs e) => Close();
-
-        //──────── Drag‑drop reorder ────────────────────────────
         void SheetDataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-            => _dragItem = RowItemAt<UIElement>(e.GetPosition(SheetDataGrid));
+            => _dragItem = RowItemAt<SheetItem>(e.GetPosition(SheetDataGrid));
 
         void SheetDataGrid_MouseMove(object sender, MouseEventArgs e)
         {
@@ -43,10 +38,6 @@ namespace SKRevitAddins.LayoutsToDWG
                 int i = _vm.SheetItems.IndexOf(from);
                 int j = _vm.SheetItems.IndexOf(to);
                 if (i >= 0 && j >= 0) _vm.SheetItems.Move(i, j);
-
-                // cập nhật lại thứ tự
-                for (int k = 0; k < _vm.SheetItems.Count; k++)
-                    _vm.SheetItems[k].Order = k + 1;
             }
             _dragItem = null;
         }
