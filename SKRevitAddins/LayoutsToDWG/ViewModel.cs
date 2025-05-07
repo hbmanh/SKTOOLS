@@ -98,6 +98,7 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             BrowseFolderCmd = new RelayCommand(_ => BrowseFolder(), _ => !IsBusy);
             ExportLayerCmd = new RelayCommand(_ => ExportLayerMapping(), _ => !IsBusy);
             StartExportSheetsCmd = new RelayCommand(_ => StartExport(), _ => !IsBusy);
+            CancelExportCmd = new RelayCommand(_ => CancelExport(), _ => IsBusy);
             CancelCmd = new RelayCommand(_ => RequestClose?.Invoke());
         }
 
@@ -128,27 +129,64 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             set { _busy = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); }
         }
 
+        double _progress;
+        public double Progress
+        {
+            get => _progress;
+            set { _progress = value; OnPropertyChanged(); }
+        }
+
         public ICommand BrowseFolderCmd { get; }
         public ICommand ExportLayerCmd { get; }
         public ICommand StartExportSheetsCmd { get; }
         public ICommand CancelCmd { get; }
+        public ICommand CancelExportCmd { get; }
 
         public Action RequestClose { get; set; }
+
+        void CancelExport()
+        {
+            _handler.IsCancelled = true;
+            Msg("Cancelling export...");
+        }
+
         void LoadParamOptions()
         {
             ParamOptions.Clear();
-            var tb = new FilteredElementCollector(Doc)
-               .OfClass(typeof(FamilyInstance))
-               .Cast<FamilyInstance>()
-               .FirstOrDefault(fi => fi.Category?.Id.IntegerValue == (int)BuiltInCategory.OST_TitleBlocks);
-            if (tb != null)
+            var paramNames = new HashSet<string>();
+
+            var titleBlocks = new FilteredElementCollector(Doc)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .Cast<FamilyInstance>();
+
+            foreach (var tb in titleBlocks)
                 foreach (Parameter p in tb.Parameters)
-                    if (!ParamOptions.Contains(p.Definition.Name))
-                        ParamOptions.Add(p.Definition.Name);
+                    paramNames.Add(p.Definition.Name);
+
+            var sheets = new FilteredElementCollector(Doc)
+                .OfClass(typeof(ViewSheet))
+                .Cast<ViewSheet>();
+
+            foreach (var sheet in sheets)
+                foreach (Parameter p in sheet.Parameters)
+                    paramNames.Add(p.Definition.Name);
+
+            var bindingMap = Doc.ParameterBindings;
+            var iterator = bindingMap.ForwardIterator();
+            while (iterator.MoveNext())
+            {
+                var definition = iterator.Key;
+                paramNames.Add(definition.Name);
+            }
+
+            foreach (var name in paramNames.OrderBy(n => n))
+                ParamOptions.Add(name);
 
             string[] def = {
-                "AWS Code-SP","AWS Originator-SP","AWS Zone-SP",
-                "AWS Level-SP","AWS Type-SP","Sheet Number","Sheet Name" };
+                "AWS Code-SP", "AWS Originator-SP", "AWS Zone-SP",
+                "AWS Level-SP", "AWS Type-SP", "Sheet Number", "Sheet Name" };
+
             foreach (string d in def.Reverse())
                 if (ParamOptions.Contains(d))
                     ParamOptions.Move(ParamOptions.IndexOf(d), 0);
@@ -180,7 +218,24 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
                 .Cast<FamilyInstance>()
                 .FirstOrDefault(f => f.OwnerViewId == sheet.Id);
 
-            return tb?.LookupParameter(paramName)?.AsString() ?? "";
+            if (tb?.LookupParameter(paramName) is Parameter tbParam && tbParam.HasValue)
+                return tbParam.AsString();
+
+            var projParam = new FilteredElementCollector(Doc)
+                .WhereElementIsNotElementType()
+                .Where(e => e.GetTypeId() != ElementId.InvalidElementId)
+                .Select(e => e.LookupParameter(paramName))
+                .FirstOrDefault(p => p != null && p.HasValue);
+
+            if (projParam != null)
+                return projParam.AsString();
+
+            var sharedParam = new FilteredElementCollector(Doc)
+                .WhereElementIsNotElementType()
+                .SelectMany(e => e.Parameters.Cast<Parameter>())
+                .FirstOrDefault(p => p.Definition.Name == paramName && p.IsShared && p.HasValue);
+
+            return sharedParam?.AsString() ?? "";
         }
 
         string BuildFileName(ViewSheet sheet)
@@ -234,10 +289,14 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
             _handler.FileNames = fileNames;
             _handler.OpenFolder = OpenFolderAfterExport;
             _handler.BusySetter = v => IsBusy = v;
+            _handler.ProgressReporter = (cur, total) =>
+            {
+                Progress = total == 0 ? 0 : (double)cur / total;
+            };
 
             IsBusy = true;
             _evt.Raise();
-            SaveCurrentSettings(); // lưu sau export
+            SaveCurrentSettings();
         }
 
         static bool CheckDuplicates(Dictionary<ElementId, string> fileNames, string dir, out string msg)

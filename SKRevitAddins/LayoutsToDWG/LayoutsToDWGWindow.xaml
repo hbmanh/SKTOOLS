@@ -5,7 +5,7 @@
         Title="Sheets To DWG"
         Height="800" Width="630"
         WindowStartupLocation="CenterScreen"
-        ResizeMode ="CanResize">
+        ResizeMode="CanResize">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
@@ -49,6 +49,7 @@
             <ColumnDefinition Width="533*"/>
             <ColumnDefinition Width="118*"/>
         </Grid.ColumnDefinitions>
+
         <ScrollViewer VerticalScrollBarVisibility="Auto" Grid.ColumnSpan="2">
             <StackPanel Margin="15">
                 <!-- Header -->
@@ -153,10 +154,21 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Progress bar -->
-        <ProgressBar Height="4" VerticalAlignment="Bottom"
-                     Minimum="0" Maximum="1"
-                     Value="{Binding Progress}"
-                     Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}" Grid.ColumnSpan="2"/>
+        <!-- Progress Overlay -->
+        <Border Background="#80000000"
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}"
+                Grid.ColumnSpan="2">
+            <Border Background="White" Padding="20" Width="300"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Exporting sheets..." Margin="0,0,0,10"
+                               FontWeight="Bold" FontSize="14" HorizontalAlignment="Center"/>
+                    <ProgressBar Height="20" Minimum="0" Maximum="1" Value="{Binding Progress}" />
+                    <Button Content="Cancel" Command="{Binding CancelExportCmd}" Margin="0,10,0,0"
+                            Background="#3399FF" Foreground="White" Height="30"/>
+                </StackPanel>
+            </Border>
+        </Border>
+
     </Grid>
 </Window>

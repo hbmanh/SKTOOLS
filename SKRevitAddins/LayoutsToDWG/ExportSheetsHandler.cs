@@ -16,11 +16,11 @@ namespace SKRevitAddins.LayoutsToDWG
         public string TargetPath { get; set; }
         public DWGExportOptions Options { get; set; }
         public bool OpenFolder { get; set; }
-
         public Action<bool> BusySetter { get; set; }
-
-        // NEW: Dictionary mapping ViewId → filename
         public Dictionary<ElementId, string> FileNames { get; set; }
+
+        public bool IsCancelled { get; set; } = false;
+        public Action<int, int> ProgressReporter { get; set; } // current, total
 
         public void Execute(UIApplication app)
         {
@@ -29,15 +29,22 @@ namespace SKRevitAddins.LayoutsToDWG
                 BusySetter?.Invoke(true);
                 var doc = app.ActiveUIDocument.Document;
 
-                // Export từng sheet
+                int total = ViewIds.Count;
+                int current = 0;
+
                 foreach (var vid in ViewIds)
                 {
+                    if (IsCancelled) break;
+
                     doc.Export(TargetPath, "", new List<ElementId> { vid }, Options);
+                    current++;
+                    ProgressReporter?.Invoke(current, total);
                 }
 
-                // Đổi tên file
                 foreach (var id in ViewIds)
                 {
+                    if (IsCancelled) break;
+
                     var vs = doc.GetElement(id) as ViewSheet;
                     if (vs == null) continue;
 
@@ -56,7 +63,7 @@ namespace SKRevitAddins.LayoutsToDWG
                     }
                 }
 
-                if (OpenFolder)
+                if (!IsCancelled && OpenFolder)
                     Process.Start("explorer.exe", TargetPath);
             }
             catch (Exception ex)
@@ -66,9 +73,12 @@ namespace SKRevitAddins.LayoutsToDWG
             finally
             {
                 BusySetter?.Invoke(false);
+                IsCancelled = false;
+                ProgressReporter?.Invoke(0, 1); // reset progress
             }
         }
 
         public string GetName() => "Export Sheets Handler";
     }
+
 }
