@@ -186,8 +186,9 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
         string BuildFileName(ViewSheet sheet)
         {
             var parts = new List<string>();
-            foreach (var row in FileNameItems)
+            for (int i = 0; i < FileNameItems.Count; i++)
             {
+                var row = FileNameItems[i];
                 string value;
                 if (row.SelectedParam == "Sheet Number")
                     value = sheet.SheetNumber;
@@ -201,11 +202,13 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
                     else
                         value = GetParamValue(sheet, row.SelectedParam);
                 }
-
                 value = LayerExportHelper.Sanitize(value);
-                parts.Add(value + row.Sep);
+                // Chỉ thêm separator nếu không phải phần cuối cùng
+                if (i < FileNameItems.Count - 1)
+                    parts.Add(value + row.Sep);
+                else
+                    parts.Add(value);
             }
-
             return string.Join("", parts).TrimEnd('-', '_', '‒');
         }
 
