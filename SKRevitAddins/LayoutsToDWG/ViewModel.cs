@@ -240,28 +240,75 @@ namespace SKRevitAddins.LayoutsToDWG.ViewModel
 
         string BuildFileName(ViewSheet sheet)
         {
-            var parts = new List<string>();
-            foreach (var row in FileNameItems)
+            var fileNameParts = new List<string>();
+            for (int i = 0; i < FileNameItems.Count; i++)
             {
+                var item = FileNameItems[i];
                 string value;
-                if (row.SelectedParam == "Sheet Number")
+
+                if (item.SelectedParam == "Sheet Number")
                     value = sheet.SheetNumber;
-                else if (row.SelectedParam == "Sheet Name")
+                else if (item.SelectedParam == "Sheet Name")
                     value = sheet.LookupParameter("Sheet Name")?.AsString() ?? sheet.Name;
                 else
                 {
-                    var p = sheet.LookupParameter(row.SelectedParam);
-                    if (p != null && p.HasValue)
-                        value = p.AsString();
+                    // Ưu tiên lấy từ sheet trước, sau đó mới đến title block
+                    var pSheet = sheet.LookupParameter(item.SelectedParam);
+                    if (pSheet != null && pSheet.HasValue)
+                        value = pSheet.AsString();
                     else
-                        value = GetParamValue(sheet, row.SelectedParam);
+                        value = GetParamValue(sheet, item.SelectedParam); // GetParamValue đã xử lý title block
                 }
 
-                value = LayerExportHelper.Sanitize(value);
-                parts.Add(value + row.Sep);
-            }
+                // Sanitize giá trị
+                value = LayerExportHelper.Sanitize(value?.Trim() ?? "");
 
-            return string.Join("", parts).TrimEnd('-', '_', '‒');
+                // Chỉ thêm phần này vào tên file nếu nó có giá trị
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    fileNameParts.Add(value);
+                }
+                // Nếu phần hiện tại có giá trị VÀ không phải là phần tử cuối cùng có giá trị
+                // VÀ separator cũng có giá trị, thì thêm separator
+                // Điều này tránh thêm separator thừa ở cuối hoặc giữa các phần rỗng
+                if (!string.IsNullOrWhiteSpace(value) && 
+                    !string.IsNullOrWhiteSpace(item.Sep) && 
+                    i < FileNameItems.Count - 1 && // Không phải là item cuối cùng trong cấu hình
+                    FileNameItems.Skip(i + 1).Any(nextItem => !string.IsNullOrWhiteSpace(GetParamValueOrSheetProperty(sheet, nextItem.SelectedParam)))) // Kiểm tra xem có item nào sau nó có giá trị không
+                {
+                    fileNameParts.Add(item.Sep);
+                }
+            }
+            
+            // Nối các phần lại và trim các ký tự phân tách thừa ở cuối nếu có
+            string finalName = string.Join("", fileNameParts);
+            
+            // Loại bỏ các ký tự phân tách có thể bị thừa ở cuối cùng
+            // sau khi đã ghép nối tất cả các phần có giá trị.
+            if (FileNameItems.Any())
+            {
+                var lastConfiguredSeparator = FileNameItems.LastOrDefault(fni => !string.IsNullOrWhiteSpace(fni.Sep))?.Sep;
+                if (!string.IsNullOrWhiteSpace(lastConfiguredSeparator) && finalName.EndsWith(lastConfiguredSeparator))
+                {
+                    finalName = finalName.Substring(0, finalName.Length - lastConfiguredSeparator.Length);
+                }
+            }
+            // Hoặc một cách đơn giản hơn để trim nhiều loại separator phổ biến:
+            // return finalName.TrimEnd('-', '_', ' '); // Điều chỉnh các ký tự cần trim
+
+            return finalName;
+        }
+
+        // Hàm phụ trợ để lấy giá trị cho việc kiểm tra lookahead
+        string GetParamValueOrSheetProperty(ViewSheet sheet, string paramName)
+        {
+            if (paramName == "Sheet Number") return sheet.SheetNumber;
+            if (paramName == "Sheet Name") return sheet.LookupParameter("Sheet Name")?.AsString() ?? sheet.Name;
+            
+            var pSheet = sheet.LookupParameter(paramName);
+            if (pSheet != null && pSheet.HasValue) return pSheet.AsString();
+            
+            return GetParamValue(sheet, paramName); // Hàm GetParamValue của bạn
         }
 
         void StartExport()
