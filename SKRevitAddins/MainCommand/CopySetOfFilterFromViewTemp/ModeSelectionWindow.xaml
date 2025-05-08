@@ -1,0 +1,24 @@
+﻿<Window x:Class="SKRevitAddins.Forms.ModeSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Chọn chế độ Copy Filters"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Height="200" Width="350"
+        Topmost="True">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" >
+        <TextBlock Text="Vui lòng chọn chế độ thao tác" 
+                   FontWeight="Bold" 
+                   FontSize="16"
+                   Margin="10" 
+                   HorizontalAlignment="Center"/>
+        <Button Content="Template → Views" 
+                Width="220" Height="40" 
+                Margin="10" 
+                Click="TemplateToViews_Click"/>
+        <Button Content="Template → Template" 
+                Width="220" Height="40" 
+                Margin="10" 
+                Click="TemplateToTemplate_Click"/>
+    </StackPanel>
+</Window>
