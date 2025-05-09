@@ -3,14 +3,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:SKRevitAddins.LayoutsToDWG.ViewModel"
         Title="Sheets To DWG"
-        Height="800" Width="630"
+        Height="800" Width="650"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize">
 
     <Window.Resources>
+        <!-- Hiển thị Progress Overlay -->
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
+        <!-- Đảo ngược bool để bật/tắt nút -->
         <vm:InvertBoolConverter x:Key="InvertBool"/>
 
+        <!-- Style chung cho nút dialog -->
         <Style x:Key="DialogButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="90"/>
             <Setter Property="Height" Value="28"/>
@@ -31,6 +34,7 @@
             </Style.Triggers>
         </Style>
 
+        <!-- Style cho DataGridRow -->
         <Style x:Key="BlueRowStyle" TargetType="DataGridRow">
             <Setter Property="Background" Value="#E6F3FF"/>
             <Style.Triggers>
@@ -50,8 +54,10 @@
             <ColumnDefinition Width="118*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- Nội dung chính -->
         <ScrollViewer VerticalScrollBarVisibility="Auto" Grid.ColumnSpan="2">
             <StackPanel Margin="15">
+
                 <!-- Header -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                     <Image Source="C:\ProgramData\Autodesk\Revit\Addins\2022\SKTools.bundle\Contents\Resources\Images\shinken.png"
@@ -61,15 +67,17 @@
                                Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Sheet Selection -->
-                <GroupBox Header="SHEET SELECTION" FontWeight="Bold" Margin="0,5">
+                <!-- Chọn nhiều Sheet Set và Sheets -->
+                <GroupBox Header="SHEET SETS &amp; SHEETS" FontWeight="Bold" Margin="0,5">
                     <StackPanel Margin="10">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <TextBlock Text="From sheet set:" Width="110" VerticalAlignment="Center"/>
-                            <ComboBox ItemsSource="{Binding SheetSets}" SelectedItem="{Binding SelectedSheetSet}" Width="300"/>
-                        </StackPanel>
+                        <TextBlock Text="Choose sheet sets:" Margin="0,0,0,5"/>
+                        <ListBox x:Name="SetsListBox"
+                                 ItemsSource="{Binding SheetSets}"
+                                 SelectionMode="Extended"
+                                 Height="100"
+                                 SelectionChanged="SetsListBox_SelectionChanged"/>
 
-                        <DataGrid x:Name="SheetDataGrid" FontWeight="Normal"
+                        <DataGrid x:Name="SheetDataGrid"
                                   ItemsSource="{Binding SheetItems}"
                                   AutoGenerateColumns="False"
                                   Height="150"
@@ -90,16 +98,19 @@
                 <GroupBox Header="EXPORT OPTIONS" FontWeight="Bold" Margin="0,10">
                     <StackPanel Margin="10">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <TextBlock Text="Option" Width="110" VerticalAlignment="Center" FontWeight="Normal"/>
-                            <ComboBox ItemsSource="{Binding ExportSetups}" SelectedItem="{Binding SelectedExportSetup}" Width="350" Height="25"/>
+                            <TextBlock Text="Option" Width="110" VerticalAlignment="Center"/>
+                            <ComboBox ItemsSource="{Binding ExportSetups}"
+                                      SelectedItem="{Binding SelectedExportSetup}"
+                                      Width="350" Height="25"/>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Path" Width="110" VerticalAlignment="Center" FontWeight="Normal"/>
-                            <TextBox Text="{Binding ExportPath}" Width="350" Height="25" Margin="0,0,5,0"/>
-                            <Button Width="85" Command="{Binding BrowseFolderCmd}">
-                                <TextBlock FontSize="16" Text="..." HorizontalAlignment="Center"/>
-                            </Button>
+                            <TextBlock Text="Path" Width="110" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding ExportPath}"
+                                     Width="350" Height="25" Margin="0,0,5,0"/>
+                            <Button Style="{StaticResource DialogButtonStyle}"
+                                    Command="{Binding BrowseFolderCmd}"
+                                    Content="..."/>
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
@@ -107,7 +118,8 @@
                 <!-- File Name Structure -->
                 <GroupBox Header="FILE NAME STRUCTURE" Margin="0,10" FontWeight="Bold">
                     <Grid Margin="0">
-                        <ItemsControl ItemsSource="{Binding FileNameItems}" HorizontalAlignment="Center">
+                        <ItemsControl ItemsSource="{Binding FileNameItems}"
+                                      HorizontalAlignment="Center">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,2">
@@ -116,7 +128,8 @@
                                             <ColumnDefinition Width="65"/>
                                         </Grid.ColumnDefinitions>
                                         <ComboBox Grid.Column="0" Height="24"
-                                                  ItemsSource="{Binding DataContext.ParamOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  ItemsSource="{Binding DataContext.ParamOptions,
+                                                    RelativeSource={RelativeSource AncestorType=Window}}"
                                                   SelectedItem="{Binding SelectedParam}"/>
                                         <TextBox Grid.Column="1" Margin="8,0,0,0" Height="24"
                                                  Text="{Binding Sep, UpdateSourceTrigger=PropertyChanged}"/>
@@ -127,12 +140,12 @@
                     </Grid>
                 </GroupBox>
 
-                <!-- Options -->
+                <!-- Open folder after export -->
                 <CheckBox Content="Open folder after export"
                           IsChecked="{Binding OpenFolderAfterExport}"
                           Margin="0,5,0,10" Width="576"/>
 
-                <!-- Export Layer Settings + OK/Cancel on same line -->
+                <!-- Export Layer Settings và OK/Cancel -->
                 <DockPanel LastChildFill="False" Margin="0,0,0,10" HorizontalAlignment="Center">
                     <Button Content="EXPORT LAYER SETTINGS"
                             Width="200" Height="25" Margin="10,0"
@@ -140,14 +153,14 @@
                             Command="{Binding ExportLayerCmd}" />
 
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="30,0,0,0">
-                        <Button Content="OK"
-                                Width="90" Height="28"
+                        <Button Name="OkButton"
+                                Content="OK"
+                                Style="{StaticResource DialogButtonStyle}"
                                 Background="#28A745" Foreground="White"
-                                Margin="0,0,5,0"
                                 Command="{Binding StartExportSheetsCmd}"
                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}"/>
                         <Button Content="Cancel"
-                                Width="90" Height="28"
+                                Style="{StaticResource DialogButtonStyle}"
                                 Command="{Binding CancelCmd}"/>
                     </StackPanel>
                 </DockPanel>
@@ -164,11 +177,12 @@
                     <TextBlock Text="Exporting sheets..." Margin="0,0,0,10"
                                FontWeight="Bold" FontSize="14" HorizontalAlignment="Center"/>
                     <ProgressBar Height="20" Minimum="0" Maximum="1" Value="{Binding Progress}" />
-                    <Button Content="Cancel" Command="{Binding CancelExportCmd}" Margin="0,10,0,0"
+                    <Button Content="Cancel"
+                            Command="{Binding CancelExportCmd}"
+                            Margin="0,10,0,0"
                             Background="#3399FF" Foreground="White" Height="30"/>
                 </StackPanel>
             </Border>
         </Border>
-
     </Grid>
 </Window>

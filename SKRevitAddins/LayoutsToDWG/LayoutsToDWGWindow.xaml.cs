@@ -21,6 +21,14 @@ namespace SKRevitAddins.LayoutsToDWG
             _vm.RequestClose = Close;
         }
 
+        private void SetsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _vm.SelectedSheetSets.Clear();
+            foreach (string s in SetsListBox.SelectedItems)
+                _vm.SelectedSheetSets.Add(s);
+        }
+
+        // Phần drag-drop giữ nguyên từ bản trước
         void SheetDataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
             => _dragItem = RowItemAt<SheetItem>(e.GetPosition(SheetDataGrid));
 
@@ -49,4 +57,5 @@ namespace SKRevitAddins.LayoutsToDWG
             return (el as DataGridRow)?.Item as T;
         }
     }
+
 }

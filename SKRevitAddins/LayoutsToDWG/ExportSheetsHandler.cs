@@ -1,11 +1,9 @@
-﻿// SKRevitAddins.LayoutsToDWG.ExportSheetsHandler.cs
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace SKRevitAddins.LayoutsToDWG
@@ -17,10 +15,19 @@ namespace SKRevitAddins.LayoutsToDWG
         public DWGExportOptions Options { get; set; }
         public bool OpenFolder { get; set; }
         public Action<bool> BusySetter { get; set; }
+        public Action<int, int> ProgressReporter { get; set; }
+
+        /// <summary>
+        /// Mapping sheetId → file name prefix (ví dụ "A101_Title").
+        /// </summary>
         public Dictionary<ElementId, string> FileNames { get; set; }
 
+        /// <summary>
+        /// Mapping sheetId → tên sheet set (ví dụ "Level 1 Plans").
+        /// </summary>
+        public Dictionary<ElementId, string> SubFolders { get; set; }
+
         public bool IsCancelled { get; set; } = false;
-        public Action<int, int> ProgressReporter { get; set; } // current, total
 
         public void Execute(UIApplication app)
         {
@@ -28,39 +35,28 @@ namespace SKRevitAddins.LayoutsToDWG
             {
                 BusySetter?.Invoke(true);
                 var doc = app.ActiveUIDocument.Document;
-
-                int total = ViewIds.Count;
-                int current = 0;
+                int total = ViewIds.Count, current = 0;
 
                 foreach (var vid in ViewIds)
                 {
                     if (IsCancelled) break;
-
-                    doc.Export(TargetPath, "", new List<ElementId> { vid }, Options);
-                    current++;
-                    ProgressReporter?.Invoke(current, total);
-                }
-
-                foreach (var id in ViewIds)
-                {
-                    if (IsCancelled) break;
-
-                    var vs = doc.GetElement(id) as ViewSheet;
+                    var vs = doc.GetElement(vid) as ViewSheet;
                     if (vs == null) continue;
 
-                    string dstCore = FileNames.TryGetValue(id, out var name)
-                        ? name : vs.SheetNumber;
+                    // Lấy prefix và subfolder
+                    string prefix = FileNames.TryGetValue(vid, out var f) ? f : vs.SheetNumber;
+                    string setName = SubFolders.TryGetValue(vid, out var sf) ? sf : "";
+                    string outFolder = string.IsNullOrEmpty(setName)
+                        ? TargetPath
+                        : Path.Combine(TargetPath, LayerExportHelper.Sanitize(setName));
 
-                    string srcDwg = Directory.GetFiles(TargetPath, $"*{vs.SheetNumber}*.dwg")
-                        .FirstOrDefault(f => Path.GetFileName(f)
-                            .IndexOf("View -", StringComparison.OrdinalIgnoreCase) < 0);
+                    Directory.CreateDirectory(outFolder);
 
-                    if (srcDwg != null)
-                    {
-                        string dstDwg = Path.Combine(TargetPath, dstCore + ".dwg");
-                        if (File.Exists(dstDwg)) File.Delete(dstDwg);
-                        File.Move(srcDwg, dstDwg);
-                    }
+                    // Xuất trực tiếp với tên prefix
+                    doc.Export(outFolder, prefix, new List<ElementId> { vid }, Options);
+
+                    current++;
+                    ProgressReporter?.Invoke(current, total);
                 }
 
                 if (!IsCancelled && OpenFolder)
@@ -74,11 +70,10 @@ namespace SKRevitAddins.LayoutsToDWG
             {
                 BusySetter?.Invoke(false);
                 IsCancelled = false;
-                ProgressReporter?.Invoke(0, 1); // reset progress
+                ProgressReporter?.Invoke(0, 1);
             }
         }
 
         public string GetName() => "Export Sheets Handler";
     }
-
 }
