@@ -1,17 +1,14 @@
 ﻿using Autodesk.Revit.UI;
 using SKRevitAddins.AutoCreatePileFromCad;
-using SKRevitAddins.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.CreateSpace;
-using SKRevitAddins.DeleteTypeOfTextNotesDontUse;
 using SKRevitAddins.ExportSchedulesToExcel;
+using SKRevitAddins.CopySetOfFilterFromViewTemp;
+using SKRevitAddins.DeleteTypeOfTextNotesDontUse;
 using SKRevitAddins.FindDWGNotUseAndDel;
 using SKRevitAddins.PermissibleRangeFrame;
 using SKRevitAddins.PlaceElementsFromBlocksCad;
 using SKRevitAddins.SelectElements;
 using SKRevitAddins.SelectElementsVer1;
-using SKRevitAddins.ExportSchedulesToExcel;
-using SKRevitAddins.Forms;
-using SKRevitAddins.ViewModel;
 
 namespace SKRevitAddins
 {
