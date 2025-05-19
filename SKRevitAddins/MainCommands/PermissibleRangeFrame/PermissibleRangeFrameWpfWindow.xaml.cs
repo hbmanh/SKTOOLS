@@ -5,8 +5,8 @@ namespace SKRevitAddins.PermissibleRangeFrame
 {
     public partial class PermissibleRangeFrameWpfWindow : Window
     {
-        private PermissibleRangeFrameRequestHandler m_Handler;
-        private ExternalEvent m_ExEvent;
+        private PermissibleRangeFrameRequestHandler _handler;
+        private ExternalEvent _exEvent;
 
         public PermissibleRangeFrameWpfWindow(
             ExternalEvent exEvent,
@@ -15,8 +15,8 @@ namespace SKRevitAddins.PermissibleRangeFrame
         {
             InitializeComponent();
 
-            m_Handler = handler;
-            m_ExEvent = exEvent;
+            _handler = handler;
+            _exEvent = exEvent;
             this.DataContext = viewModel;
 
             createBtn.Click += CreateBtn_Click;
@@ -26,7 +26,7 @@ namespace SKRevitAddins.PermissibleRangeFrame
             CreateReport.Click += CreateReport_Checked;
             SelectAllOption.Click += SelectAllOptionBtn_Click;
             DeSelectAllOption.Click += DeSelectAllOptionBtn_Click;
-            previewBtn.Click += PreviewBtn_Click; // Thêm sự kiện cho nút Preview
+            previewBtn.Click += PreviewBtn_Click;
         }
 
         private void CancelBtn_Click(object sender, RoutedEventArgs e) => this.Close();
@@ -57,19 +57,17 @@ namespace SKRevitAddins.PermissibleRangeFrame
 
         private void MakeRequest(RequestId request)
         {
-            m_Handler.Request.Make(request);
-            m_ExEvent.Raise();
+            _handler.Request.Make(request);
+            _exEvent.Raise();
         }
 
         // Nút Preview -> mở cửa sổ PreviewReportWindow
         private void PreviewBtn_Click(object sender, RoutedEventArgs e)
         {
-            // Lấy ViewModel để truyền ErrorMessages và UiApp
             if (this.DataContext is PermissibleRangeFrameViewModel vm)
             {
-                // Mở cửa sổ Preview
                 var previewWindow = new PreviewReportWindow(vm.ErrorMessages, vm.UiApp);
-                previewWindow.Owner = this; // Đặt owner cho window
+                previewWindow.Owner = this;
                 previewWindow.ShowDialog();
             }
         }

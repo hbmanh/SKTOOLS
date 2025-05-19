@@ -10,10 +10,7 @@
         Background="White">
 
     <Window.Resources>
-        <!-- Converter chuyển đổi phân số <-> double -->
         <utils:FractionToDoubleConverter x:Key="FractionConverter"/>
-
-        <!-- Style cho TextBox -->
         <Style TargetType="TextBox">
             <Setter Property="Margin" Value="5"/>
             <Setter Property="Padding" Value="4"/>
@@ -21,8 +18,6 @@
             <Setter Property="BorderBrush" Value="#007ACC"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
-
-        <!-- Style cho GroupBox: giảm độ đậm, viền mỏng -->
         <Style TargetType="GroupBox">
             <Setter Property="Margin" Value="10"/>
             <Setter Property="FontSize" Value="12"/>
@@ -31,8 +26,6 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10"/>
         </Style>
-
-        <!-- Style cho Button -->
         <Style TargetType="Button">
             <Setter Property="Margin" Value="10"/>
             <Setter Property="Padding" Value="6"/>
@@ -42,8 +35,6 @@
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-
-        <!-- Style cho CheckBox -->
         <Style TargetType="CheckBox">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="5"/>
@@ -52,17 +43,12 @@
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <!-- Hàng 0: Header (logo + text) -->
             <RowDefinition Height="Auto"/>
-            <!-- Hàng 1: CheckBox Options (1 dòng) -->
             <RowDefinition Height="Auto"/>
-            <!-- Hàng 2: Hai GroupBox (Permissible Range + Sleeve) -->
             <RowDefinition Height="*"/>
-            <!-- Hàng 3: Nút điều khiển (Preview, OK, Cancel, Select All, Deselect All) -->
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header: Logo và tiêu đề -->
         <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
             <Image Width="35" Height="35"
                    Source="pack://application:,,,/Resources/shinken.png"
@@ -75,21 +61,18 @@
                        FontWeight="SemiBold"/>
         </StackPanel>
 
-        <!-- CheckBox Options: 1 dòng -->
         <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,10">
             <CheckBox Name="PermissibleRange" Content="Create permissible range" IsChecked="{Binding PermissibleRange}"/>
             <CheckBox Name="AutoCreateSleeve" Content="Auto create sleeve" IsChecked="{Binding PlaceSleeves}"/>
             <CheckBox Name="CreateReport" Content="Create report Pipe/Duct" IsChecked="{Binding CreateErrorSchedules}"/>
         </StackPanel>
 
-        <!-- Hàng 2: Hai GroupBox -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Conditions for Permissible Range -->
             <GroupBox Header="Conditions for Permissible Range"
                       Grid.Column="0"
                       Margin="5,0,5,0">
@@ -111,7 +94,6 @@
                 </StackPanel>
             </GroupBox>
 
-            <!-- Conditions for Sleeve -->
             <GroupBox Header="Conditions for Sleeve"
                       Grid.Column="1"
                       Margin="5,0,5,0">
@@ -140,12 +122,12 @@
             </GroupBox>
         </Grid>
 
-        <!-- Hàng 3: Nút điều khiển (SelectAll, DeselectAll, Preview, OK, Cancel) -->
         <StackPanel Orientation="Horizontal" Grid.Row="3" HorizontalAlignment="Left" Margin="20,10,0,0">
             <Button x:Name="SelectAllOption" Content="Select All" Width="80" Height="28" Click="SelectAllOptionBtn_Click"/>
             <Button x:Name="DeSelectAllOption" Content="Deselect All" Width="80" Height="28" Click="DeSelectAllOptionBtn_Click"/>
             <Button x:Name="previewBtn" Content="Preview" Width="80" Height="28" Click="PreviewBtn_Click"/>
-            <Button x:Name="createBtn" Content="OK" Width="60" Height="28" Click="CreateBtn_Click"/>
+            <Button x:Name="createBtn" Content="OK" Width="60" Height="28" Click="CreateBtn_Click"
+                    IsEnabled="{Binding CanCreate}" ToolTip="Chưa có family sleeve sẽ không bấm được"/>
             <Button x:Name="cancelBtn" Content="Cancel" Width="60" Height="28" Click="CancelBtn_Click"/>
         </StackPanel>
     </Grid>

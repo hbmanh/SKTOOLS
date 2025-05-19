@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace SKRevitAddins.ViewModel
+namespace SKRevitAddins.Utils
 {
     public abstract class ViewModelBase : INotifyPropertyChanged
     {

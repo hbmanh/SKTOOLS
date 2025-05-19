@@ -1,32 +1,34 @@
-﻿using System;
-using Autodesk.Revit.Attributes;
+﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using SKRevitAddins.ViewModel;
 
 namespace SKRevitAddins.PermissibleRangeFrame
 {
     [Transaction(TransactionMode.Manual)]
     public class PermissibleRangeFrameCmd : IExternalCommand
     {
+        private static PermissibleRangeFrameWpfWindow _window = null;
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiapp = commandData.Application;
-            UIDocument uidoc = uiapp.ActiveUIDocument;
-            Document doc = uidoc.Document;
-
             var viewModel = new PermissibleRangeFrameViewModel(uiapp);
+            ShowPermissibleRangeFrameWindow(uiapp, viewModel);
+            return Result.Succeeded;
+        }
 
-            try
+        private void ShowPermissibleRangeFrameWindow(UIApplication uiapp, PermissibleRangeFrameViewModel viewModel)
+        {
+            if (_window == null || !_window.IsVisible)
             {
-                // Giả sử App.thisApp.ShowPermissibleRangeFrameViewModel là phương thức hiển thị UI (cửa sổ WPF)
-                App.thisApp.ShowPermissibleRangeFrameViewModel(uiapp, viewModel);
-                return Result.Succeeded;
+                var handler = new PermissibleRangeFrameRequestHandler(viewModel);
+                var exEvent = ExternalEvent.Create(handler);
+                _window = new PermissibleRangeFrameWpfWindow(exEvent, handler, viewModel);
+                _window.Show();
             }
-            catch (Exception ex)
+            else
             {
-                message = ex.Message;
-                return Result.Failed;
+                _window.Activate();
             }
         }
     }

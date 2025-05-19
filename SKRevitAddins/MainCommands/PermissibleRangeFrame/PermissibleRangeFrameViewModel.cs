@@ -5,7 +5,6 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SKRevitAddins.Utils;
-using SKRevitAddins.ViewModel;
 
 namespace SKRevitAddins.PermissibleRangeFrame
 {
@@ -79,7 +78,11 @@ namespace SKRevitAddins.PermissibleRangeFrame
         public double C { get => _c; set { _c = value; OnPropertyChanged(nameof(C)); } }
 
         private FamilySymbol _sleeveSymbol;
-        public FamilySymbol SleeveSymbol { get => _sleeveSymbol; set { _sleeveSymbol = value; OnPropertyChanged(nameof(SleeveSymbol)); } }
+        public FamilySymbol SleeveSymbol
+        {
+            get => _sleeveSymbol;
+            set { _sleeveSymbol = value; OnPropertyChanged(nameof(SleeveSymbol)); OnPropertyChanged(nameof(CanCreate)); }
+        }
 
         private List<Element> _structuralFramings;
         public List<Element> StructuralFramings { get => _structuralFramings; set { _structuralFramings = value; OnPropertyChanged(nameof(StructuralFramings)); } }
@@ -107,6 +110,9 @@ namespace SKRevitAddins.PermissibleRangeFrame
 
         private bool _createErrorSchedules;
         public bool CreateErrorSchedules { get => _createErrorSchedules; set { _createErrorSchedules = value; OnPropertyChanged(nameof(CreateErrorSchedules)); } }
+
+        // Quan trọng: property này dùng để disable nút OK nếu thiếu Family Symbol
+        public bool CanCreate => SleeveSymbol != null;
 
         #endregion
 
