@@ -2,7 +2,6 @@
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using SKRevitAddins.ViewModel;
 
 namespace SKRevitAddins.FindDWGNotUseAndDel
 {

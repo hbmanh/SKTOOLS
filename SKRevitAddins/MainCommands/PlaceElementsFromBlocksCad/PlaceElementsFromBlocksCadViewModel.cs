@@ -5,7 +5,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using SKRevitAddins.ViewModel;
+using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.PlaceElementsFromBlocksCad
 {

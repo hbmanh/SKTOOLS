@@ -6,7 +6,6 @@ using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using SKRevitAddins.Utils;
-using SKRevitAddins.ViewModel;
 using Application = Autodesk.Revit.ApplicationServices.Application;
 
 namespace SKRevitAddins.SelectElementsVer1

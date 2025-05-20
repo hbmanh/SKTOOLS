@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using SKRevitAddins.ViewModel;
 using Document = Autodesk.Revit.DB.Document;
 
 namespace SKRevitAddins.PlaceElementsFromBlocksCad

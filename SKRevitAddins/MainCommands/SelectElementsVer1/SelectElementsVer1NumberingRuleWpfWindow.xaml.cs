@@ -1,5 +1,4 @@
 ﻿using System.Windows;
-using SKRevitAddins.ViewModel;
 using Window = System.Windows.Window;
 
 namespace SKRevitAddins.SelectElementsVer1

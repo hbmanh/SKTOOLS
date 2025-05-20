@@ -170,7 +170,7 @@
     <Compile Include="MainCommands\ParamCopy\Utils\ParamUtils.cs" />
     <Compile Include="MainCommands\ParamCopy\Utils\WpfUtils.cs" />
     <Compile Include="MainCommands\ParamCopy\ViewModelBase.cs" />
-    <Compile Include="MainCommands\PermissibleRangeFrame\IPermissibleService.cs" />
+    <Compile Include="MainCommands\PermissibleRangeFrame\MEPCurveExtensions.cs" />
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelCmd.cs" />
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelRequest.cs" />
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelRequestHandler.cs" />

@@ -1,493 +1,550 @@
-﻿using System;
+﻿#region ▬ using ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using SKRevitAddins.Utils;
+using SKRevitAddins.Utils;                      // Unit-utils + TUnionUtils
+using SKRevitAddins.PermissibleRangeFrame;     // MEPCurveExtensions
+#endregion
 
 namespace SKRevitAddins.PermissibleRangeFrame
 {
+    /// <summary>
+    /// Handler: sinh “phạm vi xuyên dầm” (1 DirectShape/dầm) & đặt Sleeve cho ống tròn.
+    /// Điều kiện: (a) OD≤A, (b) OD≤B·H, (c) KC≥(OD1+OD2)·C, (d) chu vi Sleeve
+    /// nằm trọn trong DirectShape gộp.
+    /// </summary>
     public class PermissibleRangeFrameRequestHandler : IExternalEventHandler
     {
-        private PermissibleRangeFrameViewModel ViewModel { get; }
-        private PermissibleRangeFrameRequest m_Request = new PermissibleRangeFrameRequest();
+        #region ▶ Boilerplate
+        private readonly PermissibleRangeFrameViewModel _vm;
+        private readonly PermissibleRangeFrameRequest _req = new();
+        public PermissibleRangeFrameRequest Request => _req;
 
-        public PermissibleRangeFrameRequest Request => m_Request;
-
-        public PermissibleRangeFrameRequestHandler(PermissibleRangeFrameViewModel viewModel)
-        {
-            ViewModel = viewModel;
-        }
+        public PermissibleRangeFrameRequestHandler(PermissibleRangeFrameViewModel vm) => _vm = vm;
+        public string GetName() => nameof(PermissibleRangeFrameRequestHandler);
 
         public void Execute(UIApplication uiapp)
         {
             try
             {
-                switch (Request.Take())
-                {
-                    case RequestId.OK:
-                        CreatePermissibleRange(uiapp, ViewModel);
-                        break;
-                }
+                if (Request.Take() == RequestId.OK)
+                    CreatePermissibleRange(uiapp, _vm);
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Error", ex.Message);
+                TaskDialog.Show("Error", ex.ToString());
             }
         }
+        #endregion
 
-        public string GetName() => "PermissibleRangeFrameRequestHandler";
-
-        #region Permissible Range
-
-        public void CreatePermissibleRange(UIApplication uiapp, PermissibleRangeFrameViewModel viewModel)
+        #region ▶ Entry-point chính
+        private void CreatePermissibleRange(UIApplication uiapp, PermissibleRangeFrameViewModel vm)
         {
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            // Thu thập các MEPCurve trong View hiện tại
-            var mepCurves = new FilteredElementCollector(doc, doc.ActiveView.Id)
-                .OfClass(typeof(MEPCurve))
-                .Cast<MEPCurve>()
-                .ToList();
+            /* 0. Thu thập ống tròn trong view */
+            var meps = new FilteredElementCollector(doc, doc.ActiveView.Id)
+                           .OfClass(typeof(MEPCurve))
+                           .Cast<MEPCurve>()
+                           .Where(m => m.LookupParameter("Diameter")?.AsDouble() > 0
+                                    || m.LookupParameter("Radius")?.AsDouble() > 0)
+                           .ToList();
 
-            // Lấy các tham số từ ViewModel
-            double x = viewModel.X, y = viewModel.Y, a = viewModel.A, b = viewModel.B, c = viewModel.C;
-            var structuralFramings = viewModel.StructuralFramings;
-            var sleeveSymbol = viewModel.SleeveSymbol;
-            var intersectionData = viewModel.IntersectionData;
-            var errorMessages = viewModel.ErrorMessages;
-            var sleevePlacements = viewModel.SleevePlacements;
-            var directShapes = viewModel.DirectShapes;
+            /* 1. Reset ViewModel */
+            vm.IntersectionData.Clear();
+            vm.ErrorMessages.Clear();
+            vm.SleevePlacements.Clear();
+            vm.DirectShapes.Clear();
 
-            // Xoá dữ liệu cũ
-            intersectionData.Clear();
-            errorMessages.Clear();
-            sleevePlacements.Clear();
-            directShapes.Clear();
+            /* 2. Tạo DirectShape gộp & giao điểm */
+            var frameDsMap = new Dictionary<ElementId, DirectShape>();
 
-            // 1) Tạo phạm vi cho phép xuyên (DirectShape) và lấy điểm giao
-            ProcessIntersections(doc, structuralFramings, mepCurves, intersectionData, directShapes, x, y);
+            ProcessIntersections(
+                doc,
+                vm.StructuralFramings,
+                meps,
+                vm.IntersectionData,
+                vm.DirectShapes,
+                frameDsMap,
+                vm.X,
+                vm.Y);
 
-            // 2) Đặt Sleeve nếu đủ điều kiện
-            PlaceSleeves(doc, sleeveSymbol, intersectionData, structuralFramings, sleevePlacements, errorMessages, directShapes, a, b, c);
+            /* 3. Đặt Sleeve */
+            PlaceSleeves(
+                doc,
+                vm.SleeveSymbol,
+                vm.IntersectionData,
+                vm.StructuralFramings,
+                vm.SleevePlacements,
+                vm.ErrorMessages,
+                frameDsMap,
+                vm.A,
+                vm.B,
+                vm.C);
 
-            // 3) Tạo báo cáo lỗi (nếu cần)
-            if (viewModel.CreateErrorSchedules && errorMessages.Any())
-                CreateErrorSchedules(doc, errorMessages);
+            /* 4. Schedule lỗi (nếu bật) */
+            if (vm.CreateErrorSchedules && vm.ErrorMessages.Any())
+                CreateErrorSchedules(doc, vm.ErrorMessages);
 
-            // 4) Áp dụng filter cho DirectShape
-            ApplyFilterToDirectShapes(doc, uidoc.ActiveView, directShapes);
+            /* 5. Tô màu DS */
+            ApplyFilterToDirectShapes(doc, uidoc.ActiveView, vm.DirectShapes);
 
-            // 5) Cleanup
-            using (Transaction subtx = new Transaction(doc, "Cleanup"))
+            /* 6. Cleanup tuỳ chọn */
+            using (var tx = new Transaction(doc, "Cleanup"))
             {
-                subtx.Start();
-                if (!viewModel.PlaceSleeves)
+                tx.Start();
+
+                if (!vm.PlaceSleeves)
                 {
                     var sleeves = new FilteredElementCollector(doc)
-                        .OfCategory(BuiltInCategory.OST_PipeAccessory)
-                        .OfClass(typeof(FamilyInstance))
-                        .WhereElementIsNotElementType()
-                        .ToList();
-                    doc.Delete(sleeves.Select(s => s.Id).ToList());
+                                    .OfCategory(BuiltInCategory.OST_PipeAccessory)
+                                    .WhereElementIsNotElementType()
+                                    .ToElementIds();
+                    doc.Delete(sleeves);
                 }
-                if (!viewModel.PermissibleRange)
-                {
-                    doc.Delete(directShapes.Select(ds => ds.Id).ToList());
-                }
-                subtx.Commit();
+
+                if (!vm.PermissibleRange)
+                    doc.Delete(vm.DirectShapes.Select(ds => ds.Id).ToList());
+
+                tx.Commit();
             }
         }
+        #endregion
 
+        #region ▶ 2A. Sinh DirectShape gộp & Intersection
+        //  ───────────────────────────────────────────────────────────────
+        //  ProcessIntersections – phiên bản union 2 khối thành 1
+        //  ───────────────────────────────────────────────────────────────
         private void ProcessIntersections(
-            Document doc,
-            List<Element> structuralFramings,
-            List<MEPCurve> mepCurves,
-            Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> intersectionData,
-            List<DirectShape> directShapes,
-            double x, double y)
+    Document doc,
+    List<Element> frames,
+    List<MEPCurve> meps,
+    Dictionary<(ElementId mepId, ElementId frameId), List<XYZ>> mapIntersect,
+    List<DirectShape> directShapes,
+    Dictionary<ElementId, DirectShape> mapFrameDS,
+    double xRatio,
+    double yRatio)
         {
-            using (Transaction trans = new Transaction(doc, "Create Permissible Range for Frame"))
+            using var tx = new Transaction(doc, "Create permissible range");
+            tx.Start();
+
+            foreach (var frm in frames)
             {
-                trans.Start();
-                foreach (var frame in structuralFramings)
+                var fObj = new PermissibleRangeFrameViewModel.FrameObj(frm);
+
+                /* 1. Hai mặt diện tích lớn nhất */
+                var facesTop2 = GetSurroundingFacesOfFrame(fObj.FramingSolid)
+                                   .OrderByDescending(fc => (fc as PlanarFace)?.Area ?? 0)
+                                   .Take(2);
+
+                var solids = new List<Solid>();
+
+                /* 2. Tạo Solid extrusion cho từng mặt (KHÔNG tạo DirectShape ở đây) */
+                foreach (var face in facesTop2)
                 {
-                    var frameObj = new PermissibleRangeFrameViewModel.FrameObj(frame);
-                    var surroundingFaces = GetSurroundingFacesOfFrame(frameObj.FramingSolid);
-                    foreach (Face face in surroundingFaces)
+                    var solid = CreateExtrusionSolid(face, fObj, xRatio, yRatio);
+                    if (solid != null) solids.Add(solid);
+
+                    /* Giao điểm ống–dầm */
+                    foreach (var mep in meps)
                     {
-                        var directShape = CreateDirectShapeFromFrameFace(doc, frameObj, face, x, y);
-                        if (directShape != null) directShapes.Add(directShape);
+                        var axis = (mep.Location as LocationCurve)?.Curve;
+                        if (axis == null) continue;
 
-                        foreach (var pipeOrDuct in mepCurves)
-                        {
-                            var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
-                            if (pipeOrDuctCurve == null) continue;
+                        if (face.Intersect(axis, out IntersectionResultArray res)
+                                != SetComparisonResult.Overlap) continue;
 
-                            if (face.Intersect(pipeOrDuctCurve, out IntersectionResultArray resultArray) != SetComparisonResult.Overlap)
-                                continue;
+                        var key = (mep.Id, frm.Id);
+                        if (!mapIntersect.ContainsKey(key))
+                            mapIntersect[key] = new List<XYZ>();
 
-                            var key = (MEPCurveId: pipeOrDuct.Id, FrameId: frame.Id);
-                            if (!intersectionData.ContainsKey(key))
-                                intersectionData[key] = new List<XYZ>();
-                            foreach (IntersectionResult intersectionResult in resultArray)
-                                intersectionData[key].Add(intersectionResult.XYZPoint);
-                        }
+                        foreach (IntersectionResult ir in res)
+                            mapIntersect[key].Add(ir.XYZPoint);
                     }
                 }
-                trans.Commit();
+
+                if (solids.Count == 0) continue;
+
+                /* 3. UNION 2 Solid → 1 Solid */
+                Solid union = TUnionUtils.UnionSolids(solids);
+
+                /* 4. Chỉ sinh 1 DirectShape duy nhất cho dầm */
+                var ds = DirectShape.CreateElement(
+                            doc, new ElementId(BuiltInCategory.OST_GenericModel));
+                ds.Name = "Phạm vi cho phép xuyên dầm";
+                ds.SetShape(new GeometryObject[] { union });
+
+                directShapes.Add(ds);
+                mapFrameDS[frm.Id] = ds;          // để bước PlaceSleeves tra nhanh
             }
+            tx.Commit();
         }
 
-        private DirectShape CreateDirectShapeFromFrameFace(
-            Document doc,
-            PermissibleRangeFrameViewModel.FrameObj frameObj,
+
+
+        /// <summary>Extrusion Solid 10 mm vào trong dầm dựa trên PlanarFace.</summary>
+        /// <summary>
+        /// Tạo Solid extrude: lùi ra ngoài 10 mm rồi đùn vào trong
+        /// (bề rộng dầm + 20 mm) theo hướng −normal.
+        /// </summary>
+        private Solid? CreateExtrusionSolid(
             Face face,
-            double x, double y)
+            PermissibleRangeFrameViewModel.FrameObj frmObj,
+            double xRatio,
+            double yRatio)
         {
-            if (face is not PlanarFace planarFace) return null;
+            if (face is not PlanarFace pf) return null;
 
-            BoundingBoxUV bboxUV = planarFace.GetBoundingBox();
-            UV minUV = bboxUV.Min;
-            UV maxUV = bboxUV.Max;
-            double frameHeight = frameObj.FramingHeight;
-            double widthMargin = frameHeight * x;
-            double heightMargin = frameHeight * y;
-            UV adjustedMin = new(minUV.U + widthMargin, minUV.V + heightMargin);
-            UV adjustedMax = new(maxUV.U - widthMargin, maxUV.V - heightMargin);
+            /* 1. Thu hẹp khung UV theo xRatio, yRatio */
+            var bb = pf.GetBoundingBox();
+            double h = frmObj.FramingHeight;
+            var minAdj = new UV(bb.Min.U + h * xRatio, bb.Min.V + h * yRatio);
+            var maxAdj = new UV(bb.Max.U - h * xRatio, bb.Max.V - h * yRatio);
 
-            if (adjustedMin.V >= adjustedMax.V)
-            {
-                adjustedMin = new UV(adjustedMin.U, minUV.V - heightMargin);
-                adjustedMax = new UV(adjustedMax.U, maxUV.V + heightMargin);
-            }
-            if (adjustedMin.U >= adjustedMax.U)
-            {
-                adjustedMin = new UV(minUV.U + heightMargin, adjustedMin.V);
-                adjustedMax = new UV(maxUV.U - heightMargin, adjustedMax.V);
-            }
+            if (minAdj.U >= maxAdj.U) { minAdj = new UV(bb.Min.U, minAdj.V); maxAdj = new UV(bb.Max.U, maxAdj.V); }
+            if (minAdj.V >= maxAdj.V) { minAdj = new UV(minAdj.U, bb.Min.V); maxAdj = new UV(maxAdj.U, bb.Max.V); }
 
-            List<Curve> profile = new();
-            Func<XYZ, XYZ, bool> isValidCurve = (start, end) => start.DistanceTo(end) > doc.Application.ShortCurveTolerance;
-            XYZ corner1 = face.Evaluate(adjustedMin);
-            XYZ corner2 = face.Evaluate(new UV(adjustedMin.U, adjustedMax.V));
-            XYZ corner3 = face.Evaluate(adjustedMax);
-            XYZ corner4 = face.Evaluate(new UV(adjustedMax.U, adjustedMin.V));
-            if (isValidCurve(corner1, corner2)) profile.Add(Line.CreateBound(corner1, corner2));
-            if (isValidCurve(corner2, corner3)) profile.Add(Line.CreateBound(corner2, corner3));
-            if (isValidCurve(corner3, corner4)) profile.Add(Line.CreateBound(corner3, corner4));
-            if (isValidCurve(corner4, corner1)) profile.Add(Line.CreateBound(corner4, corner1));
+            /* 2. Tạo profile (4 đoạn) */
+            XYZ p1 = pf.Evaluate(minAdj);
+            XYZ p2 = pf.Evaluate(new UV(minAdj.U, maxAdj.V));
+            XYZ p3 = pf.Evaluate(maxAdj);
+            XYZ p4 = pf.Evaluate(new UV(maxAdj.U, minAdj.V));
+
+            double tol = frmObj.FramingObj.Document.Application.ShortCurveTolerance;
+            var profile = new List<Curve>();
+            if (p1.DistanceTo(p2) > tol) profile.Add(Line.CreateBound(p1, p2));
+            if (p2.DistanceTo(p3) > tol) profile.Add(Line.CreateBound(p2, p3));
+            if (p3.DistanceTo(p4) > tol) profile.Add(Line.CreateBound(p3, p4));
+            if (p4.DistanceTo(p1) > tol) profile.Add(Line.CreateBound(p4, p1));
             if (profile.Count < 3) return null;
 
-            CurveLoop newCurveLoop = CurveLoop.Create(profile);
-            XYZ extrusionDirection = planarFace.FaceNormal;
-            double extrusionDistance = 10.0 / 304.8; // 10mm
-            Solid directShapeSolid = GeometryCreationUtilities.CreateExtrusionGeometry(
-                new List<CurveLoop> { newCurveLoop }, extrusionDirection, extrusionDistance);
+            /* 3. Offset profile ra ngoài 10 mm theo +normal */
+            double extra = 10.0.ToInternalUnits();
+            XYZ vec = pf.FaceNormal.Multiply(extra);               // +normal 10 mm
 
-            if (directShapeSolid != null && directShapeSolid.Volume > 0)
-            {
-                DirectShape directShape = DirectShape.CreateElement(doc, new ElementId(BuiltInCategory.OST_GenericModel));
-                directShape.SetShape(new GeometryObject[] { directShapeSolid });
-                directShape.Name = "Phạm vi cho phép xuyên dầm";
-                return directShape;
-            }
-            return null;
+            var moved = profile.Select(c =>
+                        (c is Line ln)
+                            ? (Curve)Line.CreateBound(ln.GetEndPoint(0) + vec,
+                                                        ln.GetEndPoint(1) + vec)
+                            : c.CreateTransformed(Transform.CreateTranslation(vec)))
+                        .ToList();
+
+            var loopMoved = CurveLoop.Create(moved);
+
+            /* 4. Tính chiều sâu: bề rộng dầm + 20 mm */
+            BoundingBoxXYZ bbFrm = frmObj.FramingSolid.GetBoundingBox();
+            double width = Math.Abs((bbFrm.Max - bbFrm.Min).DotProduct(pf.FaceNormal));
+            double depth = width + extra * 2;                          // +20 mm
+
+            /* 5. Đùn vào trong theo –normal */
+            return GeometryCreationUtilities.CreateExtrusionGeometry(
+                       new[] { loopMoved }, -pf.FaceNormal, depth);
         }
 
         private static List<Face> GetSurroundingFacesOfFrame(Solid solid)
         {
             var faces = solid.GetSolidVerticalFaces();
-            var faceAreas = faces.Select(face =>
+
+            var infos = faces.Select(f =>
             {
-                Mesh mesh = face.Triangulate();
+                var mesh = f.Triangulate();
                 double area = 0;
                 for (int i = 0; i < mesh.NumTriangles; i++)
                 {
-                    MeshTriangle triangle = mesh.get_Triangle(i);
-                    XYZ p0 = triangle.get_Vertex(0);
-                    XYZ p1 = triangle.get_Vertex(1);
-                    XYZ p2 = triangle.get_Vertex(2);
-                    area += 0.5 * ((p1 - p0).CrossProduct(p2 - p0)).GetLength();
+                    var tri = mesh.get_Triangle(i);
+                    area += 0.5 * (tri.get_Vertex(1) - tri.get_Vertex(0))
+                                   .CrossProduct(tri.get_Vertex(2) - tri.get_Vertex(0))
+                                   .GetLength();
                 }
-                return new { Face = face, Area = area };
-            }).ToList();
+                return (Face: f, Area: area);
+            })
+            .OrderByDescending(x => x.Area)
+            .ToList();
 
-            double minArea = faceAreas.Min(f => f.Area);
-            return faceAreas.Where(f => f.Area > minArea).Select(f => f.Face).ToList();
+            double minArea = infos.Last().Area;
+            return infos.Where(x => x.Area > minArea).Select(x => x.Face).ToList();
         }
+        #endregion
 
-        /// <summary>
-        /// Đặt Sleeves sau khi đã loại trừ các lỗi và sắp xếp điểm giao.
-        /// </summary>
+        #region ▶ 2B. Đặt Sleeve (a, b, c + phạm vi)
         private void PlaceSleeves(
             Document doc,
-            FamilySymbol sleeveSymbol,
-            Dictionary<(ElementId MEPCurveId, ElementId FrameId), List<XYZ>> intersectionData,
-            List<Element> structuralFramings,
-            Dictionary<ElementId, List<(XYZ, double)>> sleevePlacements,
-            Dictionary<ElementId, HashSet<string>> errorMessages,
-            List<DirectShape> directShapes,
-            double a, double b, double c)
+            FamilySymbol sleeveSym,
+            Dictionary<(ElementId mepId, ElementId frameId), List<XYZ>> intersectMap,
+            List<Element> frames,
+            Dictionary<ElementId, List<(XYZ, double)>> sleevePlaced,
+            Dictionary<ElementId, HashSet<string>> errs,
+            Dictionary<ElementId, DirectShape> frameDsMap,
+            double a_mm,
+            double b_ratio,
+            double c_ratio)
         {
-            if (sleeveSymbol == null)
+            if (sleeveSym == null)
             {
-                TaskDialog.Show("Thông báo", "Không tìm thấy Family Symbol cho Sleeve. Không thể tạo Sleeve.");
+                TaskDialog.Show("Thông báo", "Không tìm thấy Family Symbol cho Sleeve.");
                 return;
             }
 
-            int successfulSleevesCount = 0;
-            var potentialSleeves = new List<(ElementId MEPCurveId, XYZ Midpoint, double Diameter, double Length, XYZ Direction)>();
+            /* 1. Gom ứng viên (điều kiện a & b) */
+            var cand = new List<SleeveCand>();
 
-            foreach (var entry in intersectionData)
+            foreach (var kv in intersectMap)
             {
-                var mepCurveId = entry.Key.MEPCurveId;
-                var frameId = entry.Key.FrameId;
-                var pipeOrDuct = doc.GetElement(mepCurveId) as MEPCurve;
-                var frame = structuralFramings.FirstOrDefault(f => f.Id == frameId);
-                if (frame == null || pipeOrDuct == null) continue;
+                var mep = doc.GetElement(kv.Key.mepId) as MEPCurve;
+                var frm = frames.FirstOrDefault(f => f.Id == kv.Key.frameId);
+                if (mep == null || frm == null) continue;
 
-                var frameObj = new PermissibleRangeFrameViewModel.FrameObj(frame);
-                var points = entry.Value;
-                var pipeOrDuctCurve = (pipeOrDuct.Location as LocationCurve)?.Curve;
-                if (pipeOrDuctCurve == null || points.Count < 2) continue;
+                double odPipe = mep.GetOuterDiameter();
+                if (odPipe <= 0) continue;
 
-                // Sắp xếp điểm giao theo trục ống
-                points = points.OrderBy(pt => pipeOrDuctCurve.Project(pt).Parameter).ToList();
+                var frmObj = new PermissibleRangeFrameViewModel.FrameObj(frm);
+                double hFrm = frmObj.FramingHeight;
 
-                for (int i = 0; i + 1 < points.Count; i += 2)
+                var axis = (mep.Location as LocationCurve)?.Curve;
+                if (axis == null || kv.Value.Count < 2) continue;
+
+                var pts = kv.Value.Distinct()
+                                   .OrderBy(pt => axis.Project(pt).Parameter)
+                                   .ToList();
+
+                for (int i = 0; i + 1 < pts.Count; i += 2)
                 {
-                    XYZ point1 = points[i];
-                    XYZ point2 = points[i + 1];
-                    XYZ midpoint = (point1 + point2) / 2;
-                    XYZ direction = (point2 - point1).Normalize();
+                    XYZ p1 = pts[i];
+                    XYZ p2 = pts[i + 1];
+                    var mid = (p1 + p2) / 2;
+                    var dir = (p2 - p1).Normalize();
 
-                    double pipeDiameter = pipeOrDuct.LookupParameter("Diameter")?.AsDouble() ?? 0;
-                    double sleeveDiameter = pipeDiameter + 50.0 / 304.8; // +50mm
-                    double frameHeight = frameObj.FramingHeight;
+                    double odSleeve = odPipe + 50.0.ToInternalUnits();
+                    double lenSleeve = p1.DistanceTo(p2);
 
-                    // Kiểm tra OD > a (750mm) => Lỗi
-                    if (sleeveDiameter > a / 304.8)
+                    if (odSleeve > a_mm.ToInternalUnits())
+                    { AddErr(errs, mep.Id, $"OD > {a_mm} mm"); continue; }
+
+                    if (odSleeve > hFrm * b_ratio)
+                    { AddErr(errs, mep.Id, $"OD > H·{b_ratio:0.##}"); continue; }
+
+                    cand.Add(new SleeveCand
                     {
-                        if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                        errorMessages[pipeOrDuct.Id].Add("OD > " + a + "mm");
-                        continue;
-                    }
-                    // Kiểm tra OD > H/3 => Lỗi
-                    if (sleeveDiameter > frameHeight * b)
-                    {
-                        if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                        errorMessages[pipeOrDuct.Id].Add("OD > H/3");
-                        continue;
-                    }
-
-                    double sleeveLength = point1.DistanceTo(point2);
-
-                    potentialSleeves.Add((mepCurveId, midpoint, sleeveDiameter, sleeveLength, direction));
+                        MepId = mep.Id,
+                        FrameId = frm.Id,
+                        Mid = mid,
+                        Dir = dir,
+                        OD = odSleeve,
+                        Len = lenSleeve
+                    });
                 }
             }
 
-            // Loại bỏ sleeves quá gần nhau, giữ lại 1 sleeve
-            var sleevesToRemove = new HashSet<int>();
-            for (int i = 0; i < potentialSleeves.Count; i++)
+            /* 2. Điều kiện c – khoảng cách */
+            foreach (var grp in cand.GroupBy(c => c.FrameId))
             {
-                for (int j = i + 1; j < potentialSleeves.Count; j++)
-                {
-                    var s1 = potentialSleeves[i];
-                    var s2 = potentialSleeves[j];
-
-                    double minDistance = (s1.Diameter + s2.Diameter) * c;
-                    double actualDistance = s1.Midpoint.DistanceTo(s2.Midpoint);
-
-                    if (actualDistance < minDistance)
+                var list = grp.ToList();
+                for (int i = 0; i < list.Count; ++i)
+                    for (int j = i + 1; j < list.Count; ++j)
                     {
-                        // Giữ lại sleeve có đường kính nhỏ hơn (nếu bằng thì random)
-                        int removeIdx = s1.Diameter == s2.Diameter ?
-                            (new Random()).Next(0, 2) == 0 ? i : j :
-                            (s1.Diameter > s2.Diameter ? i : j);
-                        sleevesToRemove.Add(removeIdx);
+                        double minD = (list[i].OD + list[j].OD) * c_ratio;
+                        double distT = list[i].Mid.DistanceTo(list[j].Mid);
 
-                        // Báo lỗi cho sleeve bị loại
-                        var removeSleeve = potentialSleeves[removeIdx];
-                        if (!errorMessages.ContainsKey(removeSleeve.MEPCurveId))
-                            errorMessages[removeSleeve.MEPCurveId] = new HashSet<string>();
-                        errorMessages[removeSleeve.MEPCurveId].Add("Khoảng cách giữa hai Sleeve < (OD1 + OD2)*2/3");
-                    }
-                }
-            }
-
-            // Giữ lại các sleeve hợp lệ
-            var sleevesToKeep = potentialSleeves
-                .Where((s, idx) => !sleevesToRemove.Contains(idx))
-                .ToList();
-
-            using (Transaction trans = new Transaction(doc, "Place Sleeve"))
-            {
-                trans.Start();
-                foreach (var sleeveData in sleevesToKeep)
-                {
-                    var mepCurveId = sleeveData.MEPCurveId;
-                    var midpoint = sleeveData.Midpoint;
-                    var sleeveDiameter = sleeveData.Diameter;
-                    var sleeveLength = sleeveData.Length;
-                    var direction = sleeveData.Direction;
-                    var pipeOrDuct = doc.GetElement(mepCurveId);
-
-                    // Tạo FamilyInstance
-                    FamilyInstance sleeveInstance = doc.Create.NewFamilyInstance(midpoint, sleeveSymbol, StructuralType.NonStructural);
-
-                    // Xoay cho trùng hướng ống
-                    Line rotationAxis = Line.CreateBound(midpoint, midpoint + XYZ.BasisZ);
-                    double rotationAngle = XYZ.BasisX.AngleTo(direction) + Math.PI / 2;
-                    ElementTransformUtils.RotateElement(doc, sleeveInstance.Id, rotationAxis, rotationAngle);
-
-                    // Gán tham số
-                    sleeveInstance.LookupParameter("L")?.Set(sleeveLength);
-                    sleeveInstance.LookupParameter("OD")?.Set(sleeveDiameter);
-
-                    // Lưu vị trí
-                    if (!sleevePlacements.ContainsKey(mepCurveId))
-                        sleevePlacements[mepCurveId] = new List<(XYZ, double)>();
-                    sleevePlacements[mepCurveId].Add((midpoint, sleeveDiameter));
-
-                    successfulSleevesCount++;
-
-                    // Sửa: chỉ cần thuộc bất kỳ direct shape là hợp lệ
-                    bool isWithinDirectShapes = directShapes.Any(ds => IsPointWithinDirectShape(midpoint, ds));
-                    if (!isWithinDirectShapes)
-                    {
-                        if (!errorMessages.ContainsKey(pipeOrDuct.Id))
-                            errorMessages[pipeOrDuct.Id] = new HashSet<string>();
-                        errorMessages[pipeOrDuct.Id].Add("Sleeve nằm ngoài phạm vi cho phép xuyên dầm.");
-                    }
-                }
-                trans.Commit();
-            }
-
-            TaskDialog.Show("Thông báo:", $"Đã đặt {successfulSleevesCount} Sleeves thỏa điều kiện. Vui lòng kiểm tra lại.");
-        }
-
-        private bool IsPointWithinDirectShape(XYZ point, DirectShape directShape)
-        {
-            var geometryElement = directShape.get_Geometry(new Options());
-            foreach (GeometryObject geomObj in geometryElement)
-            {
-                if (geomObj is Solid solid && solid.Volume > 0)
-                {
-                    foreach (Face face in solid.Faces)
-                    {
-                        var result = face.Project(point);
-                        if (result != null && result.Distance < 0.001)
-                            return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        private void CreateErrorSchedules(Document doc, Dictionary<ElementId, HashSet<string>> errorMessages)
-        {
-            using (Transaction subtx = new Transaction(doc, "Create Report"))
-            {
-                subtx.Start();
-                var schedules = new List<(string scheduleName, BuiltInCategory category)>
-                {
-                    ("PipeErrorSchedule", BuiltInCategory.OST_PipeCurves),
-                    ("DuctErrorSchedule", BuiltInCategory.OST_DuctCurves)
-                };
-                foreach (var (scheduleName, category) in schedules)
-                {
-                    var existingSchedule = new FilteredElementCollector(doc)
-                        .OfClass(typeof(ViewSchedule))
-                        .Cast<ViewSchedule>()
-                        .FirstOrDefault(sch => sch.Name.Equals(scheduleName));
-                    if (existingSchedule != null)
-                        doc.Delete(existingSchedule.Id);
-
-                    ViewSchedule schedule = ViewSchedule.CreateSchedule(doc, new ElementId(category));
-                    schedule.Name = scheduleName;
-
-                    var schedulableFields = schedule.Definition.GetSchedulableFields();
-                    var markField = schedulableFields.FirstOrDefault(sf => sf.GetName(doc) == "Mark");
-                    var commentField = schedulableFields.FirstOrDefault(sf => sf.GetName(doc) == "Comments");
-                    if (markField != null) schedule.Definition.AddField(markField);
-                    if (commentField != null) schedule.Definition.AddField(commentField);
-
-                    var elementsToClear = new FilteredElementCollector(doc)
-                        .OfCategory(category)
-                        .WhereElementIsNotElementType()
-                        .ToList();
-                    foreach (var element in elementsToClear)
-                    {
-                        element.LookupParameter("Mark")?.Set(string.Empty);
-                        element.LookupParameter("Comments")?.Set(string.Empty);
-                    }
-
-                    int markIndex = 1;
-                    foreach (var kvp in errorMessages)
-                    {
-                        Element element = doc.GetElement(kvp.Key);
-                        if (element?.Category == null) continue;
-                        if (element.Category.Id.IntegerValue != (int)category)
-                            continue;
-                        var markParam = element.LookupParameter("Mark");
-                        if (markParam != null && kvp.Value.Any())
+                        if (distT < minD)
                         {
-                            markParam.Set(markIndex.ToString());
-                            markIndex++;
+                            string msg = $"Khoảng cách < (OD₁+OD₂)*{c_ratio:0.##}";
+                            AddErr(errs, list[i].MepId, msg);
+                            AddErr(errs, list[j].MepId, msg);
                         }
-                        element.LookupParameter("Comments")?.Set(string.Join(", ", kvp.Value));
                     }
-                }
-                subtx.Commit();
             }
+
+            /* 3. Kiểm chu vi nằm trong DS gộp & tạo sleeve */
+            int ok = 0;
+            using var tx = new Transaction(doc, "Place sleeves");
+            tx.Start();
+            if (!sleeveSym.IsActive) sleeveSym.Activate();
+
+            foreach (var s in cand)
+            {
+                if (!frameDsMap.TryGetValue(s.FrameId, out var ds))
+                {
+                    AddErr(errs, s.MepId, "Không tìm thấy DS phạm vi");
+                    continue;
+                }
+
+                bool inside = PermissibleRangeHelpers.CircleInsideShapes(
+                                  new[] { ds }, s.Mid, s.Dir, s.OD / 2, 12);
+
+                if (!inside)
+                {
+                    AddErr(errs, s.MepId, "Chu vi Sleeve vượt khỏi phạm vi");
+                    continue;
+                }
+
+                var fi = doc.Create.NewFamilyInstance(
+                             s.Mid, sleeveSym, StructuralType.NonStructural);
+
+                var axisRot = Line.CreateBound(s.Mid, s.Mid + XYZ.BasisZ);
+                double ang = XYZ.BasisX.AngleTo(s.Dir) + Math.PI / 2;
+                ElementTransformUtils.RotateElement(doc, fi.Id, axisRot, ang);
+
+                fi.LookupParameter("L")?.Set(s.Len);
+                fi.LookupParameter("OD")?.Set(s.OD);
+
+                if (!sleevePlaced.ContainsKey(s.MepId))
+                    sleevePlaced[s.MepId] = new List<(XYZ, double)>();
+                sleevePlaced[s.MepId].Add((s.Mid, s.OD));
+
+                ok++;
+            }
+            tx.Commit();
+
+            TaskDialog.Show("Thông báo", $"Đã đặt {ok} Sleeve hợp lệ (có thể kèm cảnh báo).");
         }
 
-        private void ApplyFilterToDirectShapes(Document doc, View view, List<DirectShape> directShapes)
+        private struct SleeveCand
         {
-            using (Transaction trans = new Transaction(doc, "Apply DirectShape Filter"))
+            public ElementId MepId;
+            public ElementId FrameId;
+            public XYZ Mid;
+            public XYZ Dir;
+            public double OD;
+            public double Len;
+        }
+
+        private static void AddErr(Dictionary<ElementId, HashSet<string>> map, ElementId id, string msg)
+        {
+            if (!map.TryGetValue(id, out var set))
+                map[id] = set = new HashSet<string>();
+            set.Add(msg);
+        }
+        #endregion
+
+        #region ▶ 3. Schedule lỗi & Tô màu DirectShape
+        private void CreateErrorSchedules(Document doc, Dictionary<ElementId, HashSet<string>> err)
+        {
+            using var tx = new Transaction(doc, "Create error schedules");
+            tx.Start();
+
+            var targets = new[]
             {
-                trans.Start();
-                var parameterFilter = new FilteredElementCollector(doc)
-                    .OfClass(typeof(ParameterFilterElement))
-                    .Cast<ParameterFilterElement>()
-                    .FirstOrDefault(f => f.Name == "DirectShape Filter");
-                if (parameterFilter == null)
-                    parameterFilter = ParameterFilterElement.Create(
-                        doc, "DirectShape Filter", new List<ElementId> { new ElementId(BuiltInCategory.OST_GenericModel) });
+                ("PipeErrorSchedule", BuiltInCategory.OST_PipeCurves),
+                ("DuctErrorSchedule", BuiltInCategory.OST_DuctCurves)
+            };
 
-                if (!view.IsFilterApplied(parameterFilter.Id))
-                    view.AddFilter(parameterFilter.Id);
+            foreach (var t in targets)
+            {
+                var exist = new FilteredElementCollector(doc)
+                                .OfClass(typeof(ViewSchedule))
+                                .Cast<ViewSchedule>()
+                                .FirstOrDefault(v => v.Name == t.Item1);
+                if (exist != null) doc.Delete(exist.Id);
 
-                ElementId solidFillPatternId = null;
-                var fillPatternElements = new FilteredElementCollector(doc)
-                    .OfClass(typeof(FillPatternElement))
-                    .Cast<FillPatternElement>();
-                foreach (var fp in fillPatternElements)
+                var vs = ViewSchedule.CreateSchedule(doc, new ElementId(t.Item2));
+                vs.Name = t.Item1;
+
+                var fields = vs.Definition.GetSchedulableFields();
+                void AddField(string n)
                 {
-                    if (fp.GetFillPattern().IsSolidFill)
-                    {
-                        solidFillPatternId = fp.Id;
-                        break;
-                    }
+                    var f = fields.FirstOrDefault(ff => ff.GetName(doc) == n);
+                    if (f != null) vs.Definition.AddField(f);
+                }
+                AddField("Mark");
+                AddField("Comments");
+
+                /* clear cũ */
+                foreach (var el in new FilteredElementCollector(doc)
+                                        .OfCategory(t.Item2)
+                                        .WhereElementIsNotElementType())
+                {
+                    el.LookupParameter("Mark")?.Set(string.Empty);
+                    el.LookupParameter("Comments")?.Set(string.Empty);
                 }
 
-                OverrideGraphicSettings overrideSettings = new();
-                overrideSettings.SetSurfaceForegroundPatternColor(new Color(0, 255, 0));
-                if (solidFillPatternId != null)
-                    overrideSettings.SetSurfaceForegroundPatternId(solidFillPatternId);
-
-                foreach (var ds in directShapes)
+                int idx = 1;
+                foreach (var kv in err)
                 {
-                    view.SetElementOverrides(ds.Id, overrideSettings);
+                    var el = doc.GetElement(kv.Key);
+                    if (el?.Category?.Id.IntegerValue != (int)t.Item2) continue;
+
+                    if (kv.Value.Any())
+                        el.LookupParameter("Mark")?.Set(idx++.ToString());
+
+                    el.LookupParameter("Comments")
+                       ?.Set(string.Join(", ", kv.Value));
                 }
-                trans.Commit();
             }
+            tx.Commit();
+        }
+
+        private void ApplyFilterToDirectShapes(Document doc, View view, List<DirectShape> dss)
+        {
+            using var tx = new Transaction(doc, "Apply DirectShape filter");
+            tx.Start();
+
+            var filter = new FilteredElementCollector(doc)
+                             .OfClass(typeof(ParameterFilterElement))
+                             .Cast<ParameterFilterElement>()
+                             .FirstOrDefault(f => f.Name == "DirectShape Filter")
+                          ?? ParameterFilterElement.Create(
+                                 doc, "DirectShape Filter",
+                                 new[] { new ElementId(BuiltInCategory.OST_GenericModel) });
+
+            if (!view.IsFilterApplied(filter.Id))
+                view.AddFilter(filter.Id);
+
+            var fpSolid = new FilteredElementCollector(doc)
+                            .OfClass(typeof(FillPatternElement))
+                            .Cast<FillPatternElement>()
+                            .FirstOrDefault(fp => fp.GetFillPattern().IsSolidFill)
+                           ?.Id;
+
+            var ogs = new OverrideGraphicSettings();
+            ogs.SetSurfaceForegroundPatternColor(new Color(0, 255, 0));
+            if (fpSolid != null)
+                ogs.SetSurfaceForegroundPatternId(fpSolid);
+
+            foreach (var ds in dss)
+                view.SetElementOverrides(ds.Id, ogs);
+
+            tx.Commit();
         }
         #endregion
     }
+
+    #region ▶ Helper: kiểm chu vi Sleeve
+    internal static class PermissibleRangeHelpers
+    {
+        public static bool CircleInsideShapes(
+            IEnumerable<DirectShape> dss,
+            XYZ center,
+            XYZ dir,
+            double radius,
+            int nSeg = 12,
+            double tol = 1e-4)
+        {
+            XYZ v1 = dir.IsAlmostEqualTo(XYZ.BasisZ)
+                   ? XYZ.BasisX
+                   : XYZ.BasisZ.CrossProduct(dir).Normalize();
+            XYZ v2 = dir.CrossProduct(v1).Normalize();
+
+            var solids = dss.SelectMany(ds =>
+                             ds.get_Geometry(new Options())
+                               .OfType<Solid>()
+                               .Where(s => s.Volume > 0))
+                            .ToList();
+            if (!solids.Any()) return false;
+
+            for (int i = 0; i < nSeg; ++i)
+            {
+                double ang = 2 * Math.PI * i / nSeg;
+                XYZ pt = center + radius * (Math.Cos(ang) * v1 + Math.Sin(ang) * v2);
+
+                if (!solids.Any(s => s.IsPointInside(pt, tol)))
+                    return false;
+            }
+            return true;
+        }
+    }
+    #endregion
 }

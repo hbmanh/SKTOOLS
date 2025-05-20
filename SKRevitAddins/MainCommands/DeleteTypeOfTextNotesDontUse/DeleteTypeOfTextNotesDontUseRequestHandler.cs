@@ -1,6 +1,5 @@
 ﻿using System;
 using Autodesk.Revit.UI;
-using SKRevitAddins.ViewModel;
 using Document = Autodesk.Revit.DB.Document;
 
 namespace SKRevitAddins.DeleteTypeOfTextNotesDontUse

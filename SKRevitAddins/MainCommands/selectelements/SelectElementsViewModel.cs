@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using SKRevitAddins.ViewModel;
+using SKRevitAddins.Utils;
 using Application = Autodesk.Revit.ApplicationServices.Application;
 
 namespace SKRevitAddins.SelectElements

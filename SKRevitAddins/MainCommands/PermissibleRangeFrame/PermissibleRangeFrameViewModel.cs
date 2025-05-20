@@ -5,6 +5,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SKRevitAddins.Utils;
+using SKRevitAddins.PermissibleRangeFrame;   // thêm cuối danh sách using
+
 
 namespace SKRevitAddins.PermissibleRangeFrame
 {

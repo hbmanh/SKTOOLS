@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SKRevitAddins.MainCommands.PermissibleRangeFrame
+namespace SKRevitAddins.Utils
 {
-    internal class IPermissibleService
+    internal class UnitExt
     {
     }
 }

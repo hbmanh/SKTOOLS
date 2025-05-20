@@ -3,7 +3,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
-using SKRevitAddins.ViewModel;
+using SKRevitAddins.Utils;
 using Application = Autodesk.Revit.ApplicationServices.Application;
 using View = Autodesk.Revit.DB.View;
 
