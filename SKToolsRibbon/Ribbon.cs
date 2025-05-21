@@ -62,6 +62,7 @@ namespace SKToolsRibbon
             AddButton(MEPPanel, "ConvertDuctsAndPipesToPlaceholdersCmd", "Duct・Pipes\n Convert", "SKRevitAddins.DuctPipePlaceholderAndFittings.ConvertDuctsAndPipesToPlaceholdersCmd", "ConvertDuctsAndPipesToPalceholders.png");
             AddButton(MEPPanel, "ConvertPlaceholdersToDuctsAndPipesCmd", "Placeholders\n Convert", "SKRevitAddins.DuctPipePlaceholderAndFittings.ConvertPlaceholdersToDuctsAndPipesCmd", "ConvertPlaceholdersToDuctsAndPipes.png");
             AddButton(MEPPanel, "IntersectWithFrameCmd", "Permissible\n Check", "SKRevitAddins.PermissibleRangeFrame.PermissibleRangeFrameCmd", "PermissibleRangeFramePunching.png");
+            AddButton(MEPPanel, "SleeveCheckerCmd", "Sleeve\n Checker", "SKRevitAddins.SleeveChecker.SleeveCheckerCmd", "PermissibleRangeFramePunching.png");
         }
     }
 }

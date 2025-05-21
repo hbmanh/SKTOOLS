@@ -22,7 +22,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>E:\PROJECT\TOOLS\SETUP\InstallerSource\SKTools.bundle\dll\</OutputPath>
+    <OutputPath>..\..\..\..\..\AppData\Roaming\Autodesk\Revit\Addins\2022\SKTools.bundle\dll\</OutputPath>
     <DefineConstants>TRACE;DEBUG;REVIT2022</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -192,6 +192,13 @@
     <Compile Include="MainCommands\ParameterAssignment\ParameterAssignmentForm .Designer.cs">
       <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
     </Compile>
+    <Compile Include="MainCommands\SleeveChecker\CheckerRequestHandler.cs" />
+    <Compile Include="MainCommands\SleeveChecker\SleeveCheckerCmd.cs" />
+    <Compile Include="MainCommands\SleeveChecker\SleeveCheckerLogic.cs" />
+    <Compile Include="MainCommands\SleeveChecker\SleeveCheckerViewModel.cs" />
+    <Compile Include="MainCommands\SleeveChecker\SleeveCheckerWindow.xaml.cs">
+      <DependentUpon>SleeveCheckerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="MainCommands\TEST\PlaceElementsFromBlocksCmd - Copy.cs" />
     <Compile Include="MainCommands\SelectElementsVer1\SelectElementsVer1Cmd.cs" />
     <Compile Include="MainCommands\SelectElementsVer1\SelectElementsVer1Request.cs" />
@@ -293,6 +300,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="ClassDiagram1.cd" />
     <None Include="SKToolsAddins.addin" />
     <None Include="packages.config" />
   </ItemGroup>
@@ -358,6 +366,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="MainCommands\CreateSpace\CreateSpaceWpfWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="MainCommands\SleeveChecker\SleeveCheckerWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
