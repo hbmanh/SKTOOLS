@@ -1,6 +1,6 @@
 ﻿using System.Threading;
 
-namespace SKRevitAddins.PlaceElementsFromBlocksCad
+namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
     public enum RequestId : int
     {
@@ -8,7 +8,7 @@ namespace SKRevitAddins.PlaceElementsFromBlocksCad
         OK = 1,
     }
 
-    public class PlaceElementsFromBlocksCadRequest
+    public class AutoPlaceElementFrBlockCADRequest
     {
         private int m_request = (int)RequestId.None;
 

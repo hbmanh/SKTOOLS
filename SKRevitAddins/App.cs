@@ -5,7 +5,6 @@ using SKRevitAddins.ExportSchedulesToExcel;
 using SKRevitAddins.CopySetOfFilterFromViewTemp;
 using SKRevitAddins.DeleteTypeOfTextNotesDontUse;
 using SKRevitAddins.FindDWGNotUseAndDel;
-using SKRevitAddins.PlaceElementsFromBlocksCad;
 using SKRevitAddins.SelectElements;
 using SKRevitAddins.SelectElementsVer1;
 
@@ -22,7 +21,6 @@ namespace SKRevitAddins
         private FindDWGNotUseAndDelWpfWindow m_FindDWGNotUseAndDelWpfWindow;
         private DeleteTypeOfTextNotesDontUseWpfWindow m_DeleteTypeOfTextNotesDontUseWpfWindow;
         private AutoCreatePileFromCadWpfWindow m_AutoCreatePileFromCadWpfWindow;
-        private PlaceElementsFromBlocksCadWpfWindow m_PlaceElementsFromBlocksCadWpfWindow;
         private ExportSchedulesToExcelWpfWindow m_ExportSchedulesToExcelWpfWindow;
 
 
@@ -64,11 +62,6 @@ namespace SKRevitAddins
             if (m_AutoCreatePileFromCadWpfWindow != null && m_AutoCreatePileFromCadWpfWindow.IsVisible)
             {
                 m_AutoCreatePileFromCadWpfWindow.Close();
-            }
-
-            if (m_PlaceElementsFromBlocksCadWpfWindow != null && m_PlaceElementsFromBlocksCadWpfWindow.IsVisible)
-            {
-                m_PlaceElementsFromBlocksCadWpfWindow.Close();
             }
 
             return Result.Succeeded;
@@ -183,18 +176,6 @@ namespace SKRevitAddins
                 ExternalEvent exEvent = ExternalEvent.Create(handler);
                 m_AutoCreatePileFromCadWpfWindow = new AutoCreatePileFromCadWpfWindow(exEvent, handler, viewModel);
                 m_AutoCreatePileFromCadWpfWindow.Show();
-            }
-        }
-
-        public void ShowPlaceElementsFromBlocksCadViewModel(UIApplication uiapp,
-            PlaceElementsFromBlocksCadViewModel viewModel)
-        {
-            if (m_PlaceElementsFromBlocksCadWpfWindow == null || !m_PlaceElementsFromBlocksCadWpfWindow.IsVisible)
-            {
-                PlaceElementsFromBlocksCadRequestHandler handler = new PlaceElementsFromBlocksCadRequestHandler(viewModel);
-                ExternalEvent exEvent = ExternalEvent.Create(handler);
-                m_PlaceElementsFromBlocksCadWpfWindow = new PlaceElementsFromBlocksCadWpfWindow(exEvent, handler, viewModel);
-                m_PlaceElementsFromBlocksCadWpfWindow.Show();
             }
         }
     }

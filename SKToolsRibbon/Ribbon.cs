@@ -52,7 +52,7 @@ namespace SKToolsRibbon
             AddButton(GENPanel, "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
 
             // CAD Panel
-            AddButton(CADPanel, "PlaceElementsFromBlocksCadCmd", "EleFrB\nCreate", "SKRevitAddins.PlaceElementsFromBlocksCad.PlaceElementsFromBlocksCadCmd", "PlaceEleFromBlocks.png", "Create elements from Blocks");
+            AddButton(CADPanel, "AutoPlaceElementFrBlockCADCmd", "Elements\nCreate", "SKRevitAddins.AutoPlaceElementFrBlockCAD.AutoPlaceElementFrBlockCADCmd", "PlaceEleFromBlocks.png", "Create elements from Blocks");
             AddButton(CADPanel, "FindDWGNotUseAndDelCmd", "CADFind\nDelete", "SKRevitAddins.FindDWGNotUseAndDel.FindDWGNotUseAndDelCmd", "FindDWGNotUsed.png", "Find DWG and Delete");
             AddButton(CADPanel, "AutoCreatePileFromCadCmd", "Piles\n Create", "SKRevitAddins.AutoCreatePileFromCad.AutoCreatePileFromCadCmd", "PileFCADCreate.png", "Create Pile From DWG");
             AddButton(GENPanel, "LayoutsToDWGCmd", "Layout\nExport", "SKRevitAddins.LayoutsToDWG.LayoutsToDWGCmd", "DWGExport.png");

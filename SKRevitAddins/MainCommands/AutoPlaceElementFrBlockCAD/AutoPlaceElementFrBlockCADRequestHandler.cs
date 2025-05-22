@@ -1,28 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using Document = Autodesk.Revit.DB.Document;
 
-namespace SKRevitAddins.PlaceElementsFromBlocksCad
+namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
-    public class PlaceElementsFromBlocksCadRequestHandler : IExternalEventHandler
+    public class AutoPlaceElementFrBlockCADRequestHandler : IExternalEventHandler
     {
-        public Document Doc;
-        private PlaceElementsFromBlocksCadViewModel ViewModel;
+        private AutoPlaceElementFrBlockCADViewModel ViewModel;
 
-        public PlaceElementsFromBlocksCadRequestHandler(PlaceElementsFromBlocksCadViewModel viewModel)
+        public AutoPlaceElementFrBlockCADRequestHandler(AutoPlaceElementFrBlockCADViewModel viewModel)
         {
             ViewModel = viewModel;
         }
 
-        private PlaceElementsFromBlocksCadRequest m_Request = new PlaceElementsFromBlocksCadRequest();
+        private AutoPlaceElementFrBlockCADRequest m_Request = new AutoPlaceElementFrBlockCADRequest();
 
-        public PlaceElementsFromBlocksCadRequest Request
-        {
-            get { return m_Request; }
-        }
+        public AutoPlaceElementFrBlockCADRequest Request => m_Request;
 
         public void Execute(UIApplication uiapp)
         {
@@ -30,8 +26,6 @@ namespace SKRevitAddins.PlaceElementsFromBlocksCad
             {
                 switch (Request.Take())
                 {
-                    case RequestId.None:
-                        break;
                     case RequestId.OK:
                         PlaceElements(uiapp, ViewModel);
                         break;
@@ -43,13 +37,9 @@ namespace SKRevitAddins.PlaceElementsFromBlocksCad
             }
         }
 
-        public string GetName()
-        {
-            return "Place Elements from CAD Blocks";
-        }
+        public string GetName() => "Place Elements from CAD Blocks";
 
-        #region Place Elements
-        private void PlaceElements(UIApplication uiapp, PlaceElementsFromBlocksCadViewModel viewModel)
+        private void PlaceElements(UIApplication uiapp, AutoPlaceElementFrBlockCADViewModel viewModel)
         {
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
@@ -59,20 +49,27 @@ namespace SKRevitAddins.PlaceElementsFromBlocksCad
 
             Dictionary<string, int> blockInstanceCounts = new Dictionary<string, int>();
 
+            // Loại trùng tuyệt đối toàn bộ
+            HashSet<string> usedPositions = new HashSet<string>();
+
             using (Transaction trans = new Transaction(doc, "Place Elements from CAD Blocks"))
             {
                 trans.Start();
                 foreach (var blockMapping in blockMappings)
                 {
+                    if (!blockMapping.IsEnabled)
+                        continue;
+
                     var blockGroups = blockMapping.Blocks;
-                    foreach (var block in blockGroups)
+                    List<ElementId> createdInstanceIds = new List<ElementId>();
+
+                    foreach (var blockWithLink in blockGroups)
                     {
+                        var block = blockWithLink.Block;
+                        var cadLink = blockWithLink.CadLink;
                         var category = blockMapping.SelectedCategoryMapping;
                         var selectedType = blockMapping.SelectedTypeSymbolMapping;
                         double offset = blockMapping.Offset / 304.8;
-
-                        var blockPosition = block.Transform.Origin;
-                        var blockRotation = block.Transform.BasisX.AngleTo(new XYZ(1, 0, 0));
 
                         if (selectedType == null) continue;
                         if (!selectedType.IsActive)
@@ -81,35 +78,59 @@ namespace SKRevitAddins.PlaceElementsFromBlocksCad
                             doc.Regenerate();
                         }
 
-                        // If category is detail item, do not apply offset
+                        Transform importTransform = cadLink.GetTotalTransform();
+                        Transform blockTransform = block.Transform;
+
+                        XYZ localOrigin = blockTransform.Origin;
+                        XYZ worldOrigin = importTransform.OfPoint(localOrigin);
+
                         XYZ placementPosition;
                         if (category != null && category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents)
                         {
-                            placementPosition = blockPosition;
+                            placementPosition = worldOrigin;
                         }
                         else
                         {
-                            placementPosition = new XYZ(blockPosition.X, blockPosition.Y, offset);
+                            placementPosition = new XYZ(worldOrigin.X, worldOrigin.Y, worldOrigin.Z + offset);
                         }
+
+                        string posKey = $"{Math.Round(placementPosition.X, 4)},{Math.Round(placementPosition.Y, 4)},{Math.Round(placementPosition.Z, 4)}";
+                        if (usedPositions.Contains(posKey))
+                            continue;
+                        usedPositions.Add(posKey);
+
+                        XYZ globalBasisX = importTransform.OfVector(blockTransform.BasisX);
+                        XYZ baseDir = new XYZ(1, 0, 0);
+
+                        double blockRotation = baseDir.AngleTo(globalBasisX);
+                        double sign = (XYZ.BasisZ.CrossProduct(baseDir)).DotProduct(globalBasisX) < 0 ? -1 : 1;
+                        blockRotation *= sign;
 
                         FamilyInstance familyInstance = doc.Create.NewFamilyInstance(placementPosition, selectedType, level, StructuralType.NonStructural);
-
-                        // Apply the rotation
                         ElementTransformUtils.RotateElement(doc, familyInstance.Id, Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), blockRotation);
 
-                        // Count the created instances for each block
+                        createdInstanceIds.Add(familyInstance.Id);
+
                         if (!blockInstanceCounts.ContainsKey(blockMapping.DisplayBlockName))
-                        {
                             blockInstanceCounts[blockMapping.DisplayBlockName] = 0;
-                        }
                         blockInstanceCounts[blockMapping.DisplayBlockName]++;
                     }
 
+                    // Group theo block name nếu có instance, đặt tên cho GroupType
+                    if (createdInstanceIds.Count > 0)
+                    {
+                        Group group = doc.Create.NewGroup(createdInstanceIds);
+                        try
+                        {
+                            if (group.GroupType != null && group.GroupType.CanBeRenamed)
+                                group.GroupType.Name = blockMapping.DisplayBlockName;
+                        }
+                        catch { }
+                    }
                 }
                 trans.Commit();
             }
 
-            // Show the result dialog
             ShowResultDialog(blockInstanceCounts);
         }
 
@@ -121,13 +142,10 @@ namespace SKRevitAddins.PlaceElementsFromBlocksCad
 
             string details = "";
             foreach (var kvp in blockInstanceCounts)
-            {
                 details += $"{kvp.Key}: {kvp.Value} instances\n";
-            }
 
             dialog.ExpandedContent = details;
             dialog.Show();
         }
-        #endregion
     }
 }

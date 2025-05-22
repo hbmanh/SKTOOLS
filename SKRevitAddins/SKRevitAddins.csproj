@@ -129,6 +129,7 @@
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadCmd.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadRequest.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadRequestHandler.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\GetBlockNamesFromCadLink.cs" />
     <Compile Include="MainCommands\CadImportReplaceLineStyle\CadImportReplaceLineStyleCmd.cs" />
     <Compile Include="MainCommands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempCmd.cs" />
     <Compile Include="MainCommands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequest.cs" />
@@ -222,8 +223,8 @@
     <Compile Include="MainCommands\PermissibleRangeFrame\PermissibleRangeFrameWpfWindow.xaml.cs">
       <DependentUpon>PermissibleRangeFrameWpfWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="MainCommands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadWpfWindow.xaml.cs">
-      <DependentUpon>PlaceElementsFromBlocksCadWpfWindow.xaml</DependentUpon>
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADWpfWindow.xaml.cs">
+      <DependentUpon>AutoPlaceElementFrBlockCADWpfWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseWpfWindow.xaml.cs">
       <DependentUpon>DeleteTypeOfTextNotesDontUseWpfWindow.xaml</DependentUpon>
@@ -254,9 +255,9 @@
     </Compile>
     <Compile Include="MainCommands\TEST\ImportExcelOrPdfCommand.cs" />
     <Compile Include="MainCommands\TEST\EquipmentClassificationProcessor.cs" />
-    <Compile Include="MainCommands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadCmd.cs" />
-    <Compile Include="MainCommands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequest.cs" />
-    <Compile Include="MainCommands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadRequestHandler.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADCmd.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequest.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequestHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="MainCommands\TEST\Test.cs" />
     <Compile Include="Utils\APIDoc.cs" />
@@ -277,6 +278,7 @@
     <Compile Include="Utils\MultiValueConverter.cs" />
     <Compile Include="Utils\ParamUtils.cs" />
     <Compile Include="Utils\PointUtils.cs" />
+    <Compile Include="Utils\PositionKey.cs" />
     <Compile Include="Utils\StringConversionUtils.cs" />
     <Compile Include="Utils\TextUtils.cs" />
     <Compile Include="Utils\TFamilyUtils.cs" />
@@ -287,7 +289,7 @@
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelViewModel .cs" />
     <Compile Include="MainCommands\ExportSchedulesToExcel\ExportSchedulesToExcelViewModel .cs" />
     <Compile Include="MainCommands\PermissibleRangeFrame\PermissibleRangeFrameViewModel.cs" />
-    <Compile Include="MainCommands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadViewModel.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADViewModel.cs" />
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseViewModel.cs" />
     <Compile Include="MainCommands\FindDWGNotUseAndDel\FindDWGNotUseAndDelViewModel.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadViewModel.cs" />
@@ -329,7 +331,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="MainCommands\PlaceElementsFromBlocksCad\PlaceElementsFromBlocksCadWpfWindow.xaml">
+    <Page Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADWpfWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
