@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -17,6 +18,8 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
     public class AutoPlaceElementFrBlockCADViewModel : ViewModelBase
     {
+        public Action<string> UpdateStatus { get; set; }
+
         private UIApplication UiApp;
         private UIDocument UiDoc;
         private Document ThisDoc;
@@ -29,25 +32,28 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
             var refLinkCad = UiDoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
             var selectedCadLink = ThisDoc.GetElement(refLinkCad) as ImportInstance;
+
             if (selectedCadLink == null)
             {
                 TaskDialog.Show("Error", "No valid CAD link selected.");
                 return;
             }
+
             Level = UiDoc.ActiveView.GenLevel;
 
             Categories = new ObservableCollection<Category>(GetCategories(ThisDoc));
             SelectedCategory = Categories.FirstOrDefault();
 
-            UpdateFamilies();
-            UpdateTypeSymbols();
+            CacheFamiliesAndSymbols();
 
-            var blocks = GetBlockNamesFromCadLink(selectedCadLink)
+            var blocks = GeometryHelper.GetBlockNamesFromCadLink(selectedCadLink)
                 .GroupBy(b => b.Block.Symbol.Name)
-                .OrderBy(g => g.Key, System.StringComparer.CurrentCultureIgnoreCase);
+                .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
 
             foreach (var blockGroup in blocks)
+            {
                 BlockMappings.Add(new BlockMapping(blockGroup, ThisDoc, Categories, Families, TypeSymbols));
+            }
         }
 
         public ObservableCollection<BlockMapping> BlockMappings { get; set; } = new ObservableCollection<BlockMapping>();
@@ -79,7 +85,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
         }
 
         public ObservableCollection<Family> Families { get; set; } = new ObservableCollection<Family>();
-
         private Family _selectedFamily;
         public Family SelectedFamily
         {
@@ -93,7 +98,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
         }
 
         public ObservableCollection<FamilySymbol> TypeSymbols { get; set; } = new ObservableCollection<FamilySymbol>();
-
         private FamilySymbol _selectedTypeSymbol;
         public FamilySymbol SelectedTypeSymbol
         {
@@ -105,30 +109,46 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             }
         }
 
+        private Dictionary<ElementId, List<Family>> _categoryToFamilies = new();
+        private Dictionary<ElementId, List<FamilySymbol>> _familyToSymbols = new();
+
+        private void CacheFamiliesAndSymbols()
+        {
+            var families = new FilteredElementCollector(ThisDoc).OfClass(typeof(Family)).Cast<Family>();
+            foreach (var fam in families)
+            {
+                if (fam.FamilyCategory == null) continue;
+                if (!_categoryToFamilies.ContainsKey(fam.FamilyCategory.Id))
+                    _categoryToFamilies[fam.FamilyCategory.Id] = new List<Family>();
+                _categoryToFamilies[fam.FamilyCategory.Id].Add(fam);
+            }
+
+            var symbols = new FilteredElementCollector(ThisDoc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>();
+            foreach (var sym in symbols)
+            {
+                if (!_familyToSymbols.ContainsKey(sym.Family.Id))
+                    _familyToSymbols[sym.Family.Id] = new List<FamilySymbol>();
+                _familyToSymbols[sym.Family.Id].Add(sym);
+            }
+
+            Families = new ObservableCollection<Family>(families.OrderBy(f => f.Name));
+            TypeSymbols = new ObservableCollection<FamilySymbol>(symbols.OrderBy(s => s.Name));
+        }
+
         private void UpdateFamilies()
         {
-            if (SelectedCategory != null)
+            if (SelectedCategory != null && _categoryToFamilies.TryGetValue(SelectedCategory.Id, out var fams))
             {
-                Families = new ObservableCollection<Family>(
-                    new FilteredElementCollector(ThisDoc)
-                        .OfClass(typeof(Family))
-                        .Cast<Family>()
-                        .Where(family => family.FamilyCategory.Id == SelectedCategory.Id)
-                        .OrderBy(family => family.Name));
+                Families = new ObservableCollection<Family>(fams.OrderBy(f => f.Name));
                 SelectedFamily = Families.FirstOrDefault();
             }
         }
 
         private void UpdateTypeSymbols()
         {
-            if (SelectedFamily != null)
+            if (SelectedFamily != null && _familyToSymbols.TryGetValue(SelectedFamily.Id, out var symbols))
             {
-                TypeSymbols = new ObservableCollection<FamilySymbol>(
-                    new FilteredElementCollector(ThisDoc)
-                        .OfClass(typeof(FamilySymbol))
-                        .Cast<FamilySymbol>()
-                        .Where(fs => fs.Family.Id == SelectedFamily.Id)
-                        .OrderBy(fs => fs.Name));
+                TypeSymbols = new ObservableCollection<FamilySymbol>(symbols.OrderBy(s => s.Name));
                 SelectedTypeSymbol = TypeSymbols.FirstOrDefault();
             }
         }
@@ -138,7 +158,7 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(Family))
                 .Cast<Family>()
-                .Select(family => family.FamilyCategory)
+                .Select(f => f.FamilyCategory)
                 .Where(c => c != null && c.CategoryType == CategoryType.Model)
                 .GroupBy(c => c.Id)
                 .Select(g => g.First())
@@ -146,203 +166,173 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 .ToList();
         }
 
-        private static List<BlockWithLink> GetBlockNamesFromCadLink(ImportInstance cadLink)
+        // --------------------------------------------------------------------
+        // 👇 BlockMapping đặt bên trong ViewModel
+        // --------------------------------------------------------------------
+        public class BlockMapping : INotifyPropertyChanged
         {
-            var blocks = new List<BlockWithLink>();
-            GeometryElement geoElement = cadLink.get_Geometry(new Options());
+            public event PropertyChangedEventHandler PropertyChanged;
 
-            foreach (GeometryObject geoObject in geoElement)
+            public Document ThisDoc { get; set; }
+            public List<BlockWithLink> Blocks { get; set; }
+            public int BlockCount => Blocks?.Count ?? 0;
+
+            private bool _isEnabled = true;
+            public bool IsEnabled
             {
-                if (geoObject is GeometryInstance instance)
+                get => _isEnabled;
+                set { _isEnabled = value; OnPropertyChanged(nameof(IsEnabled)); }
+            }
+
+            public BlockMapping(IGrouping<string, BlockWithLink> blocks,
+                Document doc,
+                ObservableCollection<Category> categories,
+                ObservableCollection<Family> families,
+                ObservableCollection<FamilySymbol> typeSymbols)
+            {
+                ThisDoc = doc;
+                Blocks = blocks.ToList();
+                BlockName = blocks.Key;
+
+                CategoriesMapping = categories;
+                FamiliesMapping = families;
+                TypeSymbolsMapping = typeSymbols;
+                Offset = 2600;
+                IsEnabled = true;
+
+                SelectedCategoryMapping = SmartSuggestCategory(DisplayBlockName, CategoriesMapping) ?? categories.FirstOrDefault();
+                UpdateFamiliesMapping();
+                SelectedFamilyMapping = SmartSuggestFamily(DisplayBlockName, FamiliesMapping) ?? FamiliesMapping.FirstOrDefault();
+                UpdateTypeSymbolsMapping();
+                SelectedTypeSymbolMapping = SmartSuggestTypeSymbol(DisplayBlockName, TypeSymbolsMapping) ?? TypeSymbolsMapping.FirstOrDefault();
+            }
+
+            private string _blockName;
+            public string BlockName
+            {
+                get => _blockName;
+                set
                 {
-                    foreach (GeometryObject instObj in instance.SymbolGeometry)
-                    {
-                        if (instObj is GeometryInstance blockInstance)
-                            blocks.Add(new BlockWithLink { Block = blockInstance, CadLink = cadLink });
-                    }
+                    _blockName = value;
+                    OnPropertyChanged(nameof(BlockName));
+                    OnPropertyChanged(nameof(DisplayBlockName));
                 }
             }
-            return blocks;
-        }
-    }
 
-    public class BlockMapping : INotifyPropertyChanged
-    {
-        public event PropertyChangedEventHandler PropertyChanged;
-        public Document ThisDoc { get; set; }
-        public List<BlockWithLink> Blocks { get; set; }
-        public int BlockCount => Blocks?.Count ?? 0;
+            public string DisplayBlockName =>
+                string.IsNullOrEmpty(BlockName) ? "" :
+                (BlockName.LastIndexOf('.') >= 0
+                    ? BlockName.Substring(BlockName.LastIndexOf('.') + 1)
+                    : BlockName);
 
-        private bool _isEnabled = true;
-        public bool IsEnabled
-        {
-            get => _isEnabled;
-            set { _isEnabled = value; OnPropertyChanged(nameof(IsEnabled)); }
-        }
+            public ObservableCollection<Category> CategoriesMapping { get; set; }
 
-        public BlockMapping(IGrouping<string, BlockWithLink> blocks, Document doc, ObservableCollection<Category> categories, ObservableCollection<Family> families, ObservableCollection<FamilySymbol> typeSymbols)
-        {
-            ThisDoc = doc;
-            Blocks = blocks.ToList();
-            BlockName = blocks.First().Block.Symbol.Name;
-            CategoriesMapping = categories;
-            FamiliesMapping = families;
-            TypeSymbolsMapping = typeSymbols;
-            Offset = 2600;
-            IsEnabled = true;
-
-            SelectedCategoryMapping = SmartSuggestCategory(DisplayBlockName, CategoriesMapping) ?? categories.FirstOrDefault();
-            UpdateFamiliesMapping();
-            SelectedFamilyMapping = SmartSuggestFamily(DisplayBlockName, FamiliesMapping) ?? FamiliesMapping.FirstOrDefault();
-            UpdateTypeSymbolsMapping();
-            SelectedTypeSymbolMapping = SmartSuggestTypeSymbol(DisplayBlockName, TypeSymbolsMapping) ?? TypeSymbolsMapping.FirstOrDefault();
-        }
-
-        private string _blockName;
-        public string BlockName
-        {
-            get => _blockName;
-            set
+            private Category _selectedCategoryMapping;
+            public Category SelectedCategoryMapping
             {
-                _blockName = value;
-                OnPropertyChanged(nameof(BlockName));
-                OnPropertyChanged(nameof(DisplayBlockName));
+                get => _selectedCategoryMapping;
+                set
+                {
+                    _selectedCategoryMapping = value;
+                    OnPropertyChanged(nameof(SelectedCategoryMapping));
+                    UpdateFamiliesMapping();
+                    UpdateTypeSymbolsMapping();
+                }
             }
-        }
 
-        public string DisplayBlockName
-        {
-            get
+            public ObservableCollection<Family> FamiliesMapping { get; set; }
+
+            private Family _selectedFamilyMapping;
+            public Family SelectedFamilyMapping
             {
-                if (string.IsNullOrEmpty(BlockName))
-                    return BlockName;
-                int prefixIndex = BlockName.LastIndexOf('.');
-                return prefixIndex >= 0 ? BlockName.Substring(prefixIndex + 1) : BlockName;
+                get => _selectedFamilyMapping;
+                set
+                {
+                    _selectedFamilyMapping = value;
+                    OnPropertyChanged(nameof(SelectedFamilyMapping));
+                    UpdateTypeSymbolsMapping();
+                }
             }
-        }
 
-        private ObservableCollection<Category> _categoriesMapping;
-        public ObservableCollection<Category> CategoriesMapping
-        {
-            get => _categoriesMapping;
-            set { _categoriesMapping = value; OnPropertyChanged(nameof(CategoriesMapping)); }
-        }
+            public ObservableCollection<FamilySymbol> TypeSymbolsMapping { get; set; }
 
-        private Category _selectedCategoryMapping;
-        public Category SelectedCategoryMapping
-        {
-            get => _selectedCategoryMapping;
-            set
+            private FamilySymbol _selectedTypeSymbolMapping;
+            public FamilySymbol SelectedTypeSymbolMapping
             {
-                _selectedCategoryMapping = value;
-                OnPropertyChanged(nameof(SelectedCategoryMapping));
-                UpdateFamiliesMapping();
-                UpdateTypeSymbolsMapping();
+                get => _selectedTypeSymbolMapping;
+                set { _selectedTypeSymbolMapping = value; OnPropertyChanged(nameof(SelectedTypeSymbolMapping)); }
             }
-        }
 
-        private ObservableCollection<Family> _familiesMapping;
-        public ObservableCollection<Family> FamiliesMapping
-        {
-            get => _familiesMapping;
-            set { _familiesMapping = value; OnPropertyChanged(nameof(FamiliesMapping)); }
-        }
-
-        private Family _selectedFamilyMapping;
-        public Family SelectedFamilyMapping
-        {
-            get => _selectedFamilyMapping;
-            set
+            private double _offset;
+            public double Offset
             {
-                _selectedFamilyMapping = value;
-                OnPropertyChanged(nameof(SelectedFamilyMapping));
-                UpdateTypeSymbolsMapping();
+                get => _offset;
+                set { _offset = value; OnPropertyChanged(nameof(Offset)); }
             }
-        }
 
-        private ObservableCollection<FamilySymbol> _typeSymbolsMapping;
-        public ObservableCollection<FamilySymbol> TypeSymbolsMapping
-        {
-            get => _typeSymbolsMapping;
-            set { _typeSymbolsMapping = value; OnPropertyChanged(nameof(TypeSymbolsMapping)); }
-        }
-
-        private FamilySymbol _selectedTypeSymbolMapping;
-        public FamilySymbol SelectedTypeSymbolMapping
-        {
-            get => _selectedTypeSymbolMapping;
-            set { _selectedTypeSymbolMapping = value; OnPropertyChanged(nameof(SelectedTypeSymbolMapping)); }
-        }
-        private double _offset;
-        public double Offset
-        {
-            get => _offset;
-            set { _offset = value; OnPropertyChanged(nameof(Offset)); }
-        }
-
-        // -------- AI Suggest (auto) ----------
-        private static IEnumerable<string> GetTokens(string name)
-        {
-            return name?.Split('_', '-', ' ', '.', '@')
-                        .Select(s => s.ToLower())
-                        .Where(s => s.Length > 2) ?? Enumerable.Empty<string>();
-        }
-
-        private Category SmartSuggestCategory(string blockName, IEnumerable<Category> categories)
-        {
-            var tokens = GetTokens(blockName).ToList();
-            return categories.OrderByDescending(cat =>
-                tokens.Count(token => cat.Name.ToLower().Contains(token)))
-                .FirstOrDefault();
-        }
-
-        private Family SmartSuggestFamily(string blockName, IEnumerable<Family> families)
-        {
-            var tokens = GetTokens(blockName).ToList();
-            return families.OrderByDescending(fam =>
-                tokens.Count(token => fam.Name.ToLower().Contains(token)))
-                .FirstOrDefault();
-        }
-
-        private FamilySymbol SmartSuggestTypeSymbol(string blockName, IEnumerable<FamilySymbol> typeSymbols)
-        {
-            var tokens = GetTokens(blockName).ToList();
-            return typeSymbols.OrderByDescending(fs =>
-                tokens.Count(token => fs.Name.ToLower().Contains(token)))
-                .FirstOrDefault();
-        }
-        // -------- End AI Suggest -------------
-
-        private void UpdateFamiliesMapping()
-        {
-            if (SelectedCategoryMapping != null && ThisDoc != null)
+            private void UpdateFamiliesMapping()
             {
-                FamiliesMapping = new ObservableCollection<Family>(
-                    new FilteredElementCollector(ThisDoc)
-                        .OfClass(typeof(Family))
-                        .Cast<Family>()
-                        .Where(family => family.FamilyCategory.Id == SelectedCategoryMapping.Id)
-                        .OrderBy(family => family.Name));
-                SelectedFamilyMapping = FamiliesMapping.FirstOrDefault();
+                if (SelectedCategoryMapping != null && ThisDoc != null)
+                {
+                    FamiliesMapping = new ObservableCollection<Family>(
+                        new FilteredElementCollector(ThisDoc)
+                            .OfClass(typeof(Family))
+                            .Cast<Family>()
+                            .Where(f => f.FamilyCategory.Id == SelectedCategoryMapping.Id)
+                            .OrderBy(f => f.Name));
+                    SelectedFamilyMapping = FamiliesMapping.FirstOrDefault();
+                }
             }
-        }
 
-        private void UpdateTypeSymbolsMapping()
-        {
-            if (SelectedFamilyMapping != null && ThisDoc != null)
+            private void UpdateTypeSymbolsMapping()
             {
-                TypeSymbolsMapping = new ObservableCollection<FamilySymbol>(
-                    new FilteredElementCollector(ThisDoc)
-                        .OfClass(typeof(FamilySymbol))
-                        .Cast<FamilySymbol>()
-                        .Where(fs => fs.Family.Id == SelectedFamilyMapping.Id)
-                        .OrderBy(fs => fs.Name));
-                SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                if (SelectedFamilyMapping != null && ThisDoc != null)
+                {
+                    TypeSymbolsMapping = new ObservableCollection<FamilySymbol>(
+                        new FilteredElementCollector(ThisDoc)
+                            .OfClass(typeof(FamilySymbol))
+                            .Cast<FamilySymbol>()
+                            .Where(fs => fs.Family.Id == SelectedFamilyMapping.Id)
+                            .OrderBy(fs => fs.Name));
+                    SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                }
             }
-        }
 
-        protected void OnPropertyChanged(string propertyName) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            private static IEnumerable<string> GetTokens(string name)
+            {
+                return name?.Split('_', '-', ' ', '.', '@')
+                            .Select(s => s.ToLowerInvariant())
+                            .Where(s => s.Length > 2)
+                            ?? Enumerable.Empty<string>();
+            }
+
+            private Category SmartSuggestCategory(string blockName, IEnumerable<Category> categories)
+            {
+                var tokens = GetTokens(blockName).ToList();
+                return categories
+                    .OrderByDescending(cat => tokens.Count(t => cat.Name.ToLower().Contains(t)))
+                    .FirstOrDefault();
+            }
+
+            private Family SmartSuggestFamily(string blockName, IEnumerable<Family> families)
+            {
+                var tokens = GetTokens(blockName).ToList();
+                return families
+                    .OrderByDescending(f => tokens.Count(t => f.Name.ToLower().Contains(t)))
+                    .FirstOrDefault();
+            }
+
+            private FamilySymbol SmartSuggestTypeSymbol(string blockName, IEnumerable<FamilySymbol> typeSymbols)
+            {
+                var tokens = GetTokens(blockName).ToList();
+                return typeSymbols
+                    .OrderByDescending(fs => tokens.Count(t => fs.Name.ToLower().Contains(t)))
+                    .FirstOrDefault();
+            }
+
+            protected void OnPropertyChanged(string propertyName) =>
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 
     public class ImportInstanceSelectionFilter : ISelectionFilter

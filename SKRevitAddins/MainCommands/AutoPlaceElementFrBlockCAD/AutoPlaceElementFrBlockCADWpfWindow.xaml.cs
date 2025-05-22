@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.UI;
 using System.Windows;
 using System.Windows.Input;
+using static SKRevitAddins.AutoPlaceElementFrBlockCAD.AutoPlaceElementFrBlockCADViewModel;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
@@ -19,25 +20,40 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             m_Handler = handler;
             m_ExEvent = exEvent;
             DataContext = viewModel;
+
+            // Cập nhật trạng thái tiến trình
+            viewModel.UpdateStatus = (msg) =>
+            {
+                Dispatcher.Invoke(() => StatusText.Text = msg);
+            };
         }
 
         private void EnableAll_Click(object sender, RoutedEventArgs e)
         {
-            var vm = DataContext as AutoPlaceElementFrBlockCADViewModel;
-            if (vm != null)
+            if (DataContext is AutoPlaceElementFrBlockCADViewModel vm)
                 foreach (var bm in vm.BlockMappings)
                     bm.IsEnabled = true;
         }
 
         private void DisableAll_Click(object sender, RoutedEventArgs e)
         {
-            var vm = DataContext as AutoPlaceElementFrBlockCADViewModel;
-            if (vm != null)
+            if (DataContext is AutoPlaceElementFrBlockCADViewModel vm)
                 foreach (var bm in vm.BlockMappings)
                     bm.IsEnabled = false;
         }
 
-        // SHIFT chọn nhanh Enable/Disable
+        private void OkBtn_Click(object sender, RoutedEventArgs e)
+        {
+            m_Handler.Request.Make(RequestId.OK);
+            m_ExEvent.Raise();
+            this.Close();
+        }
+
+        private void CancelBtn_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
         private void CheckBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
@@ -68,18 +84,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 if (vm != null && item != null)
                     lastCheckedIndex = vm.BlockMappings.IndexOf(item);
             }
-        }
-
-        private void OkBtn_Click(object sender, RoutedEventArgs e)
-        {
-            m_Handler.Request.Make(RequestId.OK);
-            m_ExEvent.Raise();
-            this.Close();
-        }
-
-        private void CancelBtn_Click(object sender, RoutedEventArgs e)
-        {
-            this.Close();
         }
     }
 }

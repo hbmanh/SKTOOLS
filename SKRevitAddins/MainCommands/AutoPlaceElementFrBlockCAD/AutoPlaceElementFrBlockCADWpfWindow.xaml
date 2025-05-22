@@ -8,6 +8,7 @@
         ResizeMode="CanMinimize"
         ShowInTaskbar="True"
         Topmost="True">
+
     <Window.Resources>
         <Style x:Key="BlueHeaderStyle" TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="#3399FF"/>
@@ -20,32 +21,30 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
+
     <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Logo + tiêu đề -->
         <!-- Header -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-            <Image Source="pack://application:,,,/Resources/shinken.png"
-           Height="30" Width="24"/>
-            <TextBlock Text="Shinken Group®"
-               FontSize="20" FontWeight="Bold"
-               Margin="10,0,0,0" VerticalAlignment="Center"/>
+            <Image Source="pack://application:,,,/Resources/shinken.png" Height="30" Width="24"/>
+            <TextBlock Text="Shinken Group®" FontSize="20" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <!-- Nút Enable/Disable All -->
+        <!-- Enable/Disable buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,8" Grid.Row="1">
             <Button Content="Enable All" Width="110" Margin="0,0,10,0" Click="EnableAll_Click"/>
             <Button Content="Disable All" Width="110" Click="DisableAll_Click"/>
         </StackPanel>
 
-        <!-- DataGrid trong Border -->
-        <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Margin="0,0,0,0" Grid.Row="2">
+        <!-- DataGrid -->
+        <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Grid.Row="2">
             <DataGrid x:Name="BlockMappingGrid"
                       AutoGenerateColumns="False"
                       ItemsSource="{Binding BlockMappings}"
@@ -64,74 +63,62 @@
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                           HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"/>
+                                          VerticalAlignment="Center"
+                                          PreviewMouseLeftButtonDown="CheckBox_PreviewMouseLeftButtonDown"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+
                     <DataGridTextColumn Header="Block Name" Binding="{Binding DisplayBlockName}" Width="*" MinWidth="120"/>
                     <DataGridTextColumn Header="Count" Binding="{Binding BlockCount}" Width="70" MinWidth="60" IsReadOnly="True"/>
+
                     <DataGridTemplateColumn Header="Category" Width="160" MinWidth="100">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <ComboBox ItemsSource="{Binding Path=CategoriesMapping}"
+                                <ComboBox ItemsSource="{Binding CategoriesMapping}"
                                           DisplayMemberPath="Name"
-                                          SelectedItem="{Binding Path=SelectedCategoryMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEditable="True"
-                                          StaysOpenOnEdit="True"
-                                          IsTextSearchEnabled="True"/>
+                                          SelectedItem="{Binding SelectedCategoryMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEditable="True" IsTextSearchEnabled="True"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+
                     <DataGridTemplateColumn Header="Family Name" Width="220" MinWidth="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <ComboBox ItemsSource="{Binding Path=FamiliesMapping}"
+                                <ComboBox ItemsSource="{Binding FamiliesMapping}"
                                           DisplayMemberPath="Name"
-                                          SelectedItem="{Binding Path=SelectedFamilyMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEditable="True"
-                                          StaysOpenOnEdit="True"
-                                          IsTextSearchEnabled="True"/>
+                                          SelectedItem="{Binding SelectedFamilyMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEditable="True" IsTextSearchEnabled="True"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+
                     <DataGridTemplateColumn Header="Type Name" Width="200" MinWidth="100">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <ComboBox ItemsSource="{Binding Path=TypeSymbolsMapping}"
+                                <ComboBox ItemsSource="{Binding TypeSymbolsMapping}"
                                           DisplayMemberPath="Name"
-                                          SelectedItem="{Binding Path=SelectedTypeSymbolMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEditable="True"
-                                          StaysOpenOnEdit="True"
-                                          IsTextSearchEnabled="True"/>
+                                          SelectedItem="{Binding SelectedTypeSymbolMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEditable="True" IsTextSearchEnabled="True"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+
                     <DataGridTextColumn Header="Offset (mm)" Binding="{Binding Offset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="100" MinWidth="70"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
 
-        <!-- Nút OK/Cancel -->
+        <!-- OK/Cancel buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="3" Margin="0,12,0,0">
-            <Button Click="OkBtn_Click"
-                    Name="OkBtn"
-                    Margin="25,5,5,5"
-                    Content="OK"
-                    Width="100"
-                    MinHeight="32"
-                    FontWeight="Bold"
-                    HorizontalAlignment="Center"
-                    Background="#3399FF"
-                    Foreground="White"/>
-            <Button Click="CancelBtn_Click"
-                    Name="CancelBtn"
-                    Margin="35,5,5,5"
-                    Content="Cancel"
-                    Width="100"
-                    MinHeight="32"
-                    FontWeight="Bold"
-                    HorizontalAlignment="Center"
-                    Background="WhiteSmoke"/>
+            <Button Click="OkBtn_Click" Name="OkBtn" Margin="25,5,5,5" Content="OK" Width="100" MinHeight="32"
+                    FontWeight="Bold" HorizontalAlignment="Center" Background="#3399FF" Foreground="White"/>
+            <Button Click="CancelBtn_Click" Name="CancelBtn" Margin="35,5,5,5" Content="Cancel" Width="100" MinHeight="32"
+                    FontWeight="Bold" HorizontalAlignment="Center" Background="WhiteSmoke"/>
         </StackPanel>
+
+        <!-- Status text -->
+        <TextBlock Name="StatusText" Grid.Row="4" Margin="0,10,0,0" FontSize="13" Foreground="Gray" Text=""/>
     </Grid>
 </Window>

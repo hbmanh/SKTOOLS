@@ -4,6 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
@@ -47,35 +48,38 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             var blockMappings = viewModel.BlockMappings;
             var level = viewModel.Level;
 
-            Dictionary<string, int> blockInstanceCounts = new Dictionary<string, int>();
+            var blockInstanceCounts = new Dictionary<string, int>();
+            var usedPositions = new HashSet<PositionKey>();
+            var activatedSymbols = new HashSet<ElementId>();
 
-            // Loại trùng tuyệt đối toàn bộ
-            HashSet<string> usedPositions = new HashSet<string>();
+            int total = blockMappings.Sum(bm => bm.Blocks.Count);
+            int count = 0;
 
             using (Transaction trans = new Transaction(doc, "Place Elements from CAD Blocks"))
             {
                 trans.Start();
+
                 foreach (var blockMapping in blockMappings)
                 {
-                    if (!blockMapping.IsEnabled)
-                        continue;
+                    if (!blockMapping.IsEnabled) continue;
 
-                    var blockGroups = blockMapping.Blocks;
-                    List<ElementId> createdInstanceIds = new List<ElementId>();
+                    var createdInstanceIds = new List<ElementId>();
 
-                    foreach (var blockWithLink in blockGroups)
+                    foreach (var blockWithLink in blockMapping.Blocks)
                     {
                         var block = blockWithLink.Block;
                         var cadLink = blockWithLink.CadLink;
-                        var category = blockMapping.SelectedCategoryMapping;
                         var selectedType = blockMapping.SelectedTypeSymbolMapping;
-                        double offset = blockMapping.Offset / 304.8;
+                        var category = blockMapping.SelectedCategoryMapping;
 
-                        if (selectedType == null) continue;
-                        if (!selectedType.IsActive)
+                        if (selectedType == null || cadLink == null) continue;
+
+                        if (!activatedSymbols.Contains(selectedType.Id))
                         {
-                            selectedType.Activate();
-                            doc.Regenerate();
+                            if (!selectedType.IsActive)
+                                selectedType.Activate();
+
+                            activatedSymbols.Add(selectedType.Id);
                         }
 
                         Transform importTransform = cadLink.GetTotalTransform();
@@ -83,56 +87,55 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
                         XYZ localOrigin = blockTransform.Origin;
                         XYZ worldOrigin = importTransform.OfPoint(localOrigin);
+                        double offset = blockMapping.Offset / 304.8;
 
-                        XYZ placementPosition;
-                        if (category != null && category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents)
-                        {
-                            placementPosition = worldOrigin;
-                        }
-                        else
-                        {
-                            placementPosition = new XYZ(worldOrigin.X, worldOrigin.Y, worldOrigin.Z + offset);
-                        }
+                        XYZ placementPosition = category.Id.IntegerValue == (int)BuiltInCategory.OST_DetailComponents
+                            ? worldOrigin
+                            : new XYZ(worldOrigin.X, worldOrigin.Y, worldOrigin.Z + offset);
 
-                        string posKey = $"{Math.Round(placementPosition.X, 4)},{Math.Round(placementPosition.Y, 4)},{Math.Round(placementPosition.Z, 4)}";
-                        if (usedPositions.Contains(posKey))
-                            continue;
+                        var posKey = new PositionKey(placementPosition);
+                        if (usedPositions.Contains(posKey)) continue;
                         usedPositions.Add(posKey);
 
-                        XYZ globalBasisX = importTransform.OfVector(blockTransform.BasisX);
                         XYZ baseDir = new XYZ(1, 0, 0);
+                        XYZ globalBasisX = importTransform.OfVector(blockTransform.BasisX);
 
-                        double blockRotation = baseDir.AngleTo(globalBasisX);
-                        double sign = (XYZ.BasisZ.CrossProduct(baseDir)).DotProduct(globalBasisX) < 0 ? -1 : 1;
-                        blockRotation *= sign;
+                        double angle = baseDir.AngleTo(globalBasisX);
+                        double sign = XYZ.BasisZ.CrossProduct(baseDir).DotProduct(globalBasisX) < 0 ? -1 : 1;
+                        double blockRotation = angle * sign;
 
-                        FamilyInstance familyInstance = doc.Create.NewFamilyInstance(placementPosition, selectedType, level, StructuralType.NonStructural);
-                        ElementTransformUtils.RotateElement(doc, familyInstance.Id, Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), blockRotation);
+                        var instance = doc.Create.NewFamilyInstance(placementPosition, selectedType, level, StructuralType.NonStructural);
+                        ElementTransformUtils.RotateElement(doc, instance.Id, Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), blockRotation);
 
-                        createdInstanceIds.Add(familyInstance.Id);
+                        createdInstanceIds.Add(instance.Id);
 
                         if (!blockInstanceCounts.ContainsKey(blockMapping.DisplayBlockName))
                             blockInstanceCounts[blockMapping.DisplayBlockName] = 0;
+
                         blockInstanceCounts[blockMapping.DisplayBlockName]++;
+                        count++;
+                        viewModel.UpdateStatus?.Invoke($"Đã đặt {count}/{total} block...");
                     }
 
-                    // Group theo block name nếu có instance, đặt tên cho GroupType
                     if (createdInstanceIds.Count > 0)
                     {
-                        Group group = doc.Create.NewGroup(createdInstanceIds);
+                        var group = doc.Create.NewGroup(createdInstanceIds);
                         try
                         {
-                            if (group.GroupType != null && group.GroupType.CanBeRenamed)
+                            if (group.GroupType?.CanBeRenamed == true)
                                 group.GroupType.Name = blockMapping.DisplayBlockName;
                         }
                         catch { }
                     }
                 }
+
+                doc.Regenerate();
                 trans.Commit();
             }
 
             ShowResultDialog(blockInstanceCounts);
         }
+
 
         private void ShowResultDialog(Dictionary<string, int> blockInstanceCounts)
         {
