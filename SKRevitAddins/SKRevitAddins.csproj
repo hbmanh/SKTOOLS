@@ -22,7 +22,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\..\..\AppData\Roaming\Autodesk\Revit\Addins\2022\SKTools.bundle\dll\</OutputPath>
+    <OutputPath>E:\PROJECT\TOOLS\SETUP\InstallerSource\SKTools.bundle\dll\</OutputPath>
     <DefineConstants>TRACE;DEBUG;REVIT2022</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -129,7 +129,8 @@
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadCmd.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadRequest.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadRequestHandler.cs" />
-    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\GetBlockNamesFromCadLink.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\BlockWithLink.cs" />
+    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\GeometryHelper.cs" />
     <Compile Include="MainCommands\CadImportReplaceLineStyle\CadImportReplaceLineStyleCmd.cs" />
     <Compile Include="MainCommands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempCmd.cs" />
     <Compile Include="MainCommands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempRequest.cs" />

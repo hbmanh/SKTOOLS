@@ -1,5 +1,4 @@
-﻿using System;
-using Autodesk.Revit.Attributes;
+﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 
@@ -12,25 +11,20 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
         {
             UIApplication uiapp = commandData.Application;
             UIDocument uidoc = uiapp.ActiveUIDocument;
-            Document doc = uidoc.Document;
 
-            // 1. Tạo ViewModel
-            var viewModel = new AutoPlaceElementFrBlockCADViewModel(uiapp);
+            var handler = new AutoPlaceElementFrBlockCADRequestHandler();
+            var exEvent = ExternalEvent.Create(handler);
 
-            // 2. Khởi tạo handler và Window (window cần handler, handler cần window)
-            AutoPlaceElementFrBlockCADRequestHandler handler = null;
-            PlaceElementsFromBlocksCadWpfWindow window = null;
-            ExternalEvent exEvent = null;
+            var viewModel = new AutoPlaceElementFrBlockCADViewModel(uiapp, requestId =>
+            {
+                handler.Request.Make(requestId);
+                exEvent.Raise();
+            });
 
-            // Tạo external event
-            handler = new AutoPlaceElementFrBlockCADRequestHandler(viewModel);
-            exEvent = ExternalEvent.Create(handler);
+            handler.ViewModel = viewModel;
 
-            // Sau đó gán lại window cho handler
-            window = new PlaceElementsFromBlocksCadWpfWindow(exEvent, handler, viewModel);
-
-            // Show window
-            window.ShowDialog();
+            var window = new PlaceElementsFromBlocksCadWpfWindow(exEvent, handler, viewModel);
+            window.Show();
 
             return Result.Succeeded;
         }

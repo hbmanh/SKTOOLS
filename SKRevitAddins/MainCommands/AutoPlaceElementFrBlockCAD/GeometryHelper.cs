@@ -19,23 +19,30 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
             foreach (GeometryObject geoObject in geoElement)
             {
-                if (geoObject is GeometryInstance instance)
+                // block tổng, symbolName thường là "dwg"
+                if (geoObject is GeometryInstance dwgInstance)
                 {
-                    foreach (GeometryObject instObj in instance.SymbolGeometry)
+                    foreach (GeometryObject instObj in dwgInstance.SymbolGeometry)
                     {
                         if (instObj is GeometryInstance blockInstance)
                         {
-                            blocks.Add(new BlockWithLink
+                            // Đây chính là block reference thực!
+                            string symbolName = blockInstance.Symbol?.Name ?? "";
+                            if (!string.Equals(symbolName, "dwg", System.StringComparison.InvariantCultureIgnoreCase) &&
+                                !string.IsNullOrWhiteSpace(symbolName))
                             {
-                                Block = blockInstance,
-                                CadLink = cadLink
-                            });
+                                blocks.Add(new BlockWithLink
+                                {
+                                    Block = blockInstance,
+                                    CadLink = cadLink
+                                });
+                            }
                         }
                     }
                 }
             }
-
             return blocks;
         }
+
     }
 }

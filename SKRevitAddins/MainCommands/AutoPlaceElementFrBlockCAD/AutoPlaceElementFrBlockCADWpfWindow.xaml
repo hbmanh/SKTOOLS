@@ -8,7 +8,6 @@
         ResizeMode="CanMinimize"
         ShowInTaskbar="True"
         Topmost="True">
-
     <Window.Resources>
         <Style x:Key="BlueHeaderStyle" TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="#3399FF"/>
@@ -21,7 +20,6 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
-
     <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -30,20 +28,15 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-
-        <!-- Header -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-            <Image Source="pack://application:,,,/Resources/shinken.png" Height="30" Width="24"/>
+            <Image Source="pack://application:,,,/Resources/shinken.png" Height="30" Width="30"/>
             <TextBlock Text="Shinken Group®" FontSize="20" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
-
-        <!-- Enable/Disable buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,8" Grid.Row="1">
             <Button Content="Enable All" Width="110" Margin="0,0,10,0" Click="EnableAll_Click"/>
-            <Button Content="Disable All" Width="110" Click="DisableAll_Click"/>
+            <Button Content="Disable All" Width="110" Margin="0,0,10,0" Click="DisableAll_Click"/>
+            <Button Content="Show Errors" Width="120" Background="LightCoral" Foreground="White" Click="ShowErrors_Click"/>
         </StackPanel>
-
-        <!-- DataGrid -->
         <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Grid.Row="2">
             <DataGrid x:Name="BlockMappingGrid"
                       AutoGenerateColumns="False"
@@ -52,73 +45,68 @@
                       FontSize="13"
                       HeadersVisibility="Column"
                       SelectionMode="Single"
-                      Height="420"
-                      MinWidth="900"
                       AlternatingRowBackground="#FFF2F2F2"
                       AlternationCount="2"
                       ColumnHeaderStyle="{StaticResource BlueHeaderStyle}">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RowStatusColor}" Value="LightGreen">
+                                <Setter Property="Background" Value="LightGreen"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding RowStatusColor}" Value="LightCoral">
+                                <Setter Property="Background" Value="LightCoral"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding RowStatusColor}" Value="LightGray">
+                                <Setter Property="Background" Value="LightGray"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <DataGridTemplateColumn Header="Enable" Width="60">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          PreviewMouseLeftButtonDown="CheckBox_PreviewMouseLeftButtonDown"/>
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-
                     <DataGridTextColumn Header="Block Name" Binding="{Binding DisplayBlockName}" Width="*" MinWidth="120"/>
-                    <DataGridTextColumn Header="Count" Binding="{Binding BlockCount}" Width="70" MinWidth="60" IsReadOnly="True"/>
-
-                    <DataGridTemplateColumn Header="Category" Width="160" MinWidth="100">
+                    <DataGridTextColumn Header="Count" Binding="{Binding BlockCount}" Width="70" IsReadOnly="True"/>
+                    <DataGridTemplateColumn Header="Category" Width="160">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <ComboBox ItemsSource="{Binding CategoriesMapping}"
-                                          DisplayMemberPath="Name"
-                                          SelectedItem="{Binding SelectedCategoryMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEditable="True" IsTextSearchEnabled="True"/>
+                                <ComboBox ItemsSource="{Binding CategoriesMapping}" DisplayMemberPath="Name"
+                                          SelectedItem="{Binding SelectedCategoryMapping}" IsEditable="True"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-
-                    <DataGridTemplateColumn Header="Family Name" Width="220" MinWidth="120">
+                    <DataGridTemplateColumn Header="Family" Width="200">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <ComboBox ItemsSource="{Binding FamiliesMapping}"
-                                          DisplayMemberPath="Name"
-                                          SelectedItem="{Binding SelectedFamilyMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEditable="True" IsTextSearchEnabled="True"/>
+                                <ComboBox ItemsSource="{Binding FamiliesMapping}" DisplayMemberPath="Name"
+                                          SelectedItem="{Binding SelectedFamilyMapping}" IsEditable="True"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-
-                    <DataGridTemplateColumn Header="Type Name" Width="200" MinWidth="100">
+                    <DataGridTemplateColumn Header="Type" Width="200">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <ComboBox ItemsSource="{Binding TypeSymbolsMapping}"
-                                          DisplayMemberPath="Name"
-                                          SelectedItem="{Binding SelectedTypeSymbolMapping, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEditable="True" IsTextSearchEnabled="True"/>
+                                <ComboBox ItemsSource="{Binding TypeSymbolsMapping}" DisplayMemberPath="Name"
+                                          SelectedItem="{Binding SelectedTypeSymbolMapping}" IsEditable="True"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-
-                    <DataGridTextColumn Header="Offset (mm)" Binding="{Binding Offset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="100" MinWidth="70"/>
+                    <DataGridTextColumn Header="Offset (mm)" Binding="{Binding Offset, Mode=TwoWay}" Width="100"/>
+                    <DataGridTextColumn Header="Placed" Binding="{Binding PlacedCount}" Width="70" IsReadOnly="True"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
-
-        <!-- OK/Cancel buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="3" Margin="0,12,0,0">
-            <Button Click="OkBtn_Click" Name="OkBtn" Margin="25,5,5,5" Content="OK" Width="100" MinHeight="32"
-                    FontWeight="Bold" HorizontalAlignment="Center" Background="#3399FF" Foreground="White"/>
-            <Button Click="CancelBtn_Click" Name="CancelBtn" Margin="35,5,5,5" Content="Cancel" Width="100" MinHeight="32"
-                    FontWeight="Bold" HorizontalAlignment="Center" Background="WhiteSmoke"/>
+            <Button Click="OkBtn_Click" Content="OK" Width="100" MinHeight="32" FontWeight="Bold" Background="#3399FF" Foreground="White"/>
+            <Button Click="CancelBtn_Click" Content="Cancel" Width="100" MinHeight="32" FontWeight="Bold" Background="WhiteSmoke"/>
         </StackPanel>
-
-        <!-- Status text -->
         <TextBlock Name="StatusText" Grid.Row="4" Margin="0,10,0,0" FontSize="13" Foreground="Gray" Text=""/>
     </Grid>
 </Window>
