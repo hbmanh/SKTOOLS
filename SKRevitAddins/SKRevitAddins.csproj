@@ -22,10 +22,10 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>E:\PROJECT\TOOLS\SETUP\InstallerSource\SKTools.bundle\dll\</OutputPath>
+    <OutputPath>..\..\..\..\..\AppData\Roaming\Autodesk\Revit\Addins\2022\SKTools.bundle\dll\</OutputPath>
     <DefineConstants>TRACE;DEBUG;REVIT2022</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -271,6 +271,7 @@
     <Compile Include="Utils\FractionToDoubleConverter.cs" />
     <Compile Include="Utils\GetColPointsUtils.cs" />
     <Compile Include="Utils\IElementHighlight.cs" />
+    <Compile Include="Utils\ImportInstanceSelection.cs" />
     <Compile Include="Utils\LineUtils.cs" />
     <Compile Include="Utils\ListUtils.cs" />
     <Compile Include="Utils\MEPCurveUtils.cs" />

@@ -1,8 +1,10 @@
-﻿namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
+﻿using Autodesk.Revit.DB;
+
+namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
     public class BlockWithLink
     {
-        public Autodesk.Revit.DB.GeometryInstance Block { get; set; }
-        public Autodesk.Revit.DB.ImportInstance CadLink { get; set; }
+        public GeometryInstance Block { get; set; }
+        public ImportInstance CadLink { get; set; }
     }
 }

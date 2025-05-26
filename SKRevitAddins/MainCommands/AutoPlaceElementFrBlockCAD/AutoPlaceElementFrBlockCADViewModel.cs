@@ -7,6 +7,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SKRevitAddins.Utils;
+using static SKRevitAddins.AutoCreatePileFromCad.AutoCreatePileFromCadViewModel;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
@@ -15,7 +16,7 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
         public Action<string> UpdateStatus { get; set; }
         public Action<RequestId> RaiseRequest { get; set; }
 
-        private UIApplication UiApp;
+        public UIApplication UiApp { get; private set; }
         private UIDocument UiDoc;
         private Document ThisDoc;
 
@@ -43,17 +44,16 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             CacheFamiliesAndSymbols();
 
             var blocks = GeometryHelper.GetBlockNamesFromCadLink(selectedCadLink)
-            .GroupBy(b => b.Block.Symbol.Name)
-            .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
+                .GroupBy(b => b.Block.Symbol.Name)
+                .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
 
             foreach (var blockGroup in blocks)
             {
                 BlockMappings.Add(new BlockMapping(blockGroup, ThisDoc, Categories, Families, TypeSymbols));
             }
-
         }
 
-        public ObservableCollection<BlockMapping> BlockMappings { get; set; } = new ObservableCollection<BlockMapping>();
+        public ObservableCollection<BlockMapping> BlockMappings { get; set; } = new();
         public ObservableCollection<Category> Categories { get; set; }
 
         private Category _selectedCategory;
@@ -80,7 +80,7 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             }
         }
 
-        public ObservableCollection<Family> Families { get; set; } = new ObservableCollection<Family>();
+        public ObservableCollection<Family> Families { get; set; } = new();
         private Family _selectedFamily;
         public Family SelectedFamily
         {
@@ -93,7 +93,7 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             }
         }
 
-        public ObservableCollection<FamilySymbol> TypeSymbols { get; set; } = new ObservableCollection<FamilySymbol>();
+        public ObservableCollection<FamilySymbol> TypeSymbols { get; set; } = new();
         private FamilySymbol _selectedTypeSymbol;
         public FamilySymbol SelectedTypeSymbol
         {
@@ -167,13 +167,25 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             RaiseRequest?.Invoke(RequestId.OK);
         }
 
-        public void OnPropertyChanged(string propertyName)
-        {
-            // Sử dụng ViewModelBase hoặc INotifyPropertyChanged của bạn
+        public void OnPropertyChanged(string propertyName) =>
             base.OnPropertyChanged(propertyName);
+
+        public static IEnumerable<string> GetTokens(string name)
+        {
+            return name?.Split('_', '-', ' ', '.', '@')
+                        .Select(s => s.ToLowerInvariant())
+                        .Where(s => s.Length > 2)
+                        ?? Enumerable.Empty<string>();
         }
 
-        // ============================== BLOCK MAPPING ==============================
+        public static T SmartSuggest<T>(string blockName, IEnumerable<T> items, Func<T, string> nameSelector)
+        {
+            var tokens = GetTokens(blockName).ToList();
+            return items
+                .OrderByDescending(item => tokens.Count(t => nameSelector(item).ToLower().Contains(t)))
+                .ThenBy(item => nameSelector(item))
+                .FirstOrDefault();
+        }
         public class BlockMapping : INotifyPropertyChanged
         {
             public event PropertyChangedEventHandler PropertyChanged;
@@ -222,10 +234,8 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             {
                 get
                 {
-                    if (!IsEnabled)
-                        return "LightGray";
-                    if (!HasPlacementRun)
-                        return "White";
+                    if (!IsEnabled) return "LightGray";
+                    if (!HasPlacementRun) return "White";
                     return PlacedCount == BlockCount ? "LightGreen" : "LightCoral";
                 }
             }
@@ -248,7 +258,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                     ? BlockName.Substring(BlockName.LastIndexOf('.') + 1)
                     : BlockName);
 
-            // NOTE: Thuộc tính mới cho Note lỗi
             private string _failureNote;
             public string FailureNote
             {
@@ -268,10 +277,15 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 get => _selectedCategoryMapping;
                 set
                 {
-                    _selectedCategoryMapping = value;
-                    OnPropertyChanged(nameof(SelectedCategoryMapping));
-                    UpdateFamiliesMapping();
-                    UpdateTypeSymbolsMapping();
+                    if (_selectedCategoryMapping != value)
+                    {
+                        _selectedCategoryMapping = value;
+                        OnPropertyChanged(nameof(SelectedCategoryMapping));
+                        UpdateFamiliesMapping();
+                        SelectedFamilyMapping = FamiliesMapping.FirstOrDefault();
+                        UpdateTypeSymbolsMapping();
+                        SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                    }
                 }
             }
 
@@ -283,9 +297,13 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 get => _selectedFamilyMapping;
                 set
                 {
-                    _selectedFamilyMapping = value;
-                    OnPropertyChanged(nameof(SelectedFamilyMapping));
-                    UpdateTypeSymbolsMapping();
+                    if (_selectedFamilyMapping != value)
+                    {
+                        _selectedFamilyMapping = value;
+                        OnPropertyChanged(nameof(SelectedFamilyMapping));
+                        UpdateTypeSymbolsMapping();
+                        SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                    }
                 }
             }
 
@@ -329,24 +347,26 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 Offset = 2600;
                 IsEnabled = true;
 
-                SelectedCategoryMapping = SmartSuggestCategory(DisplayBlockName, CategoriesMapping) ?? categories.FirstOrDefault();
+                SelectedCategoryMapping = SmartSuggest(BlockName, CategoriesMapping, c => c.Name) ?? categories.FirstOrDefault();
                 UpdateFamiliesMapping();
-                SelectedFamilyMapping = SmartSuggestFamily(DisplayBlockName, FamiliesMapping) ?? FamiliesMapping.FirstOrDefault();
+                SelectedFamilyMapping = SmartSuggest(BlockName, FamiliesMapping, f => f.Name) ?? FamiliesMapping.FirstOrDefault();
                 UpdateTypeSymbolsMapping();
-                SelectedTypeSymbolMapping = SmartSuggestTypeSymbol(DisplayBlockName, TypeSymbolsMapping) ?? TypeSymbolsMapping.FirstOrDefault();
+                SelectedTypeSymbolMapping = SmartSuggest(BlockName, TypeSymbolsMapping, t => t.Name) ?? TypeSymbolsMapping.FirstOrDefault();
             }
 
             private void UpdateFamiliesMapping()
             {
                 if (SelectedCategoryMapping != null && ThisDoc != null)
                 {
-                    FamiliesMapping = new ObservableCollection<Family>(
-                        new FilteredElementCollector(ThisDoc)
-                            .OfClass(typeof(Family))
-                            .Cast<Family>()
-                            .Where(f => f.FamilyCategory.Id == SelectedCategoryMapping.Id)
-                            .OrderBy(f => f.Name));
-                    SelectedFamilyMapping = FamiliesMapping.FirstOrDefault();
+                    var families = new FilteredElementCollector(ThisDoc)
+                        .OfClass(typeof(Family))
+                        .Cast<Family>()
+                        .Where(f => f.FamilyCategory.Id == SelectedCategoryMapping.Id)
+                        .OrderBy(f => f.Name)
+                        .ToList();
+
+                    FamiliesMapping = new ObservableCollection<Family>(families);
+                    OnPropertyChanged(nameof(FamiliesMapping)); // 👉 kích hoạt cập nhật UI
                 }
             }
 
@@ -354,56 +374,23 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             {
                 if (SelectedFamilyMapping != null && ThisDoc != null)
                 {
-                    TypeSymbolsMapping = new ObservableCollection<FamilySymbol>(
-                        new FilteredElementCollector(ThisDoc)
-                            .OfClass(typeof(FamilySymbol))
-                            .Cast<FamilySymbol>()
-                            .Where(fs => fs.Family.Id == SelectedFamilyMapping.Id)
-                            .OrderBy(fs => fs.Name));
-                    SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                    var symbols = new FilteredElementCollector(ThisDoc)
+                        .OfClass(typeof(FamilySymbol))
+                        .Cast<FamilySymbol>()
+                        .Where(fs => fs.Family.Id == SelectedFamilyMapping.Id)
+                        .OrderBy(fs => fs.Name)
+                        .ToList();
+
+                    TypeSymbolsMapping = new ObservableCollection<FamilySymbol>(symbols);
+                    OnPropertyChanged(nameof(TypeSymbolsMapping)); // 👉 bắt buộc để ComboBox cập nhật
                 }
             }
 
-            private static IEnumerable<string> GetTokens(string name)
-            {
-                return name?.Split('_', '-', ' ', '.', '@')
-                            .Select(s => s.ToLowerInvariant())
-                            .Where(s => s.Length > 2)
-                            ?? Enumerable.Empty<string>();
-            }
 
-            private Category SmartSuggestCategory(string blockName, IEnumerable<Category> categories)
+            public void OnPropertyChanged(string propertyName)
             {
-                var tokens = GetTokens(blockName).ToList();
-                return categories
-                    .OrderByDescending(cat => tokens.Count(t => cat.Name.ToLower().Contains(t)))
-                    .FirstOrDefault();
-            }
-
-            private Family SmartSuggestFamily(string blockName, IEnumerable<Family> families)
-            {
-                var tokens = GetTokens(blockName).ToList();
-                return families
-                    .OrderByDescending(f => tokens.Count(t => f.Name.ToLower().Contains(t)))
-                    .FirstOrDefault();
-            }
-
-            private FamilySymbol SmartSuggestTypeSymbol(string blockName, IEnumerable<FamilySymbol> typeSymbols)
-            {
-                var tokens = GetTokens(blockName).ToList();
-                return typeSymbols
-                    .OrderByDescending(fs => tokens.Count(t => fs.Name.ToLower().Contains(t)))
-                    .FirstOrDefault();
-            }
-
-            protected void OnPropertyChanged(string propertyName) =>
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            }
         }
-    }
-
-    public class ImportInstanceSelectionFilter : ISelectionFilter
-    {
-        public bool AllowElement(Element elem) => elem is ImportInstance;
-        public bool AllowReference(Reference reference, XYZ position) => false;
     }
 }

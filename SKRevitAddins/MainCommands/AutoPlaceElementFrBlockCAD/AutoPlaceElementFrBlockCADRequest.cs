@@ -14,12 +14,12 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
         public RequestId Take()
         {
-            return (RequestId)System.Threading.Interlocked.Exchange(ref m_request, (int)RequestId.None);
+            return (RequestId)Interlocked.Exchange(ref m_request, (int)RequestId.None);
         }
 
         public void Make(RequestId request)
         {
-            System.Threading.Interlocked.Exchange(ref m_request, (int)request);
+            Interlocked.Exchange(ref m_request, (int)request);
         }
     }
 }

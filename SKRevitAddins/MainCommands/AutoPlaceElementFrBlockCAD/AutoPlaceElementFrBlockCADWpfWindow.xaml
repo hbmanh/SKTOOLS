@@ -29,7 +29,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-            <Image Source="pack://application:,,,/Resources/shinken.png" Height="30" Width="30"/>
+            <Image x:Name="LogoImage" Height="30" Width="30"/>
             <TextBlock Text="Shinken Group®" FontSize="20" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,8" Grid.Row="1">
@@ -45,11 +45,10 @@
                       FontSize="13"
                       HeadersVisibility="Column"
                       SelectionMode="Single"
-                      AlternatingRowBackground="#FFF2F2F2"
-                      AlternationCount="2"
                       ColumnHeaderStyle="{StaticResource BlueHeaderStyle}">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="White"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding RowStatusColor}" Value="LightGreen">
                                 <Setter Property="Background" Value="LightGreen"/>
@@ -72,7 +71,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Block Name" Binding="{Binding DisplayBlockName}" Width="*" MinWidth="120"/>
+                    <DataGridTextColumn Header="Block Name" Binding="{Binding DisplayBlockName}" IsReadOnly="True" Width="*" MinWidth="120"/>
                     <DataGridTextColumn Header="Count" Binding="{Binding BlockCount}" Width="70" IsReadOnly="True"/>
                     <DataGridTemplateColumn Header="Category" Width="160">
                         <DataGridTemplateColumn.CellTemplate>

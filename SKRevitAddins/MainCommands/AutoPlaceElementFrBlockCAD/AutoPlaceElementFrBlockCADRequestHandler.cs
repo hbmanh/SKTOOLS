@@ -68,22 +68,10 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         var selectedType = blockMapping.SelectedTypeSymbolMapping;
                         var category = blockMapping.SelectedCategoryMapping;
 
-                        // === DEBUG: LOG THÔNG TIN CHI TIẾT ===
-                        System.Text.StringBuilder log = new System.Text.StringBuilder();
-                        log.AppendLine("=========================================");
-                        log.AppendLine($"Block Name: {blockMapping.DisplayBlockName}");
-                        log.AppendLine($"Block InstanceId: {block.Id}");
-
                         Transform importTransform = cadLink.GetTotalTransform();
                         Transform blockTransform = block.Transform;
                         XYZ localOrigin = blockTransform.Origin;
                         XYZ worldOrigin = importTransform.OfPoint(localOrigin);
-
-                        log.AppendLine($"  Local Origin: ({localOrigin.X:F4}, {localOrigin.Y:F4}, {localOrigin.Z:F4})");
-                        log.AppendLine($"  World Origin: ({worldOrigin.X:F4}, {worldOrigin.Y:F4}, {worldOrigin.Z:F4})");
-                        log.AppendLine($"  BasisX: ({blockTransform.BasisX.X:F4}, {blockTransform.BasisX.Y:F4}, {blockTransform.BasisX.Z:F4}), Length: {blockTransform.BasisX.GetLength():F4}");
-                        log.AppendLine($"  BasisY: ({blockTransform.BasisY.X:F4}, {blockTransform.BasisY.Y:F4}, {blockTransform.BasisY.Z:F4}), Length: {blockTransform.BasisY.GetLength():F4}");
-                        log.AppendLine($"  BasisZ: ({blockTransform.BasisZ.X:F4}, {blockTransform.BasisZ.Y:F4}, {blockTransform.BasisZ.Z:F4}), Length: {blockTransform.BasisZ.GetLength():F4}");
 
                         double offset = blockMapping.Offset / 304.8;
 
@@ -91,33 +79,9 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                             ? worldOrigin
                             : new XYZ(worldOrigin.X, worldOrigin.Y, worldOrigin.Z + offset);
 
-                        // DEBUG: PositionKey
                         var posKey = new PositionKey(placementPosition, blockTransform);
-                        log.AppendLine($"  PositionKey: {posKey}");
+                        double angle = new XYZ(1, 0, 0).AngleTo(blockTransform.BasisX);
 
-                        // Rotation angle (so với trục X gốc)
-                        XYZ baseDir = new XYZ(1, 0, 0);
-                        double angle = baseDir.AngleTo(blockTransform.BasisX);
-                        double angleDeg = angle * 180.0 / Math.PI;
-                        log.AppendLine($"  Rotation angle to X axis: {angleDeg:F2} deg");
-
-                        if (usedPositions.Contains(posKey))
-                        {
-                            log.AppendLine("  >>> DUPLICATE detected, block will NOT be placed.");
-                        }
-                        else
-                        {
-                            log.AppendLine("  >>> Unique position, block will be placed.");
-                        }
-
-                        // In ra log (cả Output Window lẫn file, nếu cần)
-                        Debug.WriteLine(log.ToString());
-                        System.IO.File.AppendAllText(@"C:\Temp\block_debug_log.txt", log.ToString());
-
-                        // GHI FILE (nếu muốn), nhớ tạo sẵn thư mục C:\Temp hoặc đổi đường dẫn
-                        // System.IO.File.AppendAllText(@"C:\Temp\block_debug_log.txt", log.ToString());
-
-                        // --- PHẦN CODE GỐC ---
                         if (selectedType == null || cadLink == null)
                         {
                             failedCount++;
@@ -140,39 +104,25 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
                         try
                         {
-                            // ... code đặt FamilyInstance như cũ ...
                             var instance = doc.Create.NewFamilyInstance(placementPosition, selectedType, level, StructuralType.NonStructural);
 
-                            double scaleFactorX = blockTransform.BasisX.GetLength();
-                            double scaleFactorY = blockTransform.BasisY.GetLength();
-                            double scaleFactorZ = blockTransform.BasisZ.GetLength();
-
-                            // Apply rotation
                             ElementTransformUtils.RotateElement(doc, instance.Id,
                                 Line.CreateBound(placementPosition, placementPosition + XYZ.BasisZ), angle);
-
-                            // Nếu scale khác 1.0, log cảnh báo (Revit ko scale được family thường)
-                            if (Math.Abs(scaleFactorX - 1.0) > 0.01 || Math.Abs(scaleFactorY - 1.0) > 0.01)
-                            {
-                                Debug.WriteLine($"  *** WARNING: Non-uniform scale detected but not applied to Revit instance ***");
-                                // TODO: Implement scaling if needed
-                            }
 
                             createdInstanceIds.Add(instance.Id);
                             count++;
                             viewModel.UpdateStatus?.Invoke($"Đã đặt {count}/{total} block...");
-
-                            Debug.WriteLine($"  *** SUCCESS: Created instance {instance.Id} ***");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"  *** ERROR creating instance: {ex.Message} ***");
+                            Debug.WriteLine($"  ERROR: {ex.Message}");
                             failedCount++;
                         }
                     }
 
                     blockMapping.PlacedCount = createdInstanceIds.Count;
                     blockMapping.HasPlacementRun = true;
+                    blockMapping.OnPropertyChanged(nameof(blockMapping.RowStatusColor)); // ✅ cập nhật màu
 
                     if (createdInstanceIds.Count > 0)
                     {
@@ -185,7 +135,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         catch { }
                     }
 
-                    // Update failure notes
                     if (duplicateCount > 0)
                         blockMapping.FailureNote = $"Có {duplicateCount} block trùng lặp vị trí.";
                     else if (failedCount > 0)

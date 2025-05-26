@@ -1,7 +1,9 @@
 ﻿using Autodesk.Revit.UI;
+using System;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Windows.Media.Imaging;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
@@ -19,6 +21,24 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             {
                 Dispatcher.Invoke(() => StatusText.Text = msg);
             };
+
+            try
+            {
+                // ✅ Sửa lỗi CS0117: Lấy version từ viewModel.UiApp
+                string version = viewModel.UiApp.Application.VersionNumber;
+                string iconPath = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Autodesk", "Revit", "Addins", version, "SKTools.bundle", "Icon", "shinken.png");
+
+                if (System.IO.File.Exists(iconPath))
+                {
+                    LogoImage.Source = new BitmapImage(new Uri(iconPath, UriKind.Absolute));
+                }
+            }
+            catch
+            {
+                // Bạn có thể log lỗi ở đây nếu cần
+            }
         }
 
         private void EnableAll_Click(object sender, RoutedEventArgs e)

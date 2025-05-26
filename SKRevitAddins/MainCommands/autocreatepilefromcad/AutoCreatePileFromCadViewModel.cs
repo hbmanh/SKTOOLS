@@ -93,18 +93,7 @@ namespace SKRevitAddins.AutoCreatePileFromCad
             set { _offset = value; OnPropertyChanged(nameof(Offset)); }
         }
         public Document Doc { get; set; }
-        public class ImportInstanceSelectionFilter : ISelectionFilter
-        {
-            public bool AllowElement(Element elem)
-            {
-                return elem is ImportInstance;
-            }
-
-            public bool AllowReference(Reference reference, XYZ position)
-            {
-                return false;
-            }
-        }
+        
 
         #endregion
     }
