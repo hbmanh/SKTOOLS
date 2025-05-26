@@ -1,8 +1,10 @@
 ﻿using Autodesk.Revit.UI;
+using Microsoft.Win32;
 using System;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
@@ -22,9 +24,38 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 Dispatcher.Invoke(() => StatusText.Text = msg);
             };
 
+            // Giá trị phổ biến nhất cho batch ComboBox
+            var mostUsedCat = viewModel.BlockMappings
+                .Where(bm => bm.SelectedCategoryMapping != null)
+                .GroupBy(bm => bm.SelectedCategoryMapping)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault();
+            if (mostUsedCat != null)
+                BatchCategoryComboBox.SelectedItem = mostUsedCat;
+
+            var mostUsedFam = viewModel.BlockMappings
+                .Where(bm => bm.SelectedFamilyMapping != null)
+                .GroupBy(bm => bm.SelectedFamilyMapping)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault();
+            if (mostUsedFam != null)
+                BatchFamilyComboBox.SelectedItem = mostUsedFam;
+
+            var mostUsedType = viewModel.BlockMappings
+                .Where(bm => bm.SelectedTypeSymbolMapping != null)
+                .GroupBy(bm => bm.SelectedTypeSymbolMapping)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault();
+            if (mostUsedType != null)
+                BatchTypeComboBox.SelectedItem = mostUsedType;
+
+            // Offset 2600 đã có trong XAML
+
             try
             {
-                // ✅ Sửa lỗi CS0117: Lấy version từ viewModel.UiApp
                 string version = viewModel.UiApp.Application.VersionNumber;
                 string iconPath = System.IO.Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -37,25 +68,11 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             }
             catch
             {
-                // Bạn có thể log lỗi ở đây nếu cần
+                // Có thể log lỗi ở đây nếu cần
             }
         }
 
-        private void EnableAll_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is AutoPlaceElementFrBlockCADViewModel vm)
-                foreach (var bm in vm.BlockMappings)
-                    bm.IsEnabled = true;
-        }
-
-        private void DisableAll_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is AutoPlaceElementFrBlockCADViewModel vm)
-                foreach (var bm in vm.BlockMappings)
-                    bm.IsEnabled = false;
-        }
-
-        private void ShowErrors_Click(object sender, RoutedEventArgs e)
+        private void ExportError_Click(object sender, RoutedEventArgs e)
         {
             if (DataContext is AutoPlaceElementFrBlockCADViewModel vm)
             {
@@ -69,21 +86,41 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                     return;
                 }
 
-                var sb = new StringBuilder();
-                sb.AppendLine("Các Block bị lỗi khi đặt Family Instance:");
-                sb.AppendLine();
+                // Chọn nơi lưu file
+                var sfd = new SaveFileDialog
+                {
+                    Title = "Chọn nơi lưu file xuất lỗi",
+                    Filter = "CSV file (*.csv)|*.csv",
+                    FileName = $"BlockErrorNotes-{DateTime.Now:yyyyMMdd-HHmmss}.csv"
+                };
+                if (sfd.ShowDialog() != true)
+                    return;
 
+                // Chuẩn bị dữ liệu CSV
+                var csv = new StringBuilder();
+                csv.AppendLine("Block Name,Count,Placed,Failure Note");
                 foreach (var bm in failed)
                 {
                     string blockName = bm.DisplayBlockName;
                     string note = string.IsNullOrWhiteSpace(bm.FailureNote)
                         ? $"Chỉ đặt được {bm.PlacedCount}/{bm.BlockCount} instance."
                         : bm.FailureNote;
+                    csv.AppendLine($"\"{blockName}\",{bm.BlockCount},{bm.PlacedCount},\"{note.Replace("\"", "\"\"")}\"");
 
-                    sb.AppendLine($"{blockName}: {note}");
+                    // Disable block lỗi
+                    bm.IsEnabled = false;
                 }
 
-                MessageBox.Show(sb.ToString(), "Block Error Notes", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // Lưu file
+                try
+                {
+                    System.IO.File.WriteAllText(sfd.FileName, csv.ToString(), Encoding.UTF8);
+                    MessageBox.Show($"Đã xuất file lỗi thành công:\n{sfd.FileName}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Không thể lưu file CSV:\n" + ex.Message, "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -96,6 +133,64 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        // Batch thao tác trên selected rows
+        private void BlockMappingGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is AutoPlaceElementFrBlockCADViewModel vm)
+            {
+                vm.SelectedBlockMappings = new System.Collections.ObjectModel.ObservableCollection<AutoPlaceElementFrBlockCADViewModel.BlockMapping>(
+                    BlockMappingGrid.SelectedItems.Cast<AutoPlaceElementFrBlockCADViewModel.BlockMapping>());
+            }
+        }
+
+        private void EnableSelected_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var bm in BlockMappingGrid.SelectedItems.OfType<AutoPlaceElementFrBlockCADViewModel.BlockMapping>())
+                bm.IsEnabled = true;
+        }
+
+        private void DisableSelected_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var bm in BlockMappingGrid.SelectedItems.OfType<AutoPlaceElementFrBlockCADViewModel.BlockMapping>())
+                bm.IsEnabled = false;
+        }
+
+        private void SetOffsetSelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (double.TryParse(BatchOffsetBox.Text, out double offset))
+            {
+                foreach (var bm in BlockMappingGrid.SelectedItems.OfType<AutoPlaceElementFrBlockCADViewModel.BlockMapping>())
+                    bm.Offset = offset;
+            }
+        }
+
+        private void SetCategorySelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (BatchCategoryComboBox.SelectedItem is Autodesk.Revit.DB.Category cat)
+            {
+                foreach (var bm in BlockMappingGrid.SelectedItems.OfType<AutoPlaceElementFrBlockCADViewModel.BlockMapping>())
+                    bm.SelectedCategoryMapping = cat;
+            }
+        }
+
+        private void SetFamilySelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (BatchFamilyComboBox.SelectedItem is Autodesk.Revit.DB.Family fam)
+            {
+                foreach (var bm in BlockMappingGrid.SelectedItems.OfType<AutoPlaceElementFrBlockCADViewModel.BlockMapping>())
+                    bm.SelectedFamilyMapping = fam;
+            }
+        }
+
+        private void SetTypeSelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (BatchTypeComboBox.SelectedItem is Autodesk.Revit.DB.FamilySymbol type)
+            {
+                foreach (var bm in BlockMappingGrid.SelectedItems.OfType<AutoPlaceElementFrBlockCADViewModel.BlockMapping>())
+                    bm.SelectedTypeSymbolMapping = type;
+            }
         }
     }
 }

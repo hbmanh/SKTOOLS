@@ -3,6 +3,12 @@ using Autodesk.Revit.DB;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
+    public class BlockWithLink
+    {
+        public GeometryInstance Block { get; set; }
+        public ImportInstance CadLink { get; set; }
+    }
+
     public class GeometryHelper
     {
         public static List<BlockWithLink> GetBlockNamesFromCadLink(ImportInstance cadLink)

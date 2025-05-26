@@ -129,7 +129,6 @@
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadCmd.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadRequest.cs" />
     <Compile Include="MainCommands\AutoCreatePileFromCad\AutoCreatePileFromCadRequestHandler.cs" />
-    <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\BlockWithLink.cs" />
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\GeometryHelper.cs" />
     <Compile Include="MainCommands\CadImportReplaceLineStyle\CadImportReplaceLineStyleCmd.cs" />
     <Compile Include="MainCommands\CopySetOfFilterFromViewTemp\CopySetOfFilterFromViewTempCmd.cs" />

@@ -7,7 +7,6 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SKRevitAddins.Utils;
-using static SKRevitAddins.AutoCreatePileFromCad.AutoCreatePileFromCadViewModel;
 
 namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 {
@@ -15,7 +14,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
     {
         public Action<string> UpdateStatus { get; set; }
         public Action<RequestId> RaiseRequest { get; set; }
-
         public UIApplication UiApp { get; private set; }
         private UIDocument UiDoc;
         private Document ThisDoc;
@@ -29,7 +27,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
 
             var refLinkCad = UiDoc.Selection.PickObject(ObjectType.Element, new ImportInstanceSelectionFilter(), "Select Link File");
             var selectedCadLink = ThisDoc.GetElement(refLinkCad) as ImportInstance;
-
             if (selectedCadLink == null)
             {
                 TaskDialog.Show("Error", "No valid CAD link selected.");
@@ -37,10 +34,8 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             }
 
             Level = UiDoc.ActiveView.GenLevel;
-
             Categories = new ObservableCollection<Category>(GetCategories(ThisDoc));
             SelectedCategory = Categories.FirstOrDefault();
-
             CacheFamiliesAndSymbols();
 
             var blocks = GeometryHelper.GetBlockNamesFromCadLink(selectedCadLink)
@@ -51,11 +46,15 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             {
                 BlockMappings.Add(new BlockMapping(blockGroup, ThisDoc, Categories, Families, TypeSymbols));
             }
+
+            // Validate lần đầu sau khi load
+            ValidateAll();
         }
 
         public ObservableCollection<BlockMapping> BlockMappings { get; set; } = new();
-        public ObservableCollection<Category> Categories { get; set; }
+        public ObservableCollection<BlockMapping> SelectedBlockMappings { get; set; } = new(); // cho batch edit
 
+        public ObservableCollection<Category> Categories { get; set; }
         private Category _selectedCategory;
         public Category SelectedCategory
         {
@@ -170,6 +169,23 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
         public void OnPropertyChanged(string propertyName) =>
             base.OnPropertyChanged(propertyName);
 
+        public void ValidateAll()
+        {
+            foreach(var bm in BlockMappings)
+            {
+                if (!bm.IsValid)
+                {
+                    bm.IsEnabled = false;
+                    bm.FailureNote = "Thiếu cấu hình Family/Type/Category!";
+                }
+                else
+                {
+                    bm.FailureNote = "";
+                }
+            }
+        }
+
+        // --- SmartSuggest và tokenizing như cũ
         public static IEnumerable<string> GetTokens(string name)
         {
             return name?.Split('_', '-', ' ', '.', '@')
@@ -177,7 +193,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         .Where(s => s.Length > 2)
                         ?? Enumerable.Empty<string>();
         }
-
         public static T SmartSuggest<T>(string blockName, IEnumerable<T> items, Func<T, string> nameSelector)
         {
             var tokens = GetTokens(blockName).ToList();
@@ -186,12 +201,14 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 .ThenBy(item => nameSelector(item))
                 .FirstOrDefault();
         }
+
+        // --- BlockMapping, gộp luôn BlockWithLink vào trong (không tạo class mới) ---
         public class BlockMapping : INotifyPropertyChanged
         {
             public event PropertyChangedEventHandler PropertyChanged;
 
             public Document ThisDoc { get; set; }
-            public List<BlockWithLink> Blocks { get; set; }
+            public List<BlockWithLinkInfo> Blocks { get; set; }
             public int BlockCount => Blocks?.Count ?? 0;
 
             private bool _isEnabled = true;
@@ -270,7 +287,6 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
             }
 
             public ObservableCollection<Category> CategoriesMapping { get; set; }
-
             private Category _selectedCategoryMapping;
             public Category SelectedCategoryMapping
             {
@@ -285,12 +301,12 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         SelectedFamilyMapping = FamiliesMapping.FirstOrDefault();
                         UpdateTypeSymbolsMapping();
                         SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                        // validate ngay khi thay đổi
+                        OnPropertyChanged(nameof(IsValid));
                     }
                 }
             }
-
             public ObservableCollection<Family> FamiliesMapping { get; set; }
-
             private Family _selectedFamilyMapping;
             public Family SelectedFamilyMapping
             {
@@ -303,12 +319,11 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         OnPropertyChanged(nameof(SelectedFamilyMapping));
                         UpdateTypeSymbolsMapping();
                         SelectedTypeSymbolMapping = TypeSymbolsMapping.FirstOrDefault();
+                        OnPropertyChanged(nameof(IsValid));
                     }
                 }
             }
-
             public ObservableCollection<FamilySymbol> TypeSymbolsMapping { get; set; }
-
             private FamilySymbol _selectedTypeSymbolMapping;
             public FamilySymbol SelectedTypeSymbolMapping
             {
@@ -317,6 +332,7 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 {
                     _selectedTypeSymbolMapping = value;
                     OnPropertyChanged(nameof(SelectedTypeSymbolMapping));
+                    OnPropertyChanged(nameof(IsValid));
                 }
             }
 
@@ -331,6 +347,33 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 }
             }
 
+            public bool IsValid =>
+                SelectedTypeSymbolMapping != null
+                && SelectedFamilyMapping != null
+                && SelectedCategoryMapping != null;
+
+            // Gộp BlockWithLink vào luôn (không tách class mới)
+            public class BlockWithLinkInfo : INotifyPropertyChanged
+            {
+                public GeometryInstance Block { get; set; }
+                public ImportInstance CadLink { get; set; }
+                private bool _isEnabled = true;
+                public bool IsEnabled
+                {
+                    get => _isEnabled;
+                    set
+                    {
+                        _isEnabled = value;
+                        OnPropertyChanged(nameof(IsEnabled));
+                    }
+                }
+                public event PropertyChangedEventHandler PropertyChanged;
+                public void OnPropertyChanged(string propertyName)
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+                }
+            }
+
             public BlockMapping(IGrouping<string, BlockWithLink> blocks,
                 Document doc,
                 ObservableCollection<Category> categories,
@@ -338,9 +381,14 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                 ObservableCollection<FamilySymbol> typeSymbols)
             {
                 ThisDoc = doc;
-                Blocks = blocks.ToList();
-                BlockName = blocks.Key;
+                Blocks = blocks.Select(b => new BlockWithLinkInfo
+                {
+                    Block = b.Block,
+                    CadLink = b.CadLink,
+                    IsEnabled = true
+                }).ToList();
 
+                BlockName = blocks.Key;
                 CategoriesMapping = categories;
                 FamiliesMapping = families;
                 TypeSymbolsMapping = typeSymbols;
@@ -366,10 +414,9 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         .ToList();
 
                     FamiliesMapping = new ObservableCollection<Family>(families);
-                    OnPropertyChanged(nameof(FamiliesMapping)); // 👉 kích hoạt cập nhật UI
+                    OnPropertyChanged(nameof(FamiliesMapping));
                 }
             }
-
             private void UpdateTypeSymbolsMapping()
             {
                 if (SelectedFamilyMapping != null && ThisDoc != null)
@@ -382,10 +429,9 @@ namespace SKRevitAddins.AutoPlaceElementFrBlockCAD
                         .ToList();
 
                     TypeSymbolsMapping = new ObservableCollection<FamilySymbol>(symbols);
-                    OnPropertyChanged(nameof(TypeSymbolsMapping)); // 👉 bắt buộc để ComboBox cập nhật
+                    OnPropertyChanged(nameof(TypeSymbolsMapping));
                 }
             }
-
 
             public void OnPropertyChanged(string propertyName)
             {

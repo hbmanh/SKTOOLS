@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Auto place element from block in CAD"
-        Height="600" Width="980"
-        MinWidth="900"
+        Height="600" Width="1080"
+        MinWidth="1000"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanMinimize"
         ShowInTaskbar="True"
@@ -24,27 +24,59 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
+        <!-- Logo -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
             <Image x:Name="LogoImage" Height="30" Width="30"/>
             <TextBlock Text="Shinken Group®" FontSize="20" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,8" Grid.Row="1">
-            <Button Content="Enable All" Width="110" Margin="0,0,10,0" Click="EnableAll_Click"/>
-            <Button Content="Disable All" Width="110" Margin="0,0,10,0" Click="DisableAll_Click"/>
-            <Button Content="Show Errors" Width="120" Background="LightCoral" Foreground="White" Click="ShowErrors_Click"/>
+        <!-- Enable Selected, Disable Selected, Export Error -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="1">
+            <Button Content="Enable Selected" Width="120" Margin="0,0,8,0" Click="EnableSelected_Click"/>
+            <Button Content="Disable Selected" Width="120" Margin="0,0,20,0" Click="DisableSelected_Click"/>
+            <Button Content="Export Error" Width="120" Background="LightCoral" Foreground="White" Click="ExportError_Click" Margin="0,0,18,0"/>
         </StackPanel>
-        <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Grid.Row="2">
+        <!-- Batch Set Offset, Category, Family, Type -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="2">
+            <TextBox x:Name="BatchOffsetBox" Width="60" Margin="0,0,6,0" VerticalContentAlignment="Center" Text="2600"/>
+            <Button Content="Set Offset" Width="100" Margin="0,0,16,0" Click="SetOffsetSelected_Click"/>
+            <ComboBox x:Name="BatchCategoryComboBox"
+                      Width="130"
+                      Margin="0,0,6,0"
+                      ItemsSource="{Binding Categories}"
+                      DisplayMemberPath="Name"
+                      IsEditable="True"/>
+            <Button Content="Set Category" Width="110" Margin="0,0,16,0" Click="SetCategorySelected_Click"/>
+            <ComboBox x:Name="BatchFamilyComboBox"
+                      Width="170"
+                      Margin="0,0,6,0"
+                      ItemsSource="{Binding Families}"
+                      DisplayMemberPath="Name"
+                      IsEditable="True"/>
+            <Button Content="Set Family" Width="110" Margin="0,0,16,0" Click="SetFamilySelected_Click"/>
+            <ComboBox x:Name="BatchTypeComboBox"
+                      Width="170"
+                      Margin="0,0,6,0"
+                      ItemsSource="{Binding TypeSymbols}"
+                      DisplayMemberPath="Name"
+                      IsEditable="True"/>
+            <Button Content="Set Type" Width="110" Click="SetTypeSelected_Click"/>
+        </StackPanel>
+        <!-- DataGrid hiển thị block mapping -->
+        <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Grid.Row="3">
             <DataGrid x:Name="BlockMappingGrid"
                       AutoGenerateColumns="False"
                       ItemsSource="{Binding BlockMappings}"
                       RowHeight="30"
                       FontSize="13"
                       HeadersVisibility="Column"
-                      SelectionMode="Single"
+                      SelectionMode="Extended"
+                      SelectionUnit="FullRow"
+                      SelectionChanged="BlockMappingGrid_SelectionChanged"
                       ColumnHeaderStyle="{StaticResource BlueHeaderStyle}">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
@@ -99,13 +131,14 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Offset (mm)" Binding="{Binding Offset, Mode=TwoWay}" Width="100"/>
                     <DataGridTextColumn Header="Placed" Binding="{Binding PlacedCount}" Width="70" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Failure Note" Binding="{Binding FailureNote}" Width="180" IsReadOnly="True"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="3" Margin="0,12,0,0">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="4" Margin="0,12,0,0">
             <Button Click="OkBtn_Click" Content="OK" Width="100" MinHeight="32" FontWeight="Bold" Background="#3399FF" Foreground="White"/>
             <Button Click="CancelBtn_Click" Content="Cancel" Width="100" MinHeight="32" FontWeight="Bold" Background="WhiteSmoke"/>
         </StackPanel>
-        <TextBlock Name="StatusText" Grid.Row="4" Margin="0,10,0,0" FontSize="13" Foreground="Gray" Text=""/>
+        <TextBlock Name="StatusText" Grid.Row="5" Margin="0,10,0,0" FontSize="13" Foreground="Gray" Text=""/>
     </Grid>
 </Window>
