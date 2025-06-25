@@ -198,6 +198,7 @@
     <Compile Include="AutoCADLayerManager\LayerManagerCommand.cs" />
     <Compile Include="BlocksRename\AciColorCell.cs" />
     <Compile Include="BlocksRename\BlocksRename.cs" />
+    <Compile Include="CutDrawingWindow.cs" />
     <Compile Include="GroupLayer\GroupLayerCmd.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
