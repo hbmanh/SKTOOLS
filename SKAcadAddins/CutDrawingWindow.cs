@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Windows.Forms;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
@@ -17,109 +16,175 @@ namespace SKAcadAddins
         public void Initialize() { }
         public void Terminate() { }
 
-        [CommandMethod("CDW")]
-        public void ExecuteCutDrawingWindow()
+        [CommandMethod("CDW2")]
+        public void CutMultipleFramesWithXrefCleanup()
         {
             Document doc = AcadApp.DocumentManager.MdiActiveDocument;
-            Database db = doc.Database;
             Editor ed = doc.Editor;
+            Database db = doc.Database;
 
-            // Lấy thư mục của file DWG gốc
-            string sourcePath = doc.Name;
-            string folderPath = Path.GetDirectoryName(sourcePath);
-            if (string.IsNullOrEmpty(folderPath))
-            {
-                ed.WriteMessage("\nKhông tìm thấy thư mục bản vẽ gốc.");
-                return;
-            }
-
+            string folder = Path.GetDirectoryName(doc.Name);
+            string baseName = Path.GetFileNameWithoutExtension(doc.Name);
             int fileIndex = 1;
+
+            // --- BIND TOÀN BỘ XREF ---
+            ObjectIdCollection xrefIds = new ObjectIdCollection();
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                foreach (ObjectId btrId in bt)
+                {
+                    BlockTableRecord btr = (BlockTableRecord)tr.GetObject(btrId, OpenMode.ForRead);
+                    if (btr.IsFromExternalReference)
+                    {
+                        xrefIds.Add(btrId);
+                    }
+                }
+
+                if (xrefIds.Count > 0)
+                {
+                    db.BindXrefs(xrefIds, true);
+                }
+
+                tr.Commit();
+            }
 
             while (true)
             {
-                // Chọn khung tên (Block hoặc Polyline)
-                PromptEntityOptions peo = new PromptEntityOptions("\nChọn đối tượng khung tên (Block hoặc Polyline):");
-                peo.SetRejectMessage("\nChỉ chọn Block hoặc Polyline.");
+                PromptEntityOptions peo = new PromptEntityOptions("\nChọn khung tên (Xref hoặc Block):");
+                peo.SetRejectMessage("\nChỉ được chọn Block hoặc Polyline.");
                 peo.AddAllowedClass(typeof(BlockReference), true);
                 peo.AddAllowedClass(typeof(Polyline), true);
                 PromptEntityResult per = ed.GetEntity(peo);
-                if (per.Status != PromptStatus.OK) return;
+                if (per.Status != PromptStatus.OK) break;
 
-                Point3d basePoint = Point3d.Origin;
+                PromptPointResult pBase = ed.GetPoint("\nChọn điểm gốc mới (toạ độ 0,0):");
+                if (pBase.Status != PromptStatus.OK) break;
 
-                using (Transaction trNew = newDb.TransactionManager.StartTransaction())
+                Extents3d bounds;
+                using (Transaction tr = db.TransactionManager.StartTransaction())
                 {
-                    BlockTableRecord newMs = trNew.GetObject(newDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
-
-                    // Mở khóa + mở layer
-                    LayerTable lt = trNew.GetObject(newDb.LayerTableId, OpenMode.ForWrite) as LayerTable;
-                    foreach (ObjectId layerId in lt)
-                    {
-                        LayerTableRecord ltr = trNew.GetObject(layerId, OpenMode.ForWrite) as LayerTableRecord;
-
-                        if (ltr.IsLocked)
-                            ltr.IsLocked = false;
-
-                        if (ltr.IsFrozen)
-                            ltr.IsFrozen = false;
-
-                        if (ltr.IsOff)
-                            ltr.IsOff = false;
-                    }
-
-                    // Dịch toàn bộ đối tượng
-                    foreach (ObjectId id in newMs)
-                    {
-                        Entity ent = trNew.GetObject(id, OpenMode.ForWrite) as Entity;
-                        if (ent != null)
-                        {
-                            try { ent.TransformBy(Matrix3d.Displacement(moveVec)); }
-                            catch { ed.WriteMessage($"\nKhông thể dịch đối tượng: {ent.GetType().Name}"); }
-                        }
-                    }
-
-                    trNew.Commit();
+                    Entity ent = tr.GetObject(per.ObjectId, OpenMode.ForRead) as Entity;
+                    bounds = ent.GeometricExtents;
+                    tr.Commit();
                 }
 
+                using (Database newDb = new Database(true, true))
+                {
+                    // Giữ nguyên tỉ lệ LTS (line type scale)
+                    newDb.Ltscale = db.Ltscale;
 
-                PromptKeywordOptions pko = new PromptKeywordOptions("\nTiếp tục chọn bản vẽ khác? [Yes/No]");
-                pko.Keywords.Add("Yes");
-                pko.Keywords.Add("No");
+                    db.WblockCloneObjects(
+                        GetAllModelSpaceIds(db),
+                        newDb.CurrentSpaceId,
+                        new IdMapping(),
+                        DuplicateRecordCloning.Replace,
+                        false
+                    );
+
+                    using (Transaction tr = newDb.TransactionManager.StartTransaction())
+                    {
+                        BlockTable bt = (BlockTable)tr.GetObject(newDb.BlockTableId, OpenMode.ForRead);
+                        BlockTableRecord ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+
+                        LayerTable lt = (LayerTable)tr.GetObject(newDb.LayerTableId, OpenMode.ForWrite);
+                        foreach (ObjectId lid in lt)
+                        {
+                            LayerTableRecord ltr = (LayerTableRecord)tr.GetObject(lid, OpenMode.ForWrite);
+                            ltr.IsLocked = false;
+                            ltr.IsFrozen = false;
+                            ltr.IsOff = false;
+                        }
+
+                        foreach (ObjectId id in ms)
+                        {
+                            Entity obj = tr.GetObject(id, OpenMode.ForWrite) as Entity;
+                            if (obj == null) continue;
+
+                            // Bỏ qua BlockReference nằm bên trong khung
+                            if (obj is BlockReference blockRef)
+                            {
+                                Extents3d? blkExt = TryGetGeometricExtents(blockRef);
+                                if (blkExt.HasValue && IsInside(bounds, blkExt.Value))
+                                    continue; // Không xoá nếu Block nằm trong khung
+                            }
+
+                            try
+                            {
+                                if (obj is BlockReference br)
+                                {
+                                    BlockTableRecord btr = (BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
+                                    if (btr.IsFromExternalReference && !IsInside(bounds, br.GeometricExtents))
+                                    {
+                                        br.Erase();
+                                        continue;
+                                    }
+                                }
+
+                                if (!IsInside(bounds, obj.GeometricExtents))
+                                {
+                                    obj.Erase();
+                                }
+                            }
+                            catch
+                            {
+                                obj.Erase();
+                            }
+                        }
+
+                        Vector3d moveVec = Point3d.Origin - pBase.Value;
+                        foreach (ObjectId id in ms)
+                        {
+                            Entity ent = tr.GetObject(id, OpenMode.ForWrite) as Entity;
+                            ent?.TransformBy(Matrix3d.Displacement(moveVec));
+                        }
+
+                        tr.Commit();
+                    }
+
+                    string newFile = Path.Combine(folder, $"{baseName}_{fileIndex}.dwg");
+                    newDb.SaveAs(newFile, DwgVersion.Current);
+                    ed.WriteMessage($"\n→ Đã lưu: {newFile}");
+                    fileIndex++;
+                }
+
+                PromptKeywordOptions pko = new PromptKeywordOptions("\nTiếp tục chọn khung khác? [Yes/No]", "Yes No");
                 PromptResult pkr = ed.GetKeywords(pko);
                 if (pkr.Status != PromptStatus.OK || pkr.StringResult == "No") break;
             }
         }
 
-        /// <summary>
-        /// Copy các Xref liên quan đến cùng thư mục nếu chưa tồn tại
-        /// </summary>
-        private void CopyXrefsIfNeeded(Database db, string targetFolder, Editor ed)
+        private ObjectIdCollection GetAllModelSpaceIds(Database db)
         {
-            XrefGraph xg = db.GetHostDwgXrefGraph(false);
-            for (int i = 1; i < xg.NumNodes; i++) // Bỏ qua node 0 (host)
+            ObjectIdCollection ids = new ObjectIdCollection();
+            using (Transaction tr = db.TransactionManager.StartTransaction())
             {
-                XrefGraphNode node = xg.GetXrefNode(i) as XrefGraphNode;
-                if (node.XrefStatus == XrefStatus.Resolved)
+                BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                BlockTableRecord ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForRead);
+                foreach (ObjectId id in ms)
                 {
-                    string xrefPath = node.Database.Filename;
-                    if (File.Exists(xrefPath))
-                    {
-                        string xrefName = Path.GetFileName(xrefPath);
-                        string destPath = Path.Combine(targetFolder, xrefName);
-                        if (!File.Exists(destPath))
-                        {
-                            try
-                            {
-                                File.Copy(xrefPath, destPath);
-                                ed.WriteMessage($"\nĐã copy Xref: {xrefName}");
-                            }
-                            catch (Exception ex)
-                            {
-                                ed.WriteMessage($"\nKhông thể copy Xref: {xrefName} → {ex.Message}");
-                            }
-                        }
-                    }
+                    ids.Add(id);
                 }
+                tr.Commit();
+            }
+            return ids;
+        }
+
+        private bool IsInside(Extents3d outer, Extents3d inner)
+        {
+            return outer.MinPoint.X <= inner.MinPoint.X && outer.MaxPoint.X >= inner.MaxPoint.X &&
+                   outer.MinPoint.Y <= inner.MinPoint.Y && outer.MaxPoint.Y >= inner.MaxPoint.Y;
+        }
+
+        private Extents3d? TryGetGeometricExtents(Entity ent)
+        {
+            try
+            {
+                return ent.GeometricExtents;
+            }
+            catch
+            {
+                return null;
             }
         }
     }
