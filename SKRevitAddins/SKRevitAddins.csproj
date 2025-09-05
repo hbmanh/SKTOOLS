@@ -22,7 +22,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\..\..\AppData\Roaming\Autodesk\Revit\Addins\2022\SKTools.bundle\dll\</OutputPath>
+    <OutputPath>E:\PROJECT\TOOLS\SETUP\InstallerSource\SKTools.bundle\dll\</OutputPath>
     <DefineConstants>TRACE;DEBUG;REVIT2022</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>3</WarningLevel>
@@ -74,17 +74,16 @@
     <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
-    <Reference Include="RevitAPI">
-      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Revit 2022\RevitAPI.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="RevitAPI, Version=24.3.10.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
     </Reference>
     <Reference Include="RevitAPIIFC">
-      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Revit 2022\RevitAPIIFC.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Revit 2024\RevitAPIIFC.dll</HintPath>
     </Reference>
-    <Reference Include="RevitAPIUI">
-      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Revit 2022\RevitAPIUI.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="RevitAPIUI, Version=24.3.10.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -258,6 +257,7 @@
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADCmd.cs" />
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequest.cs" />
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequestHandler.cs" />
+    <Compile Include="MainCommands\TEST\RefPCL_ToposolidTool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="MainCommands\TEST\Test.cs" />
     <Compile Include="Utils\APIDoc.cs" />

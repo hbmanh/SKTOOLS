@@ -20,7 +20,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
-    <Grid Margin="15">
+    <!--<Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -29,18 +29,18 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <!-- Logo -->
+        --><!-- Logo --><!--
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
             <Image x:Name="LogoImage" Height="30" Width="30"/>
             <TextBlock Text="Shinken Group®" FontSize="20" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
-        <!-- Enable Selected, Disable Selected, Export Error -->
+        --><!-- Enable Selected, Disable Selected, Export Error --><!--
         <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="1">
             <Button Content="Enable Selected" Width="120" Margin="0,0,8,0" Click="EnableSelected_Click"/>
             <Button Content="Disable Selected" Width="120" Margin="0,0,20,0" Click="DisableSelected_Click"/>
             <Button Content="Export Error" Width="120" Background="LightCoral" Foreground="White" Click="ExportError_Click" Margin="0,0,18,0"/>
         </StackPanel>
-        <!-- Batch Set Offset, Category, Family, Type -->
+        --><!-- Batch Set Offset, Category, Family, Type --><!--
         <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="2">
             <TextBox x:Name="BatchOffsetBox" Width="60" Margin="0,0,6,0" VerticalContentAlignment="Center" Text="2600"/>
             <Button Content="Set Offset" Width="100" Margin="0,0,16,0" Click="SetOffsetSelected_Click"/>
@@ -66,7 +66,7 @@
                       IsEditable="True"/>
             <Button Content="Set Type" Width="110" Click="SetTypeSelected_Click"/>
         </StackPanel>
-        <!-- DataGrid hiển thị block mapping -->
+        --><!-- DataGrid hiển thị block mapping --><!--
         <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Grid.Row="3">
             <DataGrid x:Name="BlockMappingGrid"
                       AutoGenerateColumns="False"
@@ -140,5 +140,5 @@
             <Button Click="CancelBtn_Click" Content="Cancel" Width="100" MinHeight="32" FontWeight="Bold" Background="WhiteSmoke"/>
         </StackPanel>
         <TextBlock Name="StatusText" Grid.Row="5" Margin="0,10,0,0" FontSize="13" Foreground="Gray" Text=""/>
-    </Grid>
+    </Grid>-->
 </Window>
