@@ -47,7 +47,7 @@ namespace SKToolsRibbon
             AddButton(GENPanel, "SelectElementsVer1Cmd", "Elements\nNumbering", "SKRevitAddins.SelectElementsVer1.SelectElementsVer1Cmd", "SelectElements.png");
             AddButton(GENPanel, "ReplaceTextNoteFromCadExploreCmd", "TextNotes\nEditor", "SKRevitAddins.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
             AddButton(GENPanel, "ExportSchedulesToExcelCmd", "Schedules\nExport", "SKRevitAddins.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png");
-            AddButton(GENPanel, "ScanAndModelCmd", "PCL\nModel", "SKRevitAddins.ScanAndModel.ScanAndModelCmd", "ScanAndModel.png");
+            AddButton(GENPanel, "RefPointToTopoCmd", "PCL\nTopo", "SKRevitAddins.RefPointToTopo.RefPointToTopoCmd", "ScanAndModel.png");
             AddButton(GENPanel, "CreateSheetsFromExcelCmd", "Sheet\nCreate", "SKRevitAddins.CreateSheetsFromExcel.CreateSheetsFromExcelCmd", "CreateSheetsFromExcel.png");
             AddButton(GENPanel, "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
 

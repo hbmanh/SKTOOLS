@@ -153,7 +153,7 @@
       <DependentUpon>LayoutsToDWGWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="MainCommands\LayoutsToDWG\LayoutsToDWGCmd.cs" />
-    <Compile Include="MainCommands\LayoutsToDWG\ViewModel.cs" />
+    <Compile Include="MainCommands\LayoutsToDWG\LayoutsToDWGViewModel.cs" />
     <Compile Include="MainCommands\ParamCopy\App.cs" />
     <Compile Include="MainCommands\ParamCopy\MultiValueConverter.cs" />
     <Compile Include="MainCommands\ParamCopy\ParamCopyCmd.cs" />
@@ -171,6 +171,12 @@
     <Compile Include="MainCommands\ParamCopy\Utils\WpfUtils.cs" />
     <Compile Include="MainCommands\ParamCopy\ViewModelBase.cs" />
     <Compile Include="MainCommands\PermissibleRangeFrame\MEPCurveExtensions.cs" />
+    <Compile Include="MainCommands\RefPointToTopo\RefPointToTopoWindow.xaml.cs">
+      <DependentUpon>RefPointToTopoWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MainCommands\RefPointToTopo\RefPointToTopoCmd.cs" />
+    <Compile Include="MainCommands\RefPointToTopo\RefPointToTopoHandler.cs" />
+    <Compile Include="MainCommands\RefPointToTopo\RefPointToTopoViewModel.cs" />
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelCmd.cs" />
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelRequest.cs" />
     <Compile Include="MainCommands\ScanAndModel\ScanAndModelRequestHandler.cs" />
@@ -317,6 +323,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="MainCommands\PermissibleRangeFrame\PreviewReportWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="MainCommands\RefPointToTopo\RefPointToTopoWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

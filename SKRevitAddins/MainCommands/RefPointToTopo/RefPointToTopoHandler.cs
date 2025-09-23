@@ -1,63 +1,68 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
 
-namespace RefPointTopoTool
+namespace SKRevitAddins.RefPointToTopo
 {
-    [Transaction(TransactionMode.Manual)]
-    public class CreateToposolidFromRefPoints : IExternalCommand
+    /// <summary>
+    /// Chạy trên Revit API thread: build điểm (grid + edge + adaptive), nội suy IDW, tạo Toposolid mới và xóa cái cũ.
+    /// ViewModel set các thuộc tính rồi gọi ExternalEvent.Raise().
+    /// </summary>
+    public class RefPointToTopoHandler : IExternalEventHandler
     {
-        private const string RefPointFamilyName = "RefPoint";
+        // ====== INPUT từ ViewModel ======
+        public ElementId TargetToposolidId { get; set; }
+        public string RefPointFamilyName { get; set; } = "RefPoint";
 
-        // ====== CẤU HÌNH ======
-        private const double GridSpacingMeters = 2.0;   // spacing lưới trong lòng địa hình
-        private const double EdgeSpacingMeters = 1.0;   // spacing trên biên
-        private const int IDW_K = 6;     // số lân cận trong IDW
-        private const double IDW_Power = 2.0;   // lũy thừa IDW
-        private const double SnapDistanceMeters = 0.05;  // ~5cm để “bắt” cao độ RefPoint
-        private const int MaxPoints = 18000; // giới hạn hiệu năng
+        // Config (đơn vị FEET)
+        public double GridSpacingFt { get; set; } = 2.0;   // convert từ mét trước khi gán
+        public double EdgeSpacingFt { get; set; } = 1.0;
+        public int IDW_K { get; set; } = 6;
+        public double IDW_Power { get; set; } = 2.0;
+        public double SnapDistanceFt { get; set; } = 0.05;
+        public int MaxPoints { get; set; } = 18000;
 
-        // Cải tiến
-        private const bool UseAdaptiveSampling = true;   // bật/tắt adapt
-        private const double GradThreshold = 0.30;   // ngưỡng dốc (≈ (zmax - zmin)/spacing)
-        private const double RefineFactor = 0.5;    // spacing refine = RefineFactor * spacing
-        private const int MaxRefinePoints = 6000;   // tránh thêm quá nhiều điểm
-        private const bool UseParallelIDW = true;   // IDW chạy song song (không gọi Revit API trong vùng này)
+        // Adaptive
+        public bool UseAdaptiveSampling { get; set; } = true;
+        public double GradThreshold { get; set; } = 0.30;
+        public double RefineFactor { get; set; } = 0.5;
+        public int MaxRefinePoints { get; set; } = 6000;
 
-        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        // Hiệu năng
+        public bool UseParallelIDW { get; set; } = true;
+
+        // UI hooks
+        public bool IsCancelled { get; set; } = false;
+        public Action<bool> BusySetter { get; set; }
+        public Action<int, int> ProgressReporter { get; set; }  // (current, total)
+
+        public void Execute(UIApplication app)
         {
-            UIDocument uidoc = commandData.Application.ActiveUIDocument;
-            Document doc = uidoc.Document;
-
             try
             {
-                // B1. Chọn Toposolid
-                Reference topoRef = uidoc.Selection.PickObject(ObjectType.Element, new ToposolidFilter(), "Chọn Toposolid muốn chỉnh sửa");
-                var originalTopo = doc.GetElement(topoRef) as Toposolid;
+                BusySetter?.Invoke(true);
+                ProgressReporter?.Invoke(0, 1);
+
+                var uidoc = app.ActiveUIDocument;
+                var doc = uidoc.Document;
+
+                var originalTopo = doc.GetElement(TargetToposolidId) as Toposolid;
                 if (originalTopo == null)
                 {
-                    TaskDialog.Show("Lỗi", "Không phải là Toposolid.");
-                    return Result.Failed;
+                    TaskDialog.Show("RefPoint → Toposolid", "Toposolid không hợp lệ.");
+                    return;
                 }
 
-                // B2. Gom RefPoint (Generic Model -> Family "RefPoint")
+                // ====== B2. Gom RefPoint ======
                 var allRefFi = new FilteredElementCollector(doc)
                     .OfClass(typeof(FamilyInstance))
                     .OfCategory(BuiltInCategory.OST_GenericModel)
                     .Cast<FamilyInstance>()
                     .Where(fi => fi.Symbol?.Family?.Name?.Equals(RefPointFamilyName, StringComparison.InvariantCultureIgnoreCase) == true)
                     .ToList();
-
-                if (allRefFi.Count == 0)
-                {
-                    TaskDialog.Show("Lỗi", "Không tìm thấy RefPoint nào.");
-                    return Result.Failed;
-                }
 
                 var refPtsRaw = allRefFi
                     .Select(fi =>
@@ -77,29 +82,30 @@ namespace RefPointTopoTool
 
                 if (refPtsRaw.Count == 0)
                 {
-                    TaskDialog.Show("Lỗi", "RefPoint không hợp lệ.");
-                    return Result.Failed;
+                    TaskDialog.Show("RefPoint → Toposolid", "Không tìm thấy RefPoint hợp lệ.");
+                    return;
                 }
 
-                // --- Lọc outlier theo Z-score (giảm nhiễu) ---
+                // Lọc outlier theo Z-score
                 refPtsRaw = RemoveOutliers(refPtsRaw, 3.0);
 
-                // B3. Lấy biên & loops
-                var topoBoundary = GetTopoBoundary(originalTopo);
-                if (topoBoundary == null || topoBoundary.Count < 3)
-                {
-                    TaskDialog.Show("Lỗi", "Không lấy được biên dạng Toposolid.");
-                    return Result.Failed;
-                }
-
+                // ====== B3. Boundary ======
                 var boundaryLoops = GetToposolidBoundary(originalTopo);
                 if (boundaryLoops == null || boundaryLoops.Count == 0)
                 {
-                    TaskDialog.Show("Lỗi", "Không đọc được boundary của Toposolid.");
-                    return Result.Failed;
+                    TaskDialog.Show("RefPoint → Toposolid", "Không đọc được boundary loops.");
+                    return;
                 }
 
-                // B4. Lấy type & level
+                // polygon outer (dùng để test Inside)
+                var topoBoundary = GetTopoBoundary(originalTopo);
+                if (topoBoundary == null || topoBoundary.Count < 3)
+                {
+                    TaskDialog.Show("RefPoint → Toposolid", "Không lấy được biên Toposolid.");
+                    return;
+                }
+
+                // ====== B4. Type & Level ======
                 ElementId typeId = originalTopo.GetTypeId();
                 ElementId levelId = originalTopo.LevelId;
                 if (levelId == ElementId.InvalidElementId)
@@ -107,46 +113,38 @@ namespace RefPointTopoTool
                     var level = GetNearestLevel(doc, originalTopo);
                     if (level == null)
                     {
-                        TaskDialog.Show("Lỗi", "Không tìm thấy Level.");
-                        return Result.Failed;
+                        TaskDialog.Show("RefPoint → Toposolid", "Không tìm thấy Level.");
+                        return;
                     }
                     levelId = level.Id;
                 }
 
-                // ====== TẠO TẬP ĐIỂM ======
-                double gridSpacingFt = UnitUtils.ConvertToInternalUnits(GridSpacingMeters, UnitTypeId.Meters);
-                double edgeSpacingFt = UnitUtils.ConvertToInternalUnits(EdgeSpacingMeters, UnitTypeId.Meters);
-                double snapDistFt = UnitUtils.ConvertToInternalUnits(SnapDistanceMeters, UnitTypeId.Meters);
-
-                // 1) Lưới đều trong polygon + jitter nhẹ
-                var gridPtsXY = SampleGridInsidePolygon(topoBoundary, gridSpacingFt, jitterRatio: 0.15);
-
-                // 2) Densify biên
-                var edgePtsXY = DensifyBoundary(topoBoundary, edgeSpacingFt);
+                // ====== Sampling XY ======
+                var gridPtsXY = SampleGridInsidePolygon(topoBoundary, GridSpacingFt, 0.15);
+                var edgePtsXY = DensifyBoundary(topoBoundary, EdgeSpacingFt);
                 gridPtsXY.AddRange(edgePtsXY);
 
-                // 3) Giữ các RefPoint bên trong polygon làm “neo” XY
+                // thêm các RefPoint nằm trong polygon làm neo XY
                 var insideRefXY = refPtsRaw.Where(p => IsPointInsidePolygonXY(p, topoBoundary))
                                            .Select(p => new XYZ(p.X, p.Y, 0.0))
                                            .ToList();
                 gridPtsXY.AddRange(insideRefXY);
 
-                // 4) Khử trùng lặp XY
-                gridPtsXY = DeduplicateXY(gridPtsXY, tolerance: gridSpacingFt * 0.75);
+                // Khử trùng lặp XY
+                gridPtsXY = DeduplicateXY(gridPtsXY, Math.Max(GridSpacingFt * 0.75, 1e-6));
 
-                // 5) Nội suy Z bằng IDW từ tập RefPoint (lần 1)
-                var elevatedPts = InterpolateZ_IDW(gridPtsXY, refPtsRaw, IDW_K, IDW_Power, snapDistFt, UseParallelIDW);
+                // ====== IDW lần 1 ======
+                var elevatedPts = InterpolateZ_IDW(gridPtsXY, refPtsRaw, IDW_K, IDW_Power, SnapDistanceFt, UseParallelIDW);
 
-                // ====== Adaptive sampling theo độ dốc (lần 2) ======
+                // ====== Adaptive refine ======
                 if (UseAdaptiveSampling)
                 {
-                    var refineXY = AdaptiveRefine(elevatedPts, gridSpacingFt, topoBoundary, GradThreshold, RefineFactor, MaxRefinePoints);
+                    var refineXY = AdaptiveRefine(elevatedPts, GridSpacingFt, topoBoundary, GradThreshold, RefineFactor, MaxRefinePoints);
                     if (refineXY.Count > 0)
                     {
-                        var refineElev = InterpolateZ_IDW(refineXY, refPtsRaw, IDW_K, IDW_Power, snapDistFt, UseParallelIDW);
+                        var refineElev = InterpolateZ_IDW(refineXY, refPtsRaw, IDW_K, IDW_Power, SnapDistanceFt, UseParallelIDW);
                         elevatedPts.AddRange(refineElev);
-                        // Khử trùng lặp lần nữa (tolerance chặt hơn)
-                        elevatedPts = DeduplicateXY(elevatedPts, Math.Min(gridSpacingFt * 0.5, edgeSpacingFt * 0.75));
+                        elevatedPts = DeduplicateXY(elevatedPts, Math.Min(GridSpacingFt * 0.5, EdgeSpacingFt * 0.75));
                     }
                 }
 
@@ -155,11 +153,11 @@ namespace RefPointTopoTool
 
                 if (elevatedPts.Count == 0)
                 {
-                    TaskDialog.Show("Lỗi", "Không có điểm nào hợp lệ để tạo Toposolid.");
-                    return Result.Failed;
+                    TaskDialog.Show("RefPoint → Toposolid", "Không có điểm hợp lệ để tạo Toposolid.");
+                    return;
                 }
 
-                // --- Clamp Z theo dải dữ liệu gốc để tránh “vượt biên” ---
+                // Clamp Z theo dải gốc
                 double zMin = refPtsRaw.Min(p => p.Z);
                 double zMax = refPtsRaw.Max(p => p.Z);
                 for (int i = 0; i < elevatedPts.Count; i++)
@@ -169,48 +167,38 @@ namespace RefPointTopoTool
                     elevatedPts[i] = new XYZ(p.X, p.Y, z);
                 }
 
-                // ====== TẠO LẠI TOPOSOLID ======
-                using (var t = new Transaction(doc, "Cập nhật Toposolid từ RefPoint (adaptive + clean)"))
+                // ====== Tạo lại Toposolid ======
+                using (var t = new Transaction(doc, "Cập nhật Toposolid từ RefPoint (MVVM)"))
                 {
                     t.Start();
 
-                    Toposolid newTopo = Toposolid.Create(doc, boundaryLoops, elevatedPts, typeId, levelId);
-
-                    // Xoá Toposolid cũ
+                    Toposolid.Create(doc, boundaryLoops, elevatedPts, typeId, levelId);
                     doc.Delete(originalTopo.Id);
 
                     t.Commit();
                 }
 
                 TaskDialog.Show("Xong", $"Tạo Toposolid mới với {elevatedPts.Count} điểm (grid + edge + adaptive).");
-                return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                message = ex.Message;
-                return Result.Failed;
+                TaskDialog.Show("RefPoint → Toposolid (Error)", ex.Message);
+            }
+            finally
+            {
+                BusySetter?.Invoke(false);
+                IsCancelled = false;
+                ProgressReporter?.Invoke(1, 1);
             }
         }
 
-        // ================== SELECTION FILTER ==================
-        private class ToposolidFilter : ISelectionFilter
-        {
-            public bool AllowElement(Element elem) =>
-                elem?.Category?.Id.IntegerValue == (int)BuiltInCategory.OST_Toposolid;
-            public bool AllowReference(Reference reference, XYZ position) => true;
-        }
+        public string GetName() => "RefPointToTopo Handler";
 
-        // ================== BOUNDARY HELPERS ==================
+        // ================== GEOMETRY / BOUNDARY ==================
         private IList<XYZ> GetTopoBoundary(Toposolid topo)
         {
             var boundary = new List<XYZ>();
-            var opt = new Options
-            {
-                ComputeReferences = false,
-                DetailLevel = ViewDetailLevel.Fine,
-                IncludeNonVisibleObjects = false
-            };
-
+            var opt = new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine, IncludeNonVisibleObjects = false };
             var geomElem = topo.get_Geometry(opt);
             if (geomElem == null) return boundary;
 
@@ -222,7 +210,7 @@ namespace RefPointTopoTool
                     {
                         if (face is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
                         {
-                            var loops = face.GetEdgesAsCurveLoops();
+                            var loops = pf.GetEdgesAsCurveLoops();
                             if (loops.Count > 0)
                             {
                                 var outer = loops.OrderByDescending(l => l.GetExactLength()).First();
@@ -239,13 +227,7 @@ namespace RefPointTopoTool
 
         private IList<CurveLoop> GetToposolidBoundary(Toposolid topo)
         {
-            var opt = new Options
-            {
-                ComputeReferences = false,
-                DetailLevel = ViewDetailLevel.Fine,
-                IncludeNonVisibleObjects = false
-            };
-
+            var opt = new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine, IncludeNonVisibleObjects = false };
             var geomElem = topo.get_Geometry(opt);
             if (geomElem == null) return null;
 
@@ -256,7 +238,7 @@ namespace RefPointTopoTool
                     foreach (Face face in solid.Faces)
                     {
                         if (face is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
-                            return face.GetEdgesAsCurveLoops(); // gồm cả outer + inner nếu có
+                            return face.GetEdgesAsCurveLoops(); // gồm cả outer + inner
                     }
                 }
             }
@@ -269,15 +251,14 @@ namespace RefPointTopoTool
             if (bbox == null) return null;
 
             double z = bbox.Min.Z;
-            var levels = new FilteredElementCollector(doc)
+            return new FilteredElementCollector(doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
                 .OrderBy(l => Math.Abs(l.Elevation - z))
-                .ToList();
-            return levels.FirstOrDefault();
+                .FirstOrDefault();
         }
 
-        // ================== SPATIAL HELPERS ==================
+        // ================== SAMPLING / IDW ==================
         private bool IsPointInsidePolygonXY(XYZ p, IList<XYZ> polygon)
         {
             int n = polygon.Count;
@@ -309,7 +290,7 @@ namespace RefPointTopoTool
                 {
                     double t = (double)s / segments;
                     XYZ p = a + (b - a) * t;
-                    pts.Add(new XYZ(p.X, p.Y, 0.0)); // Z sẽ nội suy
+                    pts.Add(new XYZ(p.X, p.Y, 0.0));
                 }
             }
             return pts;
@@ -321,7 +302,7 @@ namespace RefPointTopoTool
             double minX = poly.Min(p => p.X), maxX = poly.Max(p => p.X);
             double minY = poly.Min(p => p.Y), maxY = poly.Max(p => p.Y);
 
-            Random rnd = new Random(12345);
+            var rnd = new Random(12345);
             double jitter = spacing * jitterRatio;
 
             int rowIndex = 0;
@@ -358,7 +339,7 @@ namespace RefPointTopoTool
 
         private List<XYZ> Downsample(List<XYZ> pts, int maxCount)
         {
-            Random rnd = new Random(6789);
+            var rnd = new Random(6789);
             for (int i = pts.Count - 1; i > 0; i--)
             {
                 int j = rnd.Next(i + 1);
@@ -367,7 +348,6 @@ namespace RefPointTopoTool
             return pts.Take(maxCount).ToList();
         }
 
-        // ================== CLEAN / ADAPTIVE ==================
         private List<XYZ> RemoveOutliers(List<XYZ> pts, double zThresh = 3.0)
         {
             if (pts.Count < 5) return pts;
@@ -421,7 +401,6 @@ namespace RefPointTopoTool
             return refine;
         }
 
-        // ================== IDW ==================
         private List<XYZ> InterpolateZ_IDW(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snapDist, bool parallel)
         {
             if (!parallel) return InterpolateZ_IDW_Serial(targetsXY, refPts, k, power, snapDist);
