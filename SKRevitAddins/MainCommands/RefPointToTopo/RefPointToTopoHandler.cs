@@ -7,18 +7,14 @@ using Autodesk.Revit.UI;
 
 namespace SKRevitAddins.RefPointToTopo
 {
-    /// <summary>
-    /// Chạy trên Revit API thread: build điểm (grid + edge + adaptive), nội suy IDW, tạo Toposolid mới và xóa cái cũ.
-    /// ViewModel set các thuộc tính rồi gọi ExternalEvent.Raise().
-    /// </summary>
     public class RefPointToTopoHandler : IExternalEventHandler
     {
-        // ====== INPUT từ ViewModel ======
+        // ===== INPUT từ ViewModel =====
         public ElementId TargetToposolidId { get; set; }
         public string RefPointFamilyName { get; set; } = "RefPoint";
 
-        // Config (đơn vị FEET)
-        public double GridSpacingFt { get; set; } = 2.0;   // convert từ mét trước khi gán
+        // Cấu hình (FEET)
+        public double GridSpacingFt { get; set; } = 2.0;
         public double EdgeSpacingFt { get; set; } = 1.0;
         public int IDW_K { get; set; } = 6;
         public double IDW_Power { get; set; } = 2.0;
@@ -37,7 +33,7 @@ namespace SKRevitAddins.RefPointToTopo
         // UI hooks
         public bool IsCancelled { get; set; } = false;
         public Action<bool> BusySetter { get; set; }
-        public Action<int, int> ProgressReporter { get; set; }  // (current, total)
+        public Action<int, int> ProgressReporter { get; set; }
 
         public void Execute(UIApplication app)
         {
@@ -46,9 +42,7 @@ namespace SKRevitAddins.RefPointToTopo
                 BusySetter?.Invoke(true);
                 ProgressReporter?.Invoke(0, 1);
 
-                var uidoc = app.ActiveUIDocument;
-                var doc = uidoc.Document;
-
+                var doc = app.ActiveUIDocument.Document;
                 var originalTopo = doc.GetElement(TargetToposolidId) as Toposolid;
                 if (originalTopo == null)
                 {
@@ -56,7 +50,7 @@ namespace SKRevitAddins.RefPointToTopo
                     return;
                 }
 
-                // ====== B2. Gom RefPoint ======
+                // ===== 1. Thu thập RefPoint =====
                 var allRefFi = new FilteredElementCollector(doc)
                     .OfClass(typeof(FamilyInstance))
                     .OfCategory(BuiltInCategory.OST_GenericModel)
@@ -73,7 +67,7 @@ namespace SKRevitAddins.RefPointToTopo
                         double z = lp.Point.Z;
                         var elevParam = fi.LookupParameter("Default Elevation");
                         if (elevParam != null && elevParam.StorageType == StorageType.Double)
-                            z = elevParam.AsDouble();
+                            z = elevParam.AsDouble(); // ưu tiên tham số nếu có
 
                         return new XYZ(lp.Point.X, lp.Point.Y, z);
                     })
@@ -86,18 +80,16 @@ namespace SKRevitAddins.RefPointToTopo
                     return;
                 }
 
-                // Lọc outlier theo Z-score
+                // Giảm nhiễu (Z-score)
                 refPtsRaw = RemoveOutliers(refPtsRaw, 3.0);
 
-                // ====== B3. Boundary ======
+                // ===== 2. Boundary =====
                 var boundaryLoops = GetToposolidBoundary(originalTopo);
                 if (boundaryLoops == null || boundaryLoops.Count == 0)
                 {
                     TaskDialog.Show("RefPoint → Toposolid", "Không đọc được boundary loops.");
                     return;
                 }
-
-                // polygon outer (dùng để test Inside)
                 var topoBoundary = GetTopoBoundary(originalTopo);
                 if (topoBoundary == null || topoBoundary.Count < 3)
                 {
@@ -105,7 +97,7 @@ namespace SKRevitAddins.RefPointToTopo
                     return;
                 }
 
-                // ====== B4. Type & Level ======
+                // ===== 3. Type & Level =====
                 ElementId typeId = originalTopo.GetTypeId();
                 ElementId levelId = originalTopo.LevelId;
                 if (levelId == ElementId.InvalidElementId)
@@ -119,24 +111,22 @@ namespace SKRevitAddins.RefPointToTopo
                     levelId = level.Id;
                 }
 
-                // ====== Sampling XY ======
+                // ===== 4. Sampling XY =====
                 var gridPtsXY = SampleGridInsidePolygon(topoBoundary, GridSpacingFt, 0.15);
                 var edgePtsXY = DensifyBoundary(topoBoundary, EdgeSpacingFt);
                 gridPtsXY.AddRange(edgePtsXY);
 
-                // thêm các RefPoint nằm trong polygon làm neo XY
+                // Neo thêm XY của RefPoint (chưa dùng Z ở bước này)
                 var insideRefXY = refPtsRaw.Where(p => IsPointInsidePolygonXY(p, topoBoundary))
-                                           .Select(p => new XYZ(p.X, p.Y, 0.0))
-                                           .ToList();
+                                           .Select(p => new XYZ(p.X, p.Y, 0.0)).ToList();
                 gridPtsXY.AddRange(insideRefXY);
 
-                // Khử trùng lặp XY
                 gridPtsXY = DeduplicateXY(gridPtsXY, Math.Max(GridSpacingFt * 0.75, 1e-6));
 
-                // ====== IDW lần 1 ======
+                // ===== 5. IDW lần 1 =====
                 var elevatedPts = InterpolateZ_IDW(gridPtsXY, refPtsRaw, IDW_K, IDW_Power, SnapDistanceFt, UseParallelIDW);
 
-                // ====== Adaptive refine ======
+                // ===== 6. Adaptive refine (nếu bật) =====
                 if (UseAdaptiveSampling)
                 {
                     var refineXY = AdaptiveRefine(elevatedPts, GridSpacingFt, topoBoundary, GradThreshold, RefineFactor, MaxRefinePoints);
@@ -148,8 +138,15 @@ namespace SKRevitAddins.RefPointToTopo
                     }
                 }
 
-                if (elevatedPts.Count > MaxPoints)
-                    elevatedPts = Downsample(elevatedPts, MaxPoints);
+                // ===== 7. ÉP subelement tại mọi RefPoint =====
+                var insideRefPts = refPtsRaw.Where(p => IsPointInsidePolygonXY(p, topoBoundary)).ToList();
+                double preferTol = Math.Min(GridSpacingFt * 0.5, EdgeSpacingFt * 0.75);
+
+                // Trộn: RefPoint thắng điểm lưới lân cận
+                elevatedPts = MergePreferRefPoints(elevatedPts, insideRefPts, preferTol);
+
+                // ===== 8. Trần số điểm nhưng KHÔNG bỏ RefPoint =====
+                elevatedPts = EnforceMaxPointsWithRefPriority(elevatedPts, insideRefPts, MaxPoints, preferTol);
 
                 if (elevatedPts.Count == 0)
                 {
@@ -157,32 +154,47 @@ namespace SKRevitAddins.RefPointToTopo
                     return;
                 }
 
-                // Clamp Z theo dải gốc
+                // ===== 9. Clamp Z CHỈ cho điểm nội suy (KHÔNG clamp RefPoint) =====
                 double zMin = refPtsRaw.Min(p => p.Z);
                 double zMax = refPtsRaw.Max(p => p.Z);
+
+                double inv = 1.0 / Math.Max(preferTol, 1e-9);
+                var refKeys = new HashSet<(int, int)>(
+                    insideRefPts.Select(r => ((int)Math.Round(r.X * inv), (int)Math.Round(r.Y * inv)))
+                );
+
                 for (int i = 0; i < elevatedPts.Count; i++)
                 {
                     var p = elevatedPts[i];
-                    double z = Math.Max(zMin, Math.Min(zMax, p.Z));
-                    elevatedPts[i] = new XYZ(p.X, p.Y, z);
+                    var key = ((int)Math.Round(p.X * inv), (int)Math.Round(p.Y * inv));
+
+                    if (refKeys.Contains(key))
+                    {
+                        // Đây là RefPoint → giữ nguyên Z gốc (đã có trong danh sách từ bước merge)
+                        elevatedPts[i] = p;
+                    }
+                    else
+                    {
+                        // Điểm nội suy → clamp Z để tránh vượt biên
+                        double z = Math.Max(zMin, Math.Min(zMax, p.Z));
+                        elevatedPts[i] = new XYZ(p.X, p.Y, z);
+                    }
                 }
 
-                // ====== Tạo lại Toposolid ======
+                // ===== 10. Tạo lại Toposolid =====
                 using (var t = new Transaction(doc, "Cập nhật Toposolid từ RefPoint (MVVM)"))
                 {
                     t.Start();
-
                     Toposolid.Create(doc, boundaryLoops, elevatedPts, typeId, levelId);
                     doc.Delete(originalTopo.Id);
-
                     t.Commit();
                 }
 
-                TaskDialog.Show("Xong", $"Tạo Toposolid mới với {elevatedPts.Count} điểm (grid + edge + adaptive).");
+                TaskDialog.Show("Xong", $"Tạo Toposolid mới với {elevatedPts.Count} điểm (bảo toàn cao độ tại mọi RefPoint).");
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("RefPoint → Toposolid (Error)", ex.Message);
+                TaskDialog.Show("RefPoint → Toposolid (Lỗi)", ex.Message);
             }
             finally
             {
@@ -194,32 +206,29 @@ namespace SKRevitAddins.RefPointToTopo
 
         public string GetName() => "RefPointToTopo Handler";
 
-        // ================== GEOMETRY / BOUNDARY ==================
+        // ===== Boundary helpers =====
         private IList<XYZ> GetTopoBoundary(Toposolid topo)
         {
             var boundary = new List<XYZ>();
             var opt = new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine, IncludeNonVisibleObjects = false };
-            var geomElem = topo.get_Geometry(opt);
-            if (geomElem == null) return boundary;
+            var ge = topo.get_Geometry(opt);
+            if (ge == null) return boundary;
 
-            foreach (GeometryObject obj in geomElem)
+            foreach (GeometryObject obj in ge)
             {
-                if (obj is Solid solid && solid.Faces.Size > 0)
+                if (obj is Solid s && s.Faces.Size > 0)
                 {
-                    foreach (Face face in solid.Faces)
-                    {
-                        if (face is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
+                    foreach (Face f in s.Faces)
+                        if (f is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
                         {
                             var loops = pf.GetEdgesAsCurveLoops();
                             if (loops.Count > 0)
                             {
                                 var outer = loops.OrderByDescending(l => l.GetExactLength()).First();
-                                foreach (Curve c in outer)
-                                    boundary.Add(c.GetEndPoint(0));
+                                foreach (Curve c in outer) boundary.Add(c.GetEndPoint(0));
                                 return boundary;
                             }
                         }
-                    }
                 }
             }
             return boundary;
@@ -228,46 +237,36 @@ namespace SKRevitAddins.RefPointToTopo
         private IList<CurveLoop> GetToposolidBoundary(Toposolid topo)
         {
             var opt = new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine, IncludeNonVisibleObjects = false };
-            var geomElem = topo.get_Geometry(opt);
-            if (geomElem == null) return null;
+            var ge = topo.get_Geometry(opt);
+            if (ge == null) return null;
 
-            foreach (GeometryObject obj in geomElem)
+            foreach (GeometryObject obj in ge)
             {
-                if (obj is Solid solid && solid.Faces.Size > 0)
-                {
-                    foreach (Face face in solid.Faces)
-                    {
-                        if (face is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
-                            return face.GetEdgesAsCurveLoops(); // gồm cả outer + inner
-                    }
-                }
+                if (obj is Solid s && s.Faces.Size > 0)
+                    foreach (Face f in s.Faces)
+                        if (f is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
+                            return pf.GetEdgesAsCurveLoops();
             }
             return null;
         }
 
         private Level GetNearestLevel(Document doc, Toposolid topo)
         {
-            var bbox = topo.get_BoundingBox(null);
-            if (bbox == null) return null;
-
-            double z = bbox.Min.Z;
+            var bb = topo.get_BoundingBox(null); if (bb == null) return null;
+            double z = bb.Min.Z;
             return new FilteredElementCollector(doc)
-                .OfClass(typeof(Level))
-                .Cast<Level>()
-                .OrderBy(l => Math.Abs(l.Elevation - z))
-                .FirstOrDefault();
+                .OfClass(typeof(Level)).Cast<Level>()
+                .OrderBy(l => Math.Abs(l.Elevation - z)).FirstOrDefault();
         }
 
-        // ================== SAMPLING / IDW ==================
-        private bool IsPointInsidePolygonXY(XYZ p, IList<XYZ> polygon)
+        // ===== Spatial / Sampling / IDW =====
+        private bool IsPointInsidePolygonXY(XYZ p, IList<XYZ> poly)
         {
-            int n = polygon.Count;
-            bool inside = false;
+            int n = poly.Count; bool inside = false;
             for (int i = 0, j = n - 1; i < n; j = i++)
             {
-                double xi = polygon[i].X, yi = polygon[i].Y;
-                double xj = polygon[j].X, yj = polygon[j].Y;
-
+                double xi = poly[i].X, yi = poly[i].Y;
+                double xj = poly[j].X, yj = poly[j].Y;
                 bool intersect = ((yi > p.Y) != (yj > p.Y)) &&
                                  (p.X < (xj - xi) * (p.Y - yi) / ((yj - yi) == 0 ? 1e-12 : (yj - yi)) + xi);
                 if (intersect) inside = !inside;
@@ -281,15 +280,15 @@ namespace SKRevitAddins.RefPointToTopo
             int n = boundary.Count;
             for (int i = 0; i < n; i++)
             {
-                XYZ a = boundary[i];
-                XYZ b = boundary[(i + 1) % n];
+                var a = boundary[i];
+                var b = boundary[(i + 1) % n];
                 double len = a.DistanceTo(b);
-                int segments = Math.Max(1, (int)Math.Round(len / spacing));
+                int seg = Math.Max(1, (int)Math.Round(len / spacing));
 
-                for (int s = 0; s <= segments; s++)
+                for (int s = 0; s <= seg; s++)
                 {
-                    double t = (double)s / segments;
-                    XYZ p = a + (b - a) * t;
+                    double t = (double)s / seg;
+                    var p = a + (b - a) * t;
                     pts.Add(new XYZ(p.X, p.Y, 0.0));
                 }
             }
@@ -304,37 +303,34 @@ namespace SKRevitAddins.RefPointToTopo
 
             var rnd = new Random(12345);
             double jitter = spacing * jitterRatio;
+            int row = 0;
 
-            int rowIndex = 0;
-            for (double y = minY; y <= maxY; y += spacing, rowIndex++)
+            for (double y = minY; y <= maxY; y += spacing, row++)
             {
-                double rowOffset = (rowIndex % 2 == 0) ? 0 : spacing * 0.5; // pseudo-hex
+                double rowOffset = (row % 2 == 0) ? 0 : spacing * 0.5;
                 for (double x = minX + rowOffset; x <= maxX; x += spacing)
                 {
                     double jx = (rnd.NextDouble() - 0.5) * 2.0 * jitter;
                     double jy = (rnd.NextDouble() - 0.5) * 2.0 * jitter;
                     var p = new XYZ(x + jx, y + jy, 0.0);
-                    if (IsPointInsidePolygonXY(p, poly))
-                        pts.Add(p);
+                    if (IsPointInsidePolygonXY(p, poly)) pts.Add(p);
                 }
             }
             return pts;
         }
 
-        private List<XYZ> DeduplicateXY(IEnumerable<XYZ> pts, double tolerance)
+        private List<XYZ> DeduplicateXY(IEnumerable<XYZ> pts, double tol)
         {
-            var snap = new Dictionary<(int, int), XYZ>();
-            double inv = 1.0 / Math.Max(tolerance, 1e-9);
-
+            var map = new Dictionary<(int, int), XYZ>();
+            double inv = 1.0 / Math.Max(tol, 1e-9);
             foreach (var p in pts)
             {
                 int ix = (int)Math.Round(p.X * inv);
                 int iy = (int)Math.Round(p.Y * inv);
                 var key = (ix, iy);
-                if (!snap.ContainsKey(key))
-                    snap[key] = p;
+                if (!map.ContainsKey(key)) map[key] = p; // giữ phần tử đầu tiên
             }
-            return snap.Values.ToList();
+            return map.Values.ToList();
         }
 
         private List<XYZ> Downsample(List<XYZ> pts, int maxCount)
@@ -357,16 +353,64 @@ namespace SKRevitAddins.RefPointToTopo
             return pts.Where(p => Math.Abs(p.Z - mean) <= zThresh * sd).ToList();
         }
 
-        private List<XYZ> AdaptiveRefine(
-            List<XYZ> elevated, double baseSpacing, IList<XYZ> polygon,
-            double gradThreshold, double refineFactor, int maxRefine)
+        // ==== Ưu tiên RefPoint khi trộn ====
+        private List<XYZ> MergePreferRefPoints(List<XYZ> computed, List<XYZ> refPts, double tol)
+        {
+            var map = new Dictionary<(int, int), XYZ>();
+            double inv = 1.0 / Math.Max(tol, 1e-9);
+
+            // RefPoint thắng
+            foreach (var p in refPts)
+            {
+                int ix = (int)Math.Round(p.X * inv);
+                int iy = (int)Math.Round(p.Y * inv);
+                map[(ix, iy)] = p;
+            }
+            // Thêm điểm tính toán nếu ô lưới chưa có RefPoint
+            foreach (var p in computed)
+            {
+                int ix = (int)Math.Round(p.X * inv);
+                int iy = (int)Math.Round(p.Y * inv);
+                var key = (ix, iy);
+                if (!map.ContainsKey(key)) map[key] = p;
+            }
+            return map.Values.ToList();
+        }
+
+        // ==== Áp trần số điểm nhưng KHÔNG bỏ RefPoint ====
+        private List<XYZ> EnforceMaxPointsWithRefPriority(List<XYZ> allPts, List<XYZ> refPts, int max, double tol)
+        {
+            if (allPts.Count <= max) return allPts;
+
+            double inv = 1.0 / Math.Max(tol, 1e-9);
+            var refKeys = new HashSet<(int, int)>(
+                refPts.Select(p => ((int)Math.Round(p.X * inv), (int)Math.Round(p.Y * inv)))
+            );
+
+            var refs = new List<XYZ>();
+            var others = new List<XYZ>();
+            foreach (var p in allPts)
+            {
+                var k = ((int)Math.Round(p.X * inv), (int)Math.Round(p.Y * inv));
+                if (refKeys.Contains(k)) refs.Add(p); else others.Add(p);
+            }
+
+            if (refs.Count >= max) return refs.Take(max).ToList();
+
+            int need = max - refs.Count;
+            refs.AddRange(Downsample(others, Math.Max(need, 0)));
+            return refs;
+        }
+
+        // ===== IDW =====
+        private List<XYZ> AdaptiveRefine(List<XYZ> elevated, double baseSpacing, IList<XYZ> polygon,
+                                         double gradThreshold, double refineFactor, int maxRefine)
         {
             var refine = new List<XYZ>();
             if (elevated.Count == 0) return refine;
 
-            // Gom theo ô lưới thưa
             var groups = elevated.GroupBy(p => (Math.Floor(p.X / baseSpacing), Math.Floor(p.Y / baseSpacing)));
-            double rSpacing = Math.Max(baseSpacing * refineFactor, baseSpacing * 0.33); // tránh quá nhỏ
+            double rSpacing = Math.Max(baseSpacing * refineFactor, baseSpacing * 0.33);
 
             foreach (var g in groups)
             {
@@ -385,10 +429,8 @@ namespace SKRevitAddins.RefPointToTopo
 
                     var cands = new[]
                     {
-                        new XYZ(cx + d, cy,     0),
-                        new XYZ(cx - d, cy,     0),
-                        new XYZ(cx,     cy + d, 0),
-                        new XYZ(cx,     cy - d, 0)
+                        new XYZ(cx + d, cy, 0), new XYZ(cx - d, cy, 0),
+                        new XYZ(cx, cy + d, 0), new XYZ(cx, cy - d, 0)
                     };
                     foreach (var q in cands)
                         if (IsPointInsidePolygonXY(q, polygon)) refine.Add(q);
@@ -401,96 +443,60 @@ namespace SKRevitAddins.RefPointToTopo
             return refine;
         }
 
-        private List<XYZ> InterpolateZ_IDW(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snapDist, bool parallel)
-        {
-            if (!parallel) return InterpolateZ_IDW_Serial(targetsXY, refPts, k, power, snapDist);
-            return InterpolateZ_IDW_Parallel(targetsXY, refPts, k, power, snapDist);
-        }
+        private List<XYZ> InterpolateZ_IDW(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snap, bool parallel)
+            => parallel ? InterpolateZ_IDW_Parallel(targetsXY, refPts, k, power, snap)
+                        : InterpolateZ_IDW_Serial(targetsXY, refPts, k, power, snap);
 
-        private List<XYZ> InterpolateZ_IDW_Serial(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snapDist)
+        private List<XYZ> InterpolateZ_IDW_Serial(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snap)
         {
             var outPts = new List<XYZ>(targetsXY.Count);
             foreach (var q in targetsXY)
             {
-                var neighbors = refPts
-                    .Select(r => new { R = r, D = DistXY(q, r) })
-                    .OrderBy(x => x.D)
-                    .Take(Math.Max(1, k))
-                    .ToList();
+                var nbs = refPts.Select(r => new { R = r, D = DistXY(q, r) })
+                                .OrderBy(x => x.D).Take(Math.Max(1, k)).ToList();
 
-                if (neighbors.Count == 0)
-                {
-                    outPts.Add(new XYZ(q.X, q.Y, 0));
-                    continue;
-                }
+                if (nbs.Count == 0) { outPts.Add(new XYZ(q.X, q.Y, 0)); continue; }
+                if (nbs[0].D < snap) { outPts.Add(new XYZ(q.X, q.Y, nbs[0].R.Z)); continue; }
 
-                if (neighbors[0].D < snapDist)
-                {
-                    outPts.Add(new XYZ(q.X, q.Y, neighbors[0].R.Z));
-                    continue;
-                }
-
-                double wsum = 0.0;
-                double zsum = 0.0;
-                foreach (var nb in neighbors)
+                double wsum = 0, zsum = 0;
+                foreach (var nb in nbs)
                 {
                     double d = Math.Max(nb.D, 1e-9);
                     double w = 1.0 / Math.Pow(d, power);
-                    wsum += w;
-                    zsum += w * nb.R.Z;
+                    wsum += w; zsum += w * nb.R.Z;
                 }
-                double zq = (wsum > 0) ? (zsum / wsum) : neighbors[0].R.Z;
+                double zq = (wsum > 0) ? (zsum / wsum) : nbs[0].R.Z;
                 outPts.Add(new XYZ(q.X, q.Y, zq));
             }
             return outPts;
         }
 
-        private List<XYZ> InterpolateZ_IDW_Parallel(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snapDist)
+        private List<XYZ> InterpolateZ_IDW_Parallel(List<XYZ> targetsXY, List<XYZ> refPts, int k, double power, double snap)
         {
             var outArr = new XYZ[targetsXY.Count];
-
             Parallel.For(0, targetsXY.Count, i =>
             {
                 var q = targetsXY[i];
-                var neighbors = refPts
-                    .Select(r => new { R = r, D = DistXY(q, r) })
-                    .OrderBy(x => x.D)
-                    .Take(Math.Max(1, k))
-                    .ToList();
+                var nbs = refPts.Select(r => new { R = r, D = DistXY(q, r) })
+                                .OrderBy(x => x.D).Take(Math.Max(1, k)).ToList();
 
-                if (neighbors.Count == 0)
-                {
-                    outArr[i] = new XYZ(q.X, q.Y, 0);
-                    return;
-                }
+                if (nbs.Count == 0) { outArr[i] = new XYZ(q.X, q.Y, 0); return; }
+                if (nbs[0].D < snap) { outArr[i] = new XYZ(q.X, q.Y, nbs[0].R.Z); return; }
 
-                if (neighbors[0].D < snapDist)
-                {
-                    outArr[i] = new XYZ(q.X, q.Y, neighbors[0].R.Z);
-                    return;
-                }
-
-                double wsum = 0.0;
-                double zsum = 0.0;
-                foreach (var nb in neighbors)
+                double wsum = 0, zsum = 0;
+                foreach (var nb in nbs)
                 {
                     double d = Math.Max(nb.D, 1e-9);
                     double w = 1.0 / Math.Pow(d, power);
-                    wsum += w;
-                    zsum += w * nb.R.Z;
+                    wsum += w; zsum += w * nb.R.Z;
                 }
-                double zq = (wsum > 0) ? (zsum / wsum) : neighbors[0].R.Z;
+                double zq = (wsum > 0) ? (zsum / wsum) : nbs[0].R.Z;
                 outArr[i] = new XYZ(q.X, q.Y, zq);
             });
-
             return outArr.ToList();
         }
 
         private double DistXY(XYZ a, XYZ b)
-        {
-            double dx = a.X - b.X;
-            double dy = a.Y - b.Y;
-            return Math.Sqrt(dx * dx + dy * dy);
-        }
+        { double dx = a.X - b.X, dy = a.Y - b.Y; return Math.Sqrt(dx * dx + dy * dy); }
     }
 }

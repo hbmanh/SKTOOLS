@@ -1,6 +1,6 @@
-﻿using System.Windows.Interop;
-using Autodesk.Revit.Attributes;
+﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.UI;
+using System.Windows.Interop;
 
 namespace SKRevitAddins.RefPointToTopo
 {

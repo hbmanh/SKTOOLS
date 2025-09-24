@@ -4,12 +4,13 @@
         Title="RefPoint → Toposolid"
         Height="520" Width="760"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResize">
+        ResizeMode="CanResize"
+        Language="en-US">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
 
-        <!-- Kiểu chữ -->
+        <!-- Kiểu -->
         <Style x:Key="H1" TargetType="TextBlock">
             <Setter Property="FontSize" Value="20"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -19,8 +20,6 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
         </Style>
-
-        <!-- Ô nhập -->
         <Style x:Key="Tbx" TargetType="TextBox">
             <Setter Property="Height" Value="26"/>
             <Setter Property="Margin" Value="0,0,16,8"/>
@@ -29,8 +28,6 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,16,8"/>
         </Style>
-
-        <!-- Nút -->
         <Style x:Key="ActionBtn" TargetType="Button">
             <Setter Property="Height" Value="34"/>
             <Setter Property="MinWidth" Value="110"/>
@@ -46,8 +43,6 @@
             <Setter Property="Background" Value="#F2F2F2"/>
             <Setter Property="BorderBrush" Value="#D0D0D0"/>
         </Style>
-
-        <!-- Thẻ (card) -->
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="14"/>
@@ -74,15 +69,13 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                <Button Content="Chọn Toposolid"
-                        Style="{StaticResource GhostBtn}"
-                        Command="{Binding PickTopoCmd}"/>
+                <Button Content="Chọn Toposolid" Style="{StaticResource GhostBtn}" Command="{Binding PickTopoCmd}"/>
                 <TextBlock Text="Mã:" Margin="12,0,6,0" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding TargetTopoText}" FontWeight="Bold" VerticalAlignment="Center"/>
             </StackPanel>
         </DockPanel>
 
-        <!-- THÂN -->
+        <!-- BODY -->
         <ScrollViewer Grid.Row="1" Margin="16,0,16,16">
             <StackPanel>
                 <!-- Thông số -->
@@ -98,46 +91,46 @@
                         <!-- Cột 1 -->
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Family RefPoint" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding RefPointFamilyName}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding RefPointFamilyName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Tbx}"/>
 
                             <TextBlock Text="IDW - số lân cận (K)" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding IDW_K}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding IDW_K, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
 
                             <TextBlock Text="Lấy mẫu thích ứng" Style="{StaticResource Label}"/>
                             <CheckBox IsChecked="{Binding UseAdaptiveSampling}" Style="{StaticResource Chk}"/>
 
                             <TextBlock Text="Hệ số tinh chỉnh" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding RefineFactor}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding RefineFactor, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
                         </StackPanel>
 
                         <!-- Cột 2 -->
                         <StackPanel Grid.Column="1">
-                            <TextBlock Text="Bước lưới (m)" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding GridSpacingMeters}" Style="{StaticResource Tbx}"/>
+                            <TextBlock Text="Bước lưới (mm)" Style="{StaticResource Label}"/>
+                            <TextBox Text="{Binding GridSpacingMillimeters, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
 
-                            <TextBlock Text="Khoảng bắt (m)" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding SnapDistanceMeters}" Style="{StaticResource Tbx}"/>
+                            <TextBlock Text="Khoảng bắt (mm)" Style="{StaticResource Label}"/>
+                            <TextBox Text="{Binding SnapDistanceMillimeters, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
 
                             <TextBlock Text="Ngưỡng độ dốc" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding GradThreshold}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding GradThreshold, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
 
                             <TextBlock Text="Số điểm tinh chỉnh tối đa" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding MaxRefinePoints}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding MaxRefinePoints, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
                         </StackPanel>
 
                         <!-- Cột 3 -->
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Bước biên (m)" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding EdgeSpacingMeters}" Style="{StaticResource Tbx}"/>
+                            <TextBlock Text="Bước biên (mm)" Style="{StaticResource Label}"/>
+                            <TextBox Text="{Binding EdgeSpacingMillimeters, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
 
                             <TextBlock Text="IDW - lũy thừa" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding IDW_Power}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding IDW_Power, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
 
                             <TextBlock Text="IDW song song" Style="{StaticResource Label}"/>
                             <CheckBox IsChecked="{Binding UseParallelIDW}" Style="{StaticResource Chk}"/>
 
                             <TextBlock Text="Số điểm tối đa" Style="{StaticResource Label}"/>
-                            <TextBox Text="{Binding MaxPoints}" Style="{StaticResource Tbx}"/>
+                            <TextBox Text="{Binding MaxPoints, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -158,13 +151,13 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- CHÂN -->
+        <!-- FOOTER -->
         <DockPanel Grid.Row="2" Margin="16,0,16,16" LastChildFill="False">
             <Button Content="THỰC HIỆN" Style="{StaticResource PrimaryBtn}" DockPanel.Dock="Right"
                     Command="{Binding RunCmd}"/>
         </DockPanel>
 
-        <!-- OVERLAY -->
+        <!-- OVERLAY khi bận -->
         <Border Background="#80000000" Grid.RowSpan="3"
                 Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
             <Border Background="White" Padding="20" CornerRadius="8"

@@ -1,14 +1,13 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 
 namespace SKRevitAddins.RefPointToTopo
 {
-    // Gọn nhẹ cho ICommand
     public class RelayCommand : ICommand
     {
         readonly Action<object> _run; readonly Func<object, bool> _can;
@@ -34,15 +33,15 @@ namespace SKRevitAddins.RefPointToTopo
             CancelCmd = new RelayCommand(_ => Cancel(), _ => IsBusy);
         }
 
-        // ====== Bindable ======
+        // ===== Bindable =====
         ElementId _targetTopoId;
-        public ElementId TargetTopoId { get => _targetTopoId; set { _targetTopoId = value; OnChanged(); OnChanged(nameof(TargetTopoText)); } }
+        public ElementId TargetTopoId { get => _targetTopoId; set { _targetTopoId = value; OnChanged(); OnChanged(nameof(TargetTopoText)); CommandManager.InvalidateRequerySuggested(); } }
         public string TargetTopoText => TargetTopoId?.IntegerValue > 0 ? TargetTopoId.IntegerValue.ToString() : "(chưa chọn)";
 
         string _refFam = "RefPoint";
         public string RefPointFamilyName { get => _refFam; set { _refFam = value; OnChanged(); } }
 
-        // —— ĐƠN VỊ NHẬP: MILLI-MÉT ——
+        // —— Đơn vị nhập: mm ——
         double _gridMm = 2000.0, _edgeMm = 1000.0, _snapMm = 50.0;
         public double GridSpacingMillimeters { get => _gridMm; set { _gridMm = value; OnChanged(); } }
         public double EdgeSpacingMillimeters { get => _edgeMm; set { _edgeMm = value; OnChanged(); } }
@@ -61,12 +60,10 @@ namespace SKRevitAddins.RefPointToTopo
         bool _busy; public bool IsBusy { get => _busy; set { _busy = value; OnChanged(); CommandManager.InvalidateRequerySuggested(); } }
         double _progress; public double Progress { get => _progress; set { _progress = value; OnChanged(); } }
 
-        // ====== Commands ======
         public ICommand PickTopoCmd { get; }
         public ICommand RunCmd { get; }
         public ICommand CancelCmd { get; }
 
-        // ====== Logic ======
         void PickToposolid()
         {
             try
@@ -74,17 +71,16 @@ namespace SKRevitAddins.RefPointToTopo
                 var r = _uiDoc.Selection.PickObject(ObjectType.Element, new TopoFilter(), "Chọn Toposolid muốn chỉnh sửa");
                 TargetTopoId = r.ElementId;
             }
-            catch { /* người dùng hủy */ }
+            catch { /* user cancel */ }
         }
 
         void Start()
         {
-            // Chuyển MM -> FEET trước khi gán cho handler
+            // MM -> FEET
             double gridFt = UnitUtils.ConvertToInternalUnits(GridSpacingMillimeters, UnitTypeId.Millimeters);
             double edgeFt = UnitUtils.ConvertToInternalUnits(EdgeSpacingMillimeters, UnitTypeId.Millimeters);
             double snapFt = UnitUtils.ConvertToInternalUnits(SnapDistanceMillimeters, UnitTypeId.Millimeters);
 
-            // Truyền cấu hình
             _handler.TargetToposolidId = TargetTopoId;
             _handler.RefPointFamilyName = RefPointFamilyName;
             _handler.GridSpacingFt = gridFt;
@@ -99,7 +95,6 @@ namespace SKRevitAddins.RefPointToTopo
             _handler.MaxRefinePoints = MaxRefinePoints;
             _handler.UseParallelIDW = UseParallelIDW;
 
-            // UI hooks
             _handler.BusySetter = v => IsBusy = v;
             _handler.ProgressReporter = (c, t) => Progress = t == 0 ? 0 : (double)c / t;
             _handler.IsCancelled = false;
@@ -116,7 +111,6 @@ namespace SKRevitAddins.RefPointToTopo
             public bool AllowReference(Reference reference, XYZ position) => true;
         }
 
-        // ====== INotifyPropertyChanged ======
         public event PropertyChangedEventHandler PropertyChanged;
         void OnChanged([CallerMemberName] string n = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     }
