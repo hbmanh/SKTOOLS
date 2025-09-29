@@ -9,7 +9,7 @@ using Autodesk.Revit.UI.Selection;
 using Control = System.Windows.Forms.Control;
 using Form = System.Windows.Forms.Form;
 
-namespace SKRevitAddins.TagTools
+namespace SKRevitAddins.TAGTools
 {
     // ===== Helpers =====
     internal static class UnitsUtil
@@ -234,7 +234,7 @@ namespace SKRevitAddins.TagTools
 
     // ===== Entry command: show modeless form & wire ExternalEvent =====
     [Transaction(TransactionMode.Manual)]
-    public class TagToolsCommand : IExternalCommand
+    public class TagToolsCmd : IExternalCommand
     {
         private static MainForm _form;
         private static ExternalEvent _extEvent;

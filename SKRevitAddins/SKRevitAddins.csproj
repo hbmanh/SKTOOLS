@@ -263,7 +263,7 @@
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADCmd.cs" />
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequest.cs" />
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequestHandler.cs" />
-    <Compile Include="MainCommands\TEST\TagTools.cs" />
+    <Compile Include="MainCommands\TAGTools\TagToolsCmd.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="MainCommands\TEST\Test.cs" />
     <Compile Include="Utils\APIDoc.cs" />
@@ -447,9 +447,7 @@
       <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="MainCommands\TAGTools\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <Resource Include="Resources\shinken.png" />
   </ItemGroup>
