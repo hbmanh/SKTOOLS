@@ -264,8 +264,9 @@
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequest.cs" />
     <Compile Include="MainCommands\AutoPlaceElementFrBlockCAD\AutoPlaceElementFrBlockCADRequestHandler.cs" />
     <Compile Include="MainCommands\TAGTools\TagToolsCmd.cs" />
+    <Compile Include="MainCommands\TogglePointCloud\TogglePointCloudCmd.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="MainCommands\TEST\Test.cs" />
+    <Compile Include="MainCommands\TEST\RoadTools.cs" />
     <Compile Include="Utils\APIDoc.cs" />
     <Compile Include="Utils\CadUtils.cs" />
     <Compile Include="Utils\CurveLoopHelperUtils.cs" />

@@ -78,7 +78,6 @@
         <!-- BODY -->
         <ScrollViewer Grid.Row="1" Margin="16,0,16,16">
             <StackPanel>
-                <!-- Thông số -->
                 <Border Style="{StaticResource Card}">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -88,7 +87,6 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Cột 1 -->
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Family RefPoint" Style="{StaticResource Label}"/>
                             <TextBox Text="{Binding RefPointFamilyName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Tbx}"/>
@@ -103,7 +101,6 @@
                             <TextBox Text="{Binding RefineFactor, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
                         </StackPanel>
 
-                        <!-- Cột 2 -->
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Bước lưới (mm)" Style="{StaticResource Label}"/>
                             <TextBox Text="{Binding GridSpacingMillimeters, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
@@ -118,7 +115,6 @@
                             <TextBox Text="{Binding MaxRefinePoints, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
                         </StackPanel>
 
-                        <!-- Cột 3 -->
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Bước biên (mm)" Style="{StaticResource Label}"/>
                             <TextBox Text="{Binding EdgeSpacingMillimeters, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
@@ -133,6 +129,14 @@
                             <TextBox Text="{Binding MaxPoints, UpdateSourceTrigger=PropertyChanged, ConverterCulture=en-US}" Style="{StaticResource Tbx}"/>
                         </StackPanel>
                     </Grid>
+                </Border>
+
+                <!-- Thêm Checkbox -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox IsChecked="{Binding CreateTopoFromRefPointOnly}" Style="{StaticResource Chk}" />
+                        <TextBlock Text="Chỉ tạo Topo từ RefPoint (không tạo các điểm khác)" Style="{StaticResource Label}"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- Trạng thái -->
@@ -156,20 +160,5 @@
             <Button Content="THỰC HIỆN" Style="{StaticResource PrimaryBtn}" DockPanel.Dock="Right"
                     Command="{Binding RunCmd}"/>
         </DockPanel>
-
-        <!-- OVERLAY khi bận -->
-        <Border Background="#80000000" Grid.RowSpan="3"
-                Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
-            <Border Background="White" Padding="20" CornerRadius="8"
-                    Width="320" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <StackPanel>
-                    <TextBlock Text="Đang xử lý..." FontWeight="Bold" FontSize="14"
-                               HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                    <ProgressBar Height="18" Minimum="0" Maximum="1" Value="{Binding Progress}"/>
-                    <Button Content="Hủy" Style="{StaticResource GhostBtn}" Margin="0,10,0,0"
-                            Command="{Binding CancelCmd}"/>
-                </StackPanel>
-            </Border>
-        </Border>
     </Grid>
 </Window>

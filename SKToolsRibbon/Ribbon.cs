@@ -26,7 +26,7 @@ namespace SKToolsRibbon
             var GENPanel = uiapp.CreateRibbonPanel(ribbonName, "GEN's Addins");
             var CADPanel = uiapp.CreateRibbonPanel(ribbonName, "CAD's Addins");
             var MEPPanel = uiapp.CreateRibbonPanel(ribbonName, "MEP's Addins");
-            
+
             string execLocation = Assembly.GetExecutingAssembly().Location;
 
             string dllDir = Path.GetDirectoryName(execLocation);
@@ -48,6 +48,7 @@ namespace SKToolsRibbon
             AddButton(GENPanel, "ReplaceTextNoteFromCadExploreCmd", "TextNotes\nEditor", "SKRevitAddins.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
             AddButton(GENPanel, "ExportSchedulesToExcelCmd", "Schedules\nExport", "SKRevitAddins.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png");
             AddButton(GENPanel, "RefPointToTopoCmd", "PCL\nTopo", "SKRevitAddins.RefPointToTopo.RefPointToTopoCmd", "ScanAndModel.png");
+            AddButton(GENPanel, "TogglePointCloudCmd", "PCL\nVisible", "SKRevitAddins.TogglePointCloud.TogglePointCloudCmd", "TogglePointCloud.png");
             AddButton(GENPanel, "CreateSheetsFromExcelCmd", "Sheet\nCreate", "SKRevitAddins.CreateSheetsFromExcel.CreateSheetsFromExcelCmd", "CreateSheetsFromExcel.png");
             AddButton(GENPanel, "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
             AddButton(GENPanel, "TagTools", "TAGs\nTool", "SKRevitAddins.TAGTools.TagToolsCmd", "TagAlign.png");

@@ -1,10 +1,10 @@
-﻿using System;
+﻿using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
 
 namespace SKRevitAddins.RefPointToTopo
 {
@@ -41,7 +41,7 @@ namespace SKRevitAddins.RefPointToTopo
         string _refFam = "RefPoint";
         public string RefPointFamilyName { get => _refFam; set { _refFam = value; OnChanged(); } }
 
-        // —— Đơn vị nhập: mm ——
+        // —— Đơn vị nhập: mm ——  
         double _gridMm = 2000.0, _edgeMm = 1000.0, _snapMm = 50.0;
         public double GridSpacingMillimeters { get => _gridMm; set { _gridMm = value; OnChanged(); } }
         public double EdgeSpacingMillimeters { get => _edgeMm; set { _edgeMm = value; OnChanged(); } }
@@ -59,6 +59,8 @@ namespace SKRevitAddins.RefPointToTopo
 
         bool _busy; public bool IsBusy { get => _busy; set { _busy = value; OnChanged(); CommandManager.InvalidateRequerySuggested(); } }
         double _progress; public double Progress { get => _progress; set { _progress = value; OnChanged(); } }
+
+        public bool CreateTopoFromRefPointOnly { get; set; } = false; // Thêm thuộc tính cho checkbox
 
         public ICommand PickTopoCmd { get; }
         public ICommand RunCmd { get; }
@@ -94,6 +96,7 @@ namespace SKRevitAddins.RefPointToTopo
             _handler.RefineFactor = RefineFactor;
             _handler.MaxRefinePoints = MaxRefinePoints;
             _handler.UseParallelIDW = UseParallelIDW;
+            _handler.CreateTopoFromRefPointOnly = CreateTopoFromRefPointOnly; // Cập nhật giá trị từ checkbox
 
             _handler.BusySetter = v => IsBusy = v;
             _handler.ProgressReporter = (c, t) => Progress = t == 0 ? 0 : (double)c / t;
