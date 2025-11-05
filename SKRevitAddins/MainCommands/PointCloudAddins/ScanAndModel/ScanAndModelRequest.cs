@@ -1,6 +1,6 @@
 ﻿using System.Threading;
 
-namespace SKRevitAddins.ScanAndModel
+namespace SKRevitAddins.PointCloudAddins.ScanAndModel
 {
     public enum ScanAndModelRequestId
     {

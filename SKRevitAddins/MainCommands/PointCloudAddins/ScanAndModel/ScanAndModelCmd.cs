@@ -2,7 +2,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 
-namespace SKRevitAddins.ScanAndModel
+namespace SKRevitAddins.PointCloudAddins.ScanAndModel
 {
     [Transaction(TransactionMode.Manual)]
     public class ScanAndModelCmd : IExternalCommand

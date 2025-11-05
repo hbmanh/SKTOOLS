@@ -6,7 +6,7 @@ using Autodesk.Revit.UI;
 using System.Threading.Tasks;
 using static System.Math;
 
-namespace SKRevitAddins.RefPointToTopo
+namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
 {
     public class RefPointToTopoHandler : IExternalEventHandler
     {

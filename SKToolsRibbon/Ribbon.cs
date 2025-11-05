@@ -47,11 +47,13 @@ namespace SKToolsRibbon
             AddButton(GENPanel, "SelectElementsVer1Cmd", "Elements\nNumbering", "SKRevitAddins.SelectElementsVer1.SelectElementsVer1Cmd", "SelectElements.png");
             AddButton(GENPanel, "ReplaceTextNoteFromCadExploreCmd", "TextNotes\nEditor", "SKRevitAddins.CadImportReplaceTextType.CadImportReplaceTextTypeCmd", "ReplaceText.png");
             AddButton(GENPanel, "ExportSchedulesToExcelCmd", "Schedules\nExport", "SKRevitAddins.ExportSchedulesToExcel.ExportSchedulesToExcelCmd", "SchedulesToExcel.png");
-            AddButton(GENPanel, "RefPointToTopoCmd", "PCL\nTopo", "SKRevitAddins.RefPointToTopo.RefPointToTopoCmd", "ScanAndModel.png");
-            AddButton(GENPanel, "TogglePointCloudCmd", "PCL\nVisible", "SKRevitAddins.TogglePointCloud.TogglePointCloudCmd", "TogglePointCloud.png");
+            AddButton(GENPanel, "RefPointToTopoCmd", "PCL\nTopo", "SKRevitAddins.PointCloudAddins.RefPointToTopo.RefPointToTopoCmd", "ScanAndModel.png");
+            AddButton(GENPanel, "TogglePointCloudCmd", "PCL\nVisible", "SKRevitAddins.PointCloudAddins.TogglePointCloudCmd", "TogglePointCloud.png");
+            AddButton(GENPanel, "CheckAndMapPointCloudCmd", "PCL\nMapping", "SKRevitAddins.PointCloudAddins.CheckAndMapPointCloudCmd", "CheckAndMapPointCloud.png");
             AddButton(GENPanel, "CreateSheetsFromExcelCmd", "Sheet\nCreate", "SKRevitAddins.CreateSheetsFromExcel.CreateSheetsFromExcelCmd", "CreateSheetsFromExcel.png");
             AddButton(GENPanel, "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
             AddButton(GENPanel, "TagTools", "TAGs\nTool", "SKRevitAddins.TAGTools.TagToolsCmd", "TagAlign.png");
+            AddButton(GENPanel, "FLTools", "FLs\nTool", "SKRevitAddins.GENTools.BatchCreateFloorPlansCmd", "BatchCreateFloorPlans.png");
 
             // CAD Panel
             AddButton(CADPanel, "AutoPlaceElementFrBlockCADCmd", "Elements\nCreate", "SKRevitAddins.AutoPlaceElementFrBlockCAD.AutoPlaceElementFrBlockCADCmd", "PlaceEleFromBlocks.png", "Create elements from Blocks");

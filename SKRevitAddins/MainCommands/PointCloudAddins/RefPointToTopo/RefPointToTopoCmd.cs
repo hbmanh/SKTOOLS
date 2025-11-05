@@ -2,7 +2,7 @@
 using Autodesk.Revit.UI;
 using System.Windows.Interop;
 
-namespace SKRevitAddins.RefPointToTopo
+namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
 {
     [Transaction(TransactionMode.Manual)]
     public class RefPointToTopoCmd : IExternalCommand

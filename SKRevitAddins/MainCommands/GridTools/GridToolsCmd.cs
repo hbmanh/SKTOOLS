@@ -31,7 +31,7 @@ namespace SKRevitAddins.GridTools
 
             string logoPath = Path.Combine(
                 AppDomain.CurrentDomain.BaseDirectory,
-                "SKTools.bundle", "Icon", "shinken.png");
+                "SKTools.bundle", "Icon", "shinken_logo.png");
 
             PictureBox logo = new PictureBox
             {

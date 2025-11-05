@@ -6,7 +6,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 
-namespace SKRevitAddins.RefPointToTopo
+namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
 {
     public class RelayCommand : ICommand
     {

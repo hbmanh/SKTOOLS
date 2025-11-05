@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using Autodesk.Revit.UI;
 
-namespace SKRevitAddins.RefPointToTopo
+namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
 {
     public partial class RefPointToTopoWindow : Window
     {

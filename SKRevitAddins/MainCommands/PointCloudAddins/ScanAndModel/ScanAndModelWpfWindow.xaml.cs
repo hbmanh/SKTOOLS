@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using Autodesk.Revit.UI;
 
-namespace SKRevitAddins.ScanAndModel
+namespace SKRevitAddins.PointCloudAddins.ScanAndModel
 {
     public partial class ScanAndModelWpfWindow : Window
     {

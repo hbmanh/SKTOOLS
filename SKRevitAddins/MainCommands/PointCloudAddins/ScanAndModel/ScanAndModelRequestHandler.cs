@@ -3,7 +3,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 
-namespace SKRevitAddins.ScanAndModel
+namespace SKRevitAddins.PointCloudAddins.ScanAndModel
 {
     public class ScanAndModelRequestHandler : IExternalEventHandler
     {
