@@ -1,12 +1,13 @@
-﻿using System;
+﻿using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
 using Color = System.Drawing.Color;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
@@ -24,7 +25,6 @@ namespace SKRevitAddins.CadImportReplaceTextType
             UIDocument uidoc = uiapp.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            // Lấy TextNote từ selection hoặc toàn bộ view
             ICollection<ElementId> selectedIds = uidoc.Selection.GetElementIds();
             List<TextNote> textNotes;
 
@@ -71,6 +71,7 @@ namespace SKRevitAddins.CadImportReplaceTextType
                 form.StartPosition = FormStartPosition.CenterScreen;
                 form.MaximizeBox = false;
                 form.MinimizeBox = false;
+                form.BackColor = Color.WhiteSmoke;
 
                 var headerPanel = new Panel
                 {
@@ -82,21 +83,14 @@ namespace SKRevitAddins.CadImportReplaceTextType
 
                 try
                 {
-                    string logoPath = Path.Combine(
-                        AppDomain.CurrentDomain.BaseDirectory,
-                        "SKTools.bundle", "Icon", "shinken.png");
-
-                    if (File.Exists(logoPath))
+                    var logoPictureBox = new PictureBox
                     {
-                        var logoPictureBox = new PictureBox
-                        {
-                            SizeMode = PictureBoxSizeMode.Zoom,
-                            Size = new Size(30, 30),
-                            Location = new Point(10, 5),
-                            Image = Image.FromFile(logoPath)
-                        };
-                        headerPanel.Controls.Add(logoPictureBox);
-                    }
+                        SizeMode = PictureBoxSizeMode.Zoom,
+                        Size = new Size(30, 30),
+                        Location = new Point(10, 5)
+                    };
+                    LogoHelper.TryLoadLogo(logoPictureBox);
+                    headerPanel.Controls.Add(logoPictureBox);
 
                     var companyLabel = new Label
                     {
@@ -107,11 +101,10 @@ namespace SKRevitAddins.CadImportReplaceTextType
                     };
                     headerPanel.Controls.Add(companyLabel);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    MessageBox.Show("Error loading logo: " + ex.Message);
+                    MessageBox.Show("Error loading logo.");
                 }
-
 
                 var fontLabel = new Label
                 {
@@ -275,26 +268,22 @@ namespace SKRevitAddins.CadImportReplaceTextType
 
         private double GetEstimatedWidth(string content, double textSize, double widthFactor)
         {
-            // Cắt nội dung theo từng dòng
             var lines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
-            // Duyệt từng dòng để tính "trọng số" dựa trên CJK hoặc Latin
             double maxLineWeight = lines.Max(line =>
             {
                 double weight = 0;
                 foreach (char c in line)
                 {
-                    weight += IsCJK(c) ? 1.8 : 1.0; // CJK chiếm rộng hơn
+                    weight += IsCJK(c) ? 1.8 : 1.0;
                 }
                 return weight;
             });
 
-            // Tính width dựa trên dòng dài nhất
             double estimatedWidth = maxLineWeight * (textSize / 304.8) * widthFactor;
 
-            return estimatedWidth * 1.1; // Thêm hệ số đệm
+            return estimatedWidth * 1.1;
         }
-
 
         private bool IsCJK(char c)
         {

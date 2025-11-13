@@ -60,7 +60,7 @@ namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
         bool _busy; public bool IsBusy { get => _busy; set { _busy = value; OnChanged(); CommandManager.InvalidateRequerySuggested(); } }
         double _progress; public double Progress { get => _progress; set { _progress = value; OnChanged(); } }
 
-        public bool CreateTopoFromRefPointOnly { get; set; } = false; // Thêm thuộc tính cho checkbox
+        public bool CreateTopoFromRefPointOnly { get; set; } = true; // Thêm thuộc tính cho checkbox
 
         public ICommand PickTopoCmd { get; }
         public ICommand RunCmd { get; }

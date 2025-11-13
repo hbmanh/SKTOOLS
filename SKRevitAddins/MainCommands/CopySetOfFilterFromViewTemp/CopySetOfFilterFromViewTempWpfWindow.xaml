@@ -17,8 +17,7 @@
 
         <!-- Logo Section -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,10">
-            <Image Width="30" Height="30"
-                   Source="pack://application:,,,/Resources/shinken.png"
+            <Image x:Name="LogoImage" Width="30" Height="30"
                    Stretch="UniformToFill"
                    Margin="0,0,5,0"/>
             <TextBlock Text="Shinken Group®"
@@ -73,31 +72,11 @@
 
                     <CheckBox Name="PatternCopyBOX" Content="Copy Surface Settings"
                               FontSize="14" VerticalAlignment="Top" Margin="10,45,4,0"
-                              IsChecked="{Binding PatternCopyBOX}" IsEnabled="{Binding PatternCopyEnabled}">
-                        <CheckBox.Style>
-                            <Style TargetType="CheckBox">
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="Gray"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </CheckBox.Style>
-                    </CheckBox>
+                              IsChecked="{Binding PatternCopyBOX}" IsEnabled="{Binding PatternCopyEnabled}"/>
 
                     <CheckBox Name="CutSetCopyBOX" Content="Copy Cut Settings"
                               FontSize="14" VerticalAlignment="Top" Margin="10,80,4,0"
-                              IsChecked="{Binding CutSetCopyBOX}" IsEnabled="{Binding CutSetCopyEnabled}">
-                        <CheckBox.Style>
-                            <Style TargetType="CheckBox">
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="Gray"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </CheckBox.Style>
-                    </CheckBox>
+                              IsChecked="{Binding CutSetCopyBOX}" IsEnabled="{Binding CutSetCopyEnabled}"/>
                 </Grid>
             </GroupBox>
 

@@ -11,24 +11,12 @@
         mc:Ignorable="d">
 
     <Grid>
-        <!-- 5 hàng, theo thứ tự cũ:
-             Hàng 0: Logo + text Shinken Group®
-             Hàng 1: (trống)
-             Hàng 2: GroupBox (chứa layer, type, level...)
-             Hàng 3: (trống)
-             Hàng 4: Border (OK / Cancel)
-        -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <!-- Hàng 0: Logo + text -->
             <RowDefinition Height="Auto"/>
-            <!-- Hàng 1: Trống (giữ nguyên) -->
+            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <!-- Hàng 2: groupB -->
             <RowDefinition Height="Auto"/>
-            <!-- Hàng 3: Trống (giữ nguyên) -->
-            <RowDefinition Height="Auto"/>
-            <!-- Hàng 4: groupD (Border) -->
         </Grid.RowDefinitions>
 
         <!-- ***** Hàng 0: Logo + dòng chữ Shinken Group® ***** -->
@@ -37,8 +25,8 @@
                     HorizontalAlignment="Left"
                     Margin="10,5,10,5">
             <!-- Logo -->
-            <Image Width="30" Height="30"
-                   Source="C:\\ProgramData\\Autodesk\\Revit\\Addins\\2023\\SKTools.bundle\\Contents\\Resources\\Images\\shinken.png"
+            <Image x:Name="LogoImage"
+                   Width="30" Height="30"
                    Stretch="UniformToFill"
                    Margin="0,0,5,0"/>
             <!-- TextBlock -->

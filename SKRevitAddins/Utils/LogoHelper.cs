@@ -2,6 +2,8 @@
 using System.IO;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using System.Windows.Forms; // Thêm namespace cho WinForms
+using PictureBox = System.Windows.Forms.PictureBox; // Aliasing để dùng PictureBox trong WinForms
 
 namespace SKRevitAddins.Utils
 {
@@ -11,8 +13,8 @@ namespace SKRevitAddins.Utils
         {
             try
             {
-                string asm = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                string asmDir = Path.GetDirectoryName(asm);
+                string asmPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                string asmDir = Path.GetDirectoryName(asmPath);
 
                 string p1 = Path.Combine(asmDir, "Icon", "logo.png");
                 if (File.Exists(p1)) return p1;
@@ -23,9 +25,9 @@ namespace SKRevitAddins.Utils
                     try
                     {
                         var bundles = Directory.GetDirectories(dir, "*.bundle", SearchOption.TopDirectoryOnly);
-                        foreach (var b in bundles)
+                        foreach (var bundle in bundles)
                         {
-                            string p = Path.Combine(b, "Icon", "logo.png");
+                            string p = Path.Combine(bundle, "Icon", "logo.png");
                             if (File.Exists(p)) return p;
                         }
                     }
@@ -40,18 +42,19 @@ namespace SKRevitAddins.Utils
             {
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 string addinsRoot = Path.Combine(appData, "Autodesk", "Revit", "Addins");
+
                 if (Directory.Exists(addinsRoot))
                 {
-                    foreach (var year in Directory.GetDirectories(addinsRoot))
+                    foreach (var yearDir in Directory.GetDirectories(addinsRoot))
                     {
-                        string p = Path.Combine(year, "SKTools.bundle", "Icon", "logo.png");
-                        if (File.Exists(p)) return p;
+                        string candidate = Path.Combine(yearDir, "SKTools.bundle", "Icon", "logo.png");
+                        if (File.Exists(candidate)) return candidate;
 
-                        var bundles = Directory.GetDirectories(year, "SKTools.bundle", SearchOption.TopDirectoryOnly);
-                        foreach (var b in bundles)
+                        var bundles = Directory.GetDirectories(yearDir, "SKTools.bundle", SearchOption.TopDirectoryOnly);
+                        foreach (var bundle in bundles)
                         {
-                            string pb = Path.Combine(b, "Icon", "logo.png");
-                            if (File.Exists(pb)) return pb;
+                            string p = Path.Combine(bundle, "Icon", "logo.png");
+                            if (File.Exists(p)) return p;
                         }
                     }
                 }
@@ -65,15 +68,14 @@ namespace SKRevitAddins.Utils
                     "SKRevitAddins",
                     "logo.png");
 
-                if (File.Exists(fallback))
-                    return fallback;
+                if (File.Exists(fallback)) return fallback;
             }
             catch { }
 
             return null;
         }
 
-        public static void TryLoadLogo(Image img)
+        public static void TryLoadLogo(object img)
         {
             try
             {
@@ -85,7 +87,15 @@ namespace SKRevitAddins.Utils
                     bi.UriSource = new Uri(path, UriKind.Absolute);
                     bi.CacheOption = BitmapCacheOption.OnLoad;
                     bi.EndInit();
-                    img.Source = bi;
+
+                    if (img is Image wpfImage)
+                    {
+                        wpfImage.Source = bi; // WPF Image
+                    }
+                    else if (img is PictureBox winFormsPictureBox)
+                    {
+                        winFormsPictureBox.Image = System.Drawing.Image.FromFile(path); // WinForms PictureBox
+                    }
                 }
             }
             catch
