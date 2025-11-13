@@ -10,39 +10,45 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
 
-        <!-- Kiểu -->
         <Style x:Key="H1" TargetType="TextBlock">
             <Setter Property="FontSize" Value="20"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+
         <Style x:Key="Label" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
         </Style>
+
         <Style x:Key="Tbx" TargetType="TextBox">
             <Setter Property="Height" Value="26"/>
             <Setter Property="Margin" Value="0,0,16,8"/>
         </Style>
+
         <Style x:Key="Chk" TargetType="CheckBox">
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,16,8"/>
         </Style>
+
         <Style x:Key="ActionBtn" TargetType="Button">
             <Setter Property="Height" Value="34"/>
             <Setter Property="MinWidth" Value="110"/>
             <Setter Property="Margin" Value="8,0,0,0"/>
             <Setter Property="Padding" Value="12,4"/>
         </Style>
+
         <Style x:Key="PrimaryBtn" BasedOn="{StaticResource ActionBtn}" TargetType="Button">
             <Setter Property="Background" Value="#28A745"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderBrush" Value="#28A745"/>
         </Style>
+
         <Style x:Key="GhostBtn" BasedOn="{StaticResource ActionBtn}" TargetType="Button">
             <Setter Property="Background" Value="#F2F2F2"/>
             <Setter Property="BorderBrush" Value="#D0D0D0"/>
         </Style>
+
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="14"/>
@@ -60,11 +66,10 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- HEADER -->
         <DockPanel Margin="16" LastChildFill="False">
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                <Image Source="pack://application:,,,/Resources/shinken.png"
-                       Width="28" Height="28" Stretch="Uniform"/>
+                <Image x:Name="LogoImage"
+                       Width="32" Height="32" Stretch="Uniform"/>
                 <TextBlock Text="Shinken Group®" Style="{StaticResource H1}" Margin="10,0,0,0"/>
             </StackPanel>
 
@@ -75,9 +80,9 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- BODY -->
         <ScrollViewer Grid.Row="1" Margin="16,0,16,16">
             <StackPanel>
+
                 <Border Style="{StaticResource Card}">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -131,7 +136,6 @@
                     </Grid>
                 </Border>
 
-                <!-- Thêm Checkbox -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel Orientation="Horizontal">
                         <CheckBox IsChecked="{Binding CreateTopoFromRefPointOnly}" Style="{StaticResource Chk}" />
@@ -139,7 +143,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Trạng thái -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Đang xử lý..." VerticalAlignment="Center"
@@ -152,13 +155,14 @@
                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}"/>
                     </StackPanel>
                 </Border>
+
             </StackPanel>
         </ScrollViewer>
 
-        <!-- FOOTER -->
         <DockPanel Grid.Row="2" Margin="16,0,16,16" LastChildFill="False">
             <Button Content="THỰC HIỆN" Style="{StaticResource PrimaryBtn}" DockPanel.Dock="Right"
                     Command="{Binding RunCmd}"/>
         </DockPanel>
+
     </Grid>
 </Window>

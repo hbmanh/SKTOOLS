@@ -7,34 +7,30 @@
         ResizeMode="NoResize" ShowInTaskbar="True" Topmost="True">
 
     <Grid Margin="10">
-        <!-- 3 hàng: (1) Logo + Tìm kiếm, (2) DataGrid, (3) Panel nút -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- **** Hàng 0: Logo + Text + Search **** -->
         <Grid Grid.Row="0" Margin="0,0,0,10" Height="30">
             <Grid.ColumnDefinitions>
-                <!-- Cột 0: Chứa logo + text Shinken Group -->
-                <ColumnDefinition Width="*" />
-                <!-- Cột 1: Chứa ô search (icon + TextBox) -->
+                <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="200"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Logo + dòng chữ -->
             <StackPanel Grid.Column="0"
                         Orientation="Horizontal"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Left"
                         Margin="5,0,0,0">
-                <!-- Logo -->
-                <Image Width="30" Height="30"
-                       Source="pack://application:,,,/Resources/shinken.png"
+
+                <!--  ONLY CHANGE: add x:Name -->
+                <Image x:Name="LogoImage"
+                       Width="30" Height="30"
                        Stretch="UniformToFill"
                        Margin="0,0,5,0"/>
-                <!-- Text -->
+
                 <TextBlock Text="Shinken Group®"
                            VerticalAlignment="Center"
                            Foreground="Black"
@@ -42,7 +38,6 @@
                            FontSize="12"/>
             </StackPanel>
 
-            <!-- Hộp Search -->
             <Grid Width="233" HorizontalAlignment="Left" Grid.ColumnSpan="2" Margin="507,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="30" />
@@ -58,11 +53,11 @@
                          VerticalContentAlignment="Center"
                          Padding="5,0,0,0"
                          ToolTip="Nhập từ khoá tìm kiếm..."
-                         TextChanged="SearchTextBox_TextChanged" Margin="0,6,16,6"/>
+                         TextChanged="SearchTextBox_TextChanged"
+                         Margin="0,6,16,6"/>
             </Grid>
         </Grid>
 
-        <!-- **** Hàng 1: DataGrid hiển thị DWGs **** -->
         <DataGrid x:Name="viewSetDg"
                   Grid.Row="1"
                   Margin="0,0,0,10"
@@ -75,16 +70,13 @@
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Instance Id" Binding="{Binding InstanceId}" Width="80"/>
-                <!--<DataGridTextColumn Header="Type Id"     Binding="{Binding TypeId}"     Width="70"/>-->
                 <DataGridTextColumn Header="File Name"   Binding="{Binding FileName}"   Width="180"/>
                 <DataGridTextColumn Header="Insert Type" Binding="{Binding InsertType}" Width="80"/>
                 <DataGridTextColumn Header="Pinned"      Binding="{Binding Pinned}"     Width="60"/>
                 <DataGridTextColumn Header="Owner View"  Binding="{Binding OwnerView}"  Width="220"/>
-                <!--<DataGridTextColumn Header="Group"       Binding="{Binding Group}"      Width="100"/>-->
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- **** Hàng 2: Panel nút Delete/OpenView/Export/Cancel **** -->
         <Grid Grid.Row="2" Height="40">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220"/>
@@ -94,7 +86,6 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Delete + Radio -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Grid.Column="0">
                 <Button x:Name="DeleteBtn" Content="Delete"
                         Width="60" Margin="5,0,0,0"

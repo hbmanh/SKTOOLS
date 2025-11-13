@@ -2,14 +2,15 @@
 using System.Windows;
 using System.Windows.Controls;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.FindDWGNotUseAndDel
 {
     public partial class FindDWGNotUseAndDelWpfWindow : Window
     {
-        private ExternalEvent _exEvent;
-        private FindDWGNotUseAndDelRequestHandler _handler;
-        private FindDWGNotUseAndDelViewModel _vm;
+        private readonly ExternalEvent _exEvent;
+        private readonly FindDWGNotUseAndDelRequestHandler _handler;
+        private readonly FindDWGNotUseAndDelViewModel _vm;
 
         public FindDWGNotUseAndDelWpfWindow(
             ExternalEvent exEvent,
@@ -21,13 +22,13 @@ namespace SKRevitAddins.FindDWGNotUseAndDel
             _exEvent = exEvent;
             _handler = handler;
             _vm = viewModel;
-            this.DataContext = _vm;
+            DataContext = _vm;
+
+            LogoHelper.TryLoadLogo(LogoImage);
         }
 
-        // Lấy các dòng được chọn, lưu vào _vm.SelectedDWGs
         private void viewSetDg_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Cast SelectedItems => DwgItem
             var selectedDwgItems = viewSetDg.SelectedItems
                 .OfType<FindDWGNotUseAndDelViewModel.DwgItem>()
                 .ToList();
@@ -43,14 +44,9 @@ namespace SKRevitAddins.FindDWGNotUseAndDel
 
         private void DeleteBtn_Click(object sender, RoutedEventArgs e)
         {
-            // All or Selected
             _vm.IsDeleteAll = AllRadioBtn.IsChecked == true;
-
             _handler.Request.Make(RequestId.Delete);
             _exEvent.Raise();
-
-            // (Tuỳ ý) Đóng cửa sổ sau khi xoá
-            // this.Close();
         }
 
         private void OpenViewBtn_Click(object sender, RoutedEventArgs e)
@@ -67,7 +63,7 @@ namespace SKRevitAddins.FindDWGNotUseAndDel
 
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
-            this.Close();
+            Close();
         }
     }
 }

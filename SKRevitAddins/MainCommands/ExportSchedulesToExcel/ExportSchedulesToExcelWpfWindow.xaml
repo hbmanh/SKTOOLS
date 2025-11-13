@@ -8,20 +8,15 @@
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <!-- Logo -->
             <RowDefinition Height="Auto"/>
-            <!-- Search -->
             <RowDefinition Height="*"/>
-            <!-- ExportStatusMessage -->
             <RowDefinition Height="Auto"/>
-            <!-- Buttons -->
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Row 0: Logo -->
         <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
-            <Image Width="30" Height="30"
-                   Source="pack://application:,,,/Resources/shinken.png"
+            <Image x:Name="LogoImage"
+                   Width="30" Height="30"
                    Stretch="UniformToFill"
                    Margin="0,0,5,0"/>
             <TextBlock Text="Shinken Group®"
@@ -31,13 +26,11 @@
                        FontSize="12"/>
         </StackPanel>
 
-        <!-- Row 1: Search Document & Schedules -->
         <Grid Grid.Row="1" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="1*"/>
             </Grid.ColumnDefinitions>
-            <!-- File Link / Host Search -->
             <StackPanel Grid.Column="0">
                 <TextBlock Text="File Link / Host" FontWeight="Bold"/>
                 <Grid Margin="0,5,50,0">
@@ -53,7 +46,6 @@
                              TextChanged="DocSearchTextBox_TextChanged"/>
                 </Grid>
             </StackPanel>
-            <!-- Schedules Search -->
             <StackPanel Grid.Column="1">
                 <TextBlock Text="Schedules" FontWeight="Bold"/>
                 <Grid Margin="0,5,0,0">
@@ -71,13 +63,11 @@
             </StackPanel>
         </Grid>
 
-        <!-- Row 2: Documents & Schedules ListBoxes -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="1*"/>
             </Grid.ColumnDefinitions>
-            <!-- Documents ListBox (giữ nguyên kiểu Single selection) -->
             <ListBox x:Name="DocumentsListBox"
                      Grid.Column="0"
                      Margin="0,0,10,0"
@@ -85,7 +75,6 @@
                      SelectedItem="{Binding SelectedDocumentItem}"
                      DisplayMemberPath="DisplayName"
                      SelectionMode="Single"/>
-            <!-- Schedules ListBox: cho phép chọn nhiều mục -->
             <ListBox x:Name="SchedulesListBox"
                      Grid.Column="1"
                      ItemsSource="{Binding FilteredSchedules}"
@@ -93,14 +82,12 @@
                      SelectionChanged="SchedulesListBox_SelectionChanged">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <!-- Hiển thị tên schedule -->
                         <TextBlock Text="{Binding Name}" Margin="5,0,0,0"/>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
         </Grid>
 
-        <!-- Row 3: Export Status Message -->
         <TextBlock Grid.Row="3"
                    Margin="0,10,0,10"
                    Text="{Binding ExportStatusMessage}"
@@ -109,7 +96,6 @@
                    FontSize="14"
                    HorizontalAlignment="Center"/>
 
-        <!-- Row 4: Buttons -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="ExportBtn" Content="Export" Width="80" Margin="5" Click="ExportBtn_Click"/>
             <Button x:Name="CancelBtn" Content="Cancel" Width="80" Margin="5" Click="CancelBtn_Click"/>

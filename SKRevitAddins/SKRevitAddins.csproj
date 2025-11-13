@@ -147,7 +147,7 @@
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseCmd.cs" />
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
-    <Compile Include="MainCommands\GENTools\BatchCreateFloorPlansCmd.cs" />
+    <Compile Include="MainCommands\GENTools\BatchCreateOrDeletePlansCmd.cs" />
     <Compile Include="MainCommands\GENTools\CopySubdivisionToFloorCmd.cs" />
     <Compile Include="MainCommands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
@@ -285,6 +285,7 @@
     <Compile Include="Utils\ImportInstanceSelection.cs" />
     <Compile Include="Utils\LineUtils.cs" />
     <Compile Include="Utils\ListUtils.cs" />
+    <Compile Include="Utils\LogoHelper.cs" />
     <Compile Include="Utils\MEPCurveUtils.cs" />
     <Compile Include="Utils\MepUtils.cs" />
     <Compile Include="Utils\MultiSelect.cs" />
@@ -455,7 +456,9 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <Resource Include="Resources\shinken.png" />
+    <Resource Include="Resources\shinken.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\Avalonia.BuildServices.0.0.29\build\Avalonia.BuildServices.targets" Condition="Exists('..\packages\Avalonia.BuildServices.0.0.29\build\Avalonia.BuildServices.targets')" />

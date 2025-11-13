@@ -2,22 +2,28 @@
 using System.Windows;
 using System.Windows.Controls;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.ExportSchedulesToExcel
 {
     public partial class ExportSchedulesToExcelWpfWindow : Window
     {
-        private ExternalEvent _exEvent;
-        private ExportSchedulesToExcelRequestHandler _handler;
-        private ExportSchedulesToExcelViewModel _vm;
+        private readonly ExternalEvent _exEvent;
+        private readonly ExportSchedulesToExcelRequestHandler _handler;
+        private readonly ExportSchedulesToExcelViewModel _vm;
 
-        public ExportSchedulesToExcelWpfWindow(ExternalEvent exEvent, ExportSchedulesToExcelRequestHandler handler, ExportSchedulesToExcelViewModel viewModel)
+        public ExportSchedulesToExcelWpfWindow(
+            ExternalEvent exEvent,
+            ExportSchedulesToExcelRequestHandler handler,
+            ExportSchedulesToExcelViewModel viewModel)
         {
             InitializeComponent();
             _exEvent = exEvent;
             _handler = handler;
             _vm = viewModel;
             DataContext = _vm;
+
+            LogoHelper.TryLoadLogo(LogoImage);
         }
 
         private void DocSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -32,7 +38,6 @@ namespace SKRevitAddins.ExportSchedulesToExcel
             _vm.FilterScheduleByKeyword(keyword);
         }
 
-        // Xử lý SelectionChanged của ListBox Schedules để cập nhật danh sách SelectedSchedules trong ViewModel
         private void SchedulesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (sender is ListBox lb)
@@ -41,9 +46,7 @@ namespace SKRevitAddins.ExportSchedulesToExcel
                 foreach (var item in lb.SelectedItems)
                 {
                     if (item is ExportSchedulesToExcelViewModel.ScheduleItem schedule)
-                    {
                         _vm.SelectedSchedules.Add(schedule);
-                    }
                 }
             }
         }
@@ -56,7 +59,6 @@ namespace SKRevitAddins.ExportSchedulesToExcel
                 return;
             }
 
-            // Kích hoạt ExternalEvent để bắt đầu xuất
             _handler.Request.Make(RequestId.Export);
             _exEvent.Raise();
         }
@@ -64,7 +66,7 @@ namespace SKRevitAddins.ExportSchedulesToExcel
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
             _vm.IsCancelled = true;
-            this.Close();
+            Close();
         }
     }
 }

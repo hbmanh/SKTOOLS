@@ -1,11 +1,14 @@
-﻿using System.Windows;
+﻿using System.ComponentModel;
+using System.Windows;
+using System.Windows.Input;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
 
 namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
 {
     public partial class RefPointToTopoWindow : Window
     {
-        private readonly RefPointToTopoViewModel _vm;
+        readonly RefPointToTopoViewModel _vm;
 
         public RefPointToTopoWindow(UIDocument uiDoc)
         {
@@ -13,12 +16,16 @@ namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
             _vm = new RefPointToTopoViewModel(uiDoc);
             DataContext = _vm;
 
-            Loaded += (_, __) => this.Focus();
+            Loaded += (_, __) =>
+            {
+                LogoHelper.TryLoadLogo(LogoImage);
+                Focus();
+            };
         }
 
-        protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.Escape)
+            if (e.Key == Key.Escape)
             {
                 e.Handled = true;
                 Close();
@@ -26,22 +33,25 @@ namespace SKRevitAddins.PointCloudAddins.RefPointToTopo
             base.OnPreviewKeyDown(e);
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        protected override void OnClosing(CancelEventArgs e)
         {
             if (_vm?.IsBusy == true)
             {
                 var r = MessageBox.Show(
                     "Đang xử lý. Bạn có muốn hủy và đóng cửa sổ không?",
                     "Xác nhận",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
 
                 if (r == MessageBoxResult.No)
                 {
                     e.Cancel = true;
                     return;
                 }
+
                 _vm.CancelCmd?.Execute(null);
             }
+
             base.OnClosing(e);
         }
     }

@@ -3,9 +3,11 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using System.Drawing;
+using SKRevitAddins.Utils;
 using ComboBox = System.Windows.Forms.ComboBox;
 using Control = System.Windows.Forms.Control;
 using Form = System.Windows.Forms.Form;
@@ -39,7 +41,6 @@ namespace SKRevitAddins.GENTools
 
             Document doc = uiDoc.Document;
 
-            // Lấy levels & templates để truyền cho form tạo
             var levels = new FilteredElementCollector(doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
@@ -61,8 +62,6 @@ namespace SKRevitAddins.GENTools
             return Result.Succeeded;
         }
 
-        // -------------------
-        // Helper methods (đã đổi thành static để nested classes gọi được)
         private static string BuildViewName(string prefix, string level, string ending)
         {
             List<string> parts = new List<string>();
@@ -80,16 +79,15 @@ namespace SKRevitAddins.GENTools
                 .Any(v => v.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
-        // MainForm: hiển thị 2 nút để chọn Create hoặc Delete
         public class MainForm : Form
         {
             private Button btnCreate;
             private Button btnDelete;
             private PictureBox logo;
             private Label lblTitle;
-            private List<Level> _levels;
-            private List<View> _templates;
-            private Document _doc;
+            private readonly List<Level> _levels;
+            private readonly List<View> _templates;
+            private readonly Document _doc;
 
             public MainForm(List<Level> levels, List<View> templates, Document doc)
             {
@@ -107,7 +105,6 @@ namespace SKRevitAddins.GENTools
                 BackColor = Color.White;
                 Font = SystemFonts.MessageBoxFont;
 
-                // Use TableLayoutPanel to make header + buttons responsive
                 var mainTable = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
@@ -121,7 +118,6 @@ namespace SKRevitAddins.GENTools
                 mainTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
                 mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-                // Header
                 var headerFlow = new FlowLayoutPanel
                 {
                     Dock = DockStyle.Top,
@@ -138,87 +134,7 @@ namespace SKRevitAddins.GENTools
                     SizeMode = PictureBoxSizeMode.Zoom,
                     Margin = new Padding(0, 0, 12, 0)
                 };
-                try
-                {
-                    string FindLogoPath()
-                    {
-                        try
-                        {
-                            string asmPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                            if (!string.IsNullOrEmpty(asmPath))
-                            {
-                                string asmDir = System.IO.Path.GetDirectoryName(asmPath);
-                                if (!string.IsNullOrEmpty(asmDir))
-                                {
-                                    string p1 = System.IO.Path.Combine(asmDir, "Icon", "logo.png");
-                                    if (System.IO.File.Exists(p1)) return p1;
-
-                                    // 2) search .bundle above
-                                    string dir = asmDir;
-                                    for (int depth = 0; depth < 4 && !string.IsNullOrEmpty(dir); depth++)
-                                    {
-                                        try
-                                        {
-                                            var bundles = System.IO.Directory.GetDirectories(dir, ".bundle", System.IO.SearchOption.TopDirectoryOnly);
-                                            foreach (var b in bundles)
-                                            {
-                                                string pBundleIcon = System.IO.Path.Combine(b, "Icon", "logo.png");
-                                                if (System.IO.File.Exists(pBundleIcon)) return pBundleIcon;
-                                            }
-                                        }
-                                        catch { }
-                                        dir = System.IO.Path.GetDirectoryName(dir);
-                                    }
-                                }
-                            }
-                        }
-                        catch { }
-
-                        try
-                        {
-                            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                            string addinsRoot = System.IO.Path.Combine(appData, "Autodesk", "Revit", "Addins");
-                            if (System.IO.Directory.Exists(addinsRoot))
-                            {
-                                foreach (var yearDir in System.IO.Directory.GetDirectories(addinsRoot))
-                                {
-                                    string candidate = System.IO.Path.Combine(yearDir, "SKTools.bundle", "Icon", "logo.png");
-                                    if (System.IO.File.Exists(candidate)) return candidate;
-
-                                    var bundles = System.IO.Directory.GetDirectories(yearDir, "SKTools.bundle", System.IO.SearchOption.TopDirectoryOnly);
-                                    foreach (var b in bundles)
-                                    {
-                                        string p = System.IO.Path.Combine(b, "Icon", "logo.png");
-                                        if (System.IO.File.Exists(p)) return p;
-                                    }
-                                }
-                            }
-                        }
-                        catch { }
-
-                        try
-                        {
-                            string pFallback = System.IO.Path.Combine(
-                                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                                "SKRevitAddins",
-                                "logo.png");
-                            if (System.IO.File.Exists(pFallback)) return pFallback;
-                        }
-                        catch { }
-
-                        return null;
-                    }
-
-                    var logoPath = FindLogoPath();
-                    if (!string.IsNullOrEmpty(logoPath))
-                    {
-                        logo.Image = Image.FromFile(logoPath);
-                    }
-                }
-                catch
-                {
-                }
-
+                AddLogoIfFound(logo);
 
                 lblTitle = new Label
                 {
@@ -232,7 +148,6 @@ namespace SKRevitAddins.GENTools
                 headerFlow.Controls.Add(logo);
                 headerFlow.Controls.Add(lblTitle);
 
-                // Buttons area
                 var btnsFlow = new FlowLayoutPanel
                 {
                     Dock = DockStyle.Fill,
@@ -262,11 +177,26 @@ namespace SKRevitAddins.GENTools
                 btnsFlow.Controls.Add(btnDelete);
 
                 mainTable.Controls.Add(headerFlow, 0, 0);
-                mainTable.Controls.Add(new Panel() { Height = 8, Dock = DockStyle.Top }, 0, 1);
+                mainTable.Controls.Add(new Panel { Height = 8, Dock = DockStyle.Top }, 0, 1);
                 mainTable.Controls.Add(btnsFlow, 0, 2);
 
                 Controls.Add(mainTable);
                 AcceptButton = btnCreate;
+            }
+
+            private void AddLogoIfFound(PictureBox logoBox)
+            {
+                try
+                {
+                    string logoPath = LogoHelper.GetLogoPath();
+                    if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+                    {
+                        logoBox.Image = Image.FromFile(logoPath);
+                    }
+                }
+                catch
+                {
+                }
             }
 
             private void BtnCreate_Click(object sender, EventArgs e)
@@ -320,10 +250,6 @@ namespace SKRevitAddins.GENTools
                                 {
                                     if (selectedTemplate.ViewType == vp.ViewType)
                                         vp.ViewTemplateId = selectedTemplate.Id;
-                                    else
-                                    {
-                                        // bỏ qua template không tương thích
-                                    }
                                 }
 
                                 createdCount++;
@@ -350,7 +276,6 @@ namespace SKRevitAddins.GENTools
             }
         }
 
-        // ViewTypeItem class để bind combobox tránh so sánh chuỗi
         public class ViewTypeItem
         {
             public string Name { get; set; }
@@ -358,7 +283,6 @@ namespace SKRevitAddins.GENTools
             public override string ToString() => Name;
         }
 
-        // LevelSelectForm (nâng cấp để binding ViewTypeItem)
         public class LevelSelectForm : Form
         {
             private CheckedListBox chkLevels;
@@ -370,8 +294,8 @@ namespace SKRevitAddins.GENTools
             private Button btnCancel;
             private PictureBox logo;
             private Label lblTitle;
-            private List<Level> _levels;
-            private List<View> _templates;
+            private readonly List<Level> _levels;
+            private readonly List<View> _templates;
 
             public string Prefix => txtPrefix.Text;
             public string Ending => txtEnding.Text;
@@ -402,19 +326,41 @@ namespace SKRevitAddins.GENTools
                     Padding = new Padding(12)
                 };
                 mainTable.RowStyles.Clear();
-                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // header
-                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // inputs
-                mainTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // list
-                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // buttons
+                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                mainTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-                // header
-                var headerFlow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-                logo = new PictureBox { Width = 48, Height = 48, SizeMode = PictureBoxSizeMode.Zoom, Margin = new Padding(0, 0, 12, 0) };
-                lblTitle = new Label { Text = "Shinken Group®", AutoSize = true, Font = new Font("Segoe UI", 13, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft };
-                headerFlow.Controls.Add(logo); headerFlow.Controls.Add(lblTitle);
+                var headerFlow = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Top,
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.LeftToRight
+                };
+                logo = new PictureBox
+                {
+                    Width = 48,
+                    Height = 48,
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    Margin = new Padding(0, 0, 12, 0)
+                };
+                AddLogoIfFound(logo);
+                lblTitle = new Label
+                {
+                    Text = "Shinken Group®",
+                    AutoSize = true,
+                    Font = new Font("Segoe UI", 13, FontStyle.Bold),
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+                headerFlow.Controls.Add(logo);
+                headerFlow.Controls.Add(lblTitle);
 
-                // inputs (prefix, ending, template, viewtype)
-                var inputsTable = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4 };
+                var inputsTable = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Top,
+                    AutoSize = true,
+                    ColumnCount = 4
+                };
                 inputsTable.ColumnStyles.Clear();
                 inputsTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
                 inputsTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
@@ -445,17 +391,24 @@ namespace SKRevitAddins.GENTools
                 cbViewType.SelectedIndex = 0;
                 inputsTable.Controls.Add(cbViewType, 3, 1);
 
-                // level list
-                chkLevels = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true };
+                chkLevels = new CheckedListBox
+                {
+                    Dock = DockStyle.Fill,
+                    CheckOnClick = true
+                };
                 foreach (var lv in _levels) chkLevels.Items.Add(lv.Name, true);
 
-                // buttons
-                var buttonsFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, AutoSize = true };
+                var buttonsFlow = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    FlowDirection = FlowDirection.RightToLeft,
+                    AutoSize = true
+                };
                 btnOK = new Button { Text = "Tạo", AutoSize = true, DialogResult = DialogResult.OK };
                 btnCancel = new Button { Text = "Hủy", AutoSize = true, DialogResult = DialogResult.Cancel };
-                buttonsFlow.Controls.Add(btnOK); buttonsFlow.Controls.Add(btnCancel);
+                buttonsFlow.Controls.Add(btnOK);
+                buttonsFlow.Controls.Add(btnCancel);
 
-                // assemble
                 mainTable.Controls.Add(headerFlow, 0, 0);
                 mainTable.Controls.Add(inputsTable, 0, 1);
                 mainTable.Controls.Add(chkLevels, 0, 2);
@@ -464,6 +417,19 @@ namespace SKRevitAddins.GENTools
                 Controls.Add(mainTable);
                 AcceptButton = btnOK;
                 CancelButton = btnCancel;
+            }
+
+            private void AddLogoIfFound(PictureBox logoBox)
+            {
+                try
+                {
+                    string logoPath = LogoHelper.GetLogoPath();
+                    if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+                        logoBox.Image = Image.FromFile(logoPath);
+                }
+                catch
+                {
+                }
             }
 
             protected override void OnFormClosing(FormClosingEventArgs e)
@@ -491,10 +457,9 @@ namespace SKRevitAddins.GENTools
             }
         }
 
-        // DeleteViewsForm: responsive layout + filter + Select all / Unselect all
         public class DeleteViewsForm : Form
         {
-            private Document _doc;
+            private readonly Document _doc;
             private CheckedListBox chkViews;
             private ComboBox cbFilterType;
             private TextBox txtSearch;
@@ -517,8 +482,7 @@ namespace SKRevitAddins.GENTools
                 AutoScaleMode = AutoScaleMode.Dpi;
                 Font = SystemFonts.MessageBoxFont;
 
-                // Main table layout: 3 rows (filter, list, bottom buttons)
-                var mainTable = new TableLayoutPanel()
+                var mainTable = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
                     ColumnCount = 1,
@@ -527,12 +491,11 @@ namespace SKRevitAddins.GENTools
                     AutoSize = false
                 };
                 mainTable.RowStyles.Clear();
-                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));   // filter row
-                mainTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // list row (fills)
-                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));   // buttons row
+                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                mainTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-                // --- Top filter row (FlowLayoutPanel) ---
-                var topFlow = new FlowLayoutPanel()
+                var topFlow = new FlowLayoutPanel
                 {
                     Dock = DockStyle.Fill,
                     FlowDirection = FlowDirection.LeftToRight,
@@ -541,8 +504,18 @@ namespace SKRevitAddins.GENTools
                     Margin = new Padding(0, 0, 0, 6)
                 };
 
-                var lblFilter = new Label() { Text = "Filter (View Type):", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft };
-                cbFilterType = new ComboBox() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+                var lblFilter = new Label
+                {
+                    Text = "Filter (View Type):",
+                    AutoSize = true,
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+                cbFilterType = new ComboBox
+                {
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Width = 200,
+                    Anchor = AnchorStyles.Left | AnchorStyles.Top
+                };
                 cbFilterType.Items.Add("All");
                 cbFilterType.Items.Add("FloorPlan");
                 cbFilterType.Items.Add("CeilingPlan");
@@ -555,11 +528,25 @@ namespace SKRevitAddins.GENTools
                 cbFilterType.SelectedIndex = 0;
                 cbFilterType.SelectedIndexChanged += Filter_Changed;
 
-                var lblSearch = new Label() { Text = "Search (contains):", AutoSize = true, Margin = new Padding(12, 6, 6, 0) };
-                txtSearch = new TextBox() { Width = 220, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+                var lblSearch = new Label
+                {
+                    Text = "Search (contains):",
+                    AutoSize = true,
+                    Margin = new Padding(12, 6, 6, 0)
+                };
+                txtSearch = new TextBox
+                {
+                    Width = 220,
+                    Anchor = AnchorStyles.Left | AnchorStyles.Top
+                };
                 txtSearch.TextChanged += Filter_Changed;
 
-                btnRefresh = new Button() { Text = "Refresh", AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+                btnRefresh = new Button
+                {
+                    Text = "Refresh",
+                    AutoSize = true,
+                    Anchor = AnchorStyles.Left | AnchorStyles.Top
+                };
                 btnRefresh.Click += BtnRefresh_Click;
 
                 topFlow.Controls.Add(lblFilter);
@@ -568,20 +555,22 @@ namespace SKRevitAddins.GENTools
                 topFlow.Controls.Add(txtSearch);
                 topFlow.Controls.Add(btnRefresh);
 
-                // --- Middle list row ---
-                chkViews = new CheckedListBox()
+                chkViews = new CheckedListBox
                 {
                     Dock = DockStyle.Fill,
                     CheckOnClick = true,
                     HorizontalScrollbar = true
                 };
 
-                var listPanel = new Panel() { Dock = DockStyle.Fill, Padding = new Padding(0) };
+                var listPanel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(0)
+                };
                 chkViews.Parent = listPanel;
                 chkViews.Dock = DockStyle.Fill;
 
-                // --- Bottom buttons row (FlowLayoutPanel right aligned) ---
-                var bottomFlow = new FlowLayoutPanel()
+                var bottomFlow = new FlowLayoutPanel
                 {
                     Dock = DockStyle.Fill,
                     FlowDirection = FlowDirection.LeftToRight,
@@ -590,15 +579,20 @@ namespace SKRevitAddins.GENTools
                     Margin = new Padding(0, 6, 0, 0)
                 };
 
-                btnSelectAll = new Button() { Text = "Select all", AutoSize = true };
+                btnSelectAll = new Button { Text = "Select all", AutoSize = true };
                 btnSelectAll.Click += BtnSelectAll_Click;
 
-                btnUnselectAll = new Button() { Text = "Unselect all", AutoSize = true };
+                btnUnselectAll = new Button { Text = "Unselect all", AutoSize = true };
                 btnUnselectAll.Click += BtnUnselectAll_Click;
 
-                lblCount = new Label() { AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(12, 8, 6, 6) };
+                lblCount = new Label
+                {
+                    AutoSize = true,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Margin = new Padding(12, 8, 6, 6)
+                };
 
-                var rightActions = new FlowLayoutPanel()
+                var rightActions = new FlowLayoutPanel
                 {
                     FlowDirection = FlowDirection.LeftToRight,
                     AutoSize = true,
@@ -607,9 +601,9 @@ namespace SKRevitAddins.GENTools
                     Margin = new Padding(0)
                 };
 
-                btnDelete = new Button() { Text = "Delete Selected", AutoSize = true };
+                btnDelete = new Button { Text = "Delete Selected", AutoSize = true };
                 btnDelete.Click += BtnDelete_Click;
-                btnCancel = new Button() { Text = "Close", AutoSize = true, DialogResult = DialogResult.Cancel };
+                btnCancel = new Button { Text = "Close", AutoSize = true, DialogResult = DialogResult.Cancel };
 
                 rightActions.Controls.Add(btnDelete);
                 rightActions.Controls.Add(btnCancel);
@@ -618,24 +612,19 @@ namespace SKRevitAddins.GENTools
                 bottomFlow.Controls.Add(btnUnselectAll);
                 bottomFlow.Controls.Add(lblCount);
 
-                // filler panel to push rightActions to right
-                var filler = new Panel() { AutoSize = false, Width = 20, Dock = DockStyle.Fill };
+                var filler = new Panel { AutoSize = false, Width = 20, Dock = DockStyle.Fill };
                 bottomFlow.Controls.Add(filler);
                 bottomFlow.Controls.Add(rightActions);
 
-                // Add rows to mainTable
                 mainTable.Controls.Add(topFlow, 0, 0);
                 mainTable.Controls.Add(listPanel, 0, 1);
                 mainTable.Controls.Add(bottomFlow, 0, 2);
 
-                // Add mainTable to form
                 Controls.Add(mainTable);
 
-                // Load and populate
                 LoadAllViews();
                 PopulateList();
 
-                // Set tab order
                 txtSearch.TabIndex = 0;
                 chkViews.TabIndex = 1;
             }
@@ -659,14 +648,10 @@ namespace SKRevitAddins.GENTools
                 var filtered = allViews.AsEnumerable();
 
                 if (!string.IsNullOrWhiteSpace(filterType) && filterType != "All")
-                {
                     filtered = filtered.Where(v => v.ViewType.ToString().Equals(filterType, StringComparison.OrdinalIgnoreCase));
-                }
 
                 if (!string.IsNullOrWhiteSpace(search))
-                {
                     filtered = filtered.Where(v => v.Name.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
-                }
 
                 foreach (var v in filtered)
                 {
@@ -701,9 +686,7 @@ namespace SKRevitAddins.GENTools
             private void SetAllChecked(bool check)
             {
                 for (int i = 0; i < chkViews.Items.Count; i++)
-                {
                     chkViews.SetItemChecked(i, check);
-                }
             }
 
             private void BtnDelete_Click(object sender, EventArgs e)
@@ -714,14 +697,18 @@ namespace SKRevitAddins.GENTools
                     return;
                 }
 
-                var confirm = TaskDialog.Show("Delete Views", $"Bạn có chắc muốn xóa {chkViews.CheckedItems.Count} view đã chọn? (Hành động này không thể hoàn tác nếu commit)", TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                var confirm = TaskDialog.Show(
+                    "Delete Views",
+                    $"Bạn có chắc muốn xóa {chkViews.CheckedItems.Count} view đã chọn? (Hành động này không thể hoàn tác nếu commit)",
+                    TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+
                 if (confirm != TaskDialogResult.Yes) return;
 
                 var namesToDelete = new List<string>();
                 foreach (var it in chkViews.CheckedItems)
                 {
                     string s = it.ToString();
-                    int idx = s.LastIndexOf("  [");
+                    int idx = s.LastIndexOf("  [", StringComparison.Ordinal);
                     string nameOnly = idx >= 0 ? s.Substring(0, idx) : s;
                     namesToDelete.Add(nameOnly.Trim());
                 }
@@ -747,8 +734,18 @@ namespace SKRevitAddins.GENTools
                         {
                             try
                             {
-                                if (!v.IsValidObject) { failed++; failedNames.Add(v.Name + " (invalid)"); continue; }
-                                if (_doc.IsFamilyDocument) { failed++; failedNames.Add(v.Name + " (family doc)"); continue; }
+                                if (!v.IsValidObject)
+                                {
+                                    failed++;
+                                    failedNames.Add(v.Name + " (invalid)");
+                                    continue;
+                                }
+                                if (_doc.IsFamilyDocument)
+                                {
+                                    failed++;
+                                    failedNames.Add(v.Name + " (family doc)");
+                                    continue;
+                                }
 
                                 View active = _doc.ActiveView;
                                 if (active != null && active.Id == v.Id)
@@ -781,7 +778,8 @@ namespace SKRevitAddins.GENTools
                 string resultMsg = $"Hoàn tất. Deleted: {success}. Failed: {failed}.";
                 if (failedNames.Count > 0)
                 {
-                    resultMsg += Environment.NewLine + "Failed list (một số lý do):" + Environment.NewLine + string.Join(Environment.NewLine, failedNames.Take(50));
+                    resultMsg += Environment.NewLine + "Failed list (một số lý do):" +
+                                 Environment.NewLine + string.Join(Environment.NewLine, failedNames.Take(50));
                 }
 
                 MessageBox.Show(resultMsg, "Delete Views", MessageBoxButtons.OK, MessageBoxIcon.Information);

@@ -21,7 +21,6 @@ namespace SKRevitAddins.PointCloudAddins
                 return Result.Failed;
             }
 
-            // Nếu view đang dùng ViewTemplate → chỉ cảnh báo rồi thoát
             if (view.ViewTemplateId != ElementId.InvalidElementId)
             {
                 string templateName = (doc.GetElement(view.ViewTemplateId) as View)?.Name ?? "Không xác định";
@@ -33,7 +32,6 @@ namespace SKRevitAddins.PointCloudAddins
                 return Result.Cancelled;
             }
 
-            // Nếu view KHÔNG dùng ViewTemplate → toggle PointCloud
             BuiltInCategory bic = BuiltInCategory.OST_PointClouds;
             ElementId catId = new ElementId(bic);
 

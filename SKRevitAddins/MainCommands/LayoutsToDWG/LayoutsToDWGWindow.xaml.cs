@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.UI;
+using SKRevitAddins.Utils;
 using Point = System.Windows.Point;
 
 namespace SKRevitAddins.LayoutsToDWG
@@ -18,6 +19,8 @@ namespace SKRevitAddins.LayoutsToDWG
             _vm = new LayoutsToDWGViewModel(uiDoc);
             DataContext = _vm;
             _vm.RequestClose = Close;
+
+            LogoHelper.TryLoadLogo(LogoImage);
         }
 
         private void SetsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -27,7 +30,6 @@ namespace SKRevitAddins.LayoutsToDWG
                 _vm.SelectedSheetSets.Add(s);
         }
 
-        // Phần drag-drop giữ nguyên từ bản trước
         void SheetDataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
             => _dragItem = RowItemAt<SheetItem>(e.GetPosition(SheetDataGrid));
 
@@ -56,5 +58,4 @@ namespace SKRevitAddins.LayoutsToDWG
             return (el as DataGridRow)?.Item as T;
         }
     }
-
 }
