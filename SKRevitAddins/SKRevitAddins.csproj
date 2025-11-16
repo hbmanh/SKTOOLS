@@ -148,6 +148,7 @@
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
     <Compile Include="MainCommands\GENTools\BatchCreateOrDeletePlansCmd.cs" />
+    <Compile Include="MainCommands\GENTools\BatchDeleteFromExcelCmd.cs" />
     <Compile Include="MainCommands\GENTools\CopySubdivisionToFloorCmd.cs" />
     <Compile Include="MainCommands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>

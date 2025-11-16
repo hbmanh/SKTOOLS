@@ -54,6 +54,7 @@ namespace SKToolsRibbon
             AddButton(GENPanel, "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
             AddButton(GENPanel, "TagTools", "TAGs\nTool", "SKRevitAddins.TAGTools.TagToolsCmd", "TagAlign.png");
             AddButton(GENPanel, "FLTools", "FLs\nTool", "SKRevitAddins.GENTools.BatchCreateOrDeletePlansCmd", "BatchCreateFloorPlans.png");
+            AddButton(GENPanel, "DelIDs", "Del Ids\nTool", "SKRevitAddins.GENTools.BatchDeleteFromExcelCmd", "BatchDeleteFromExcel.png");
 
             // CAD Panel
             AddButton(CADPanel, "AutoPlaceElementFrBlockCADCmd", "Elements\nCreate", "SKRevitAddins.AutoPlaceElementFrBlockCAD.AutoPlaceElementFrBlockCADCmd", "PlaceEleFromBlocks.png", "Create elements from Blocks");
