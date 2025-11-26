@@ -39,7 +39,7 @@ namespace SKRevitAddins.GENTools
                 Reference pickedRef = null;
                 try
                 {
-                    pickedRef = uiDoc.Selection.PickObject(ObjectType.LinkedElement, "Pick Linked Element");
+                    pickedRef = uiDoc.Selection.PickObject(ObjectType.LinkedElement, "Pick Linked Element (Source)");
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
@@ -50,13 +50,28 @@ namespace SKRevitAddins.GENTools
                 Document linkDoc = linkInstance.GetLinkDocument();
                 Element linkedElement = linkDoc.GetElement(pickedRef.LinkedElementId);
 
-                var paramData = GetElementParametersData(linkedElement);
+                var sourceParamData = GetElementParametersData(linkedElement);
+
+                IList<Reference> targetRefs = null;
+                try
+                {
+                    targetRefs = uiDoc.Selection.PickObjects(ObjectType.Element, "Select Target Elements (Destination)");
+                }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                {
+                    return Result.Cancelled;
+                }
+
+                if (targetRefs.Count == 0) return Result.Cancelled;
+
+                Element firstTarget = doc.GetElement(targetRefs.First());
+                List<string> availableTargetParams = GetWritableParamNames(firstTarget);
 
                 string sourceParamName = "";
                 string targetParamName = "";
                 bool copyAsText = false;
 
-                using (var form = new ParamMappingForm(paramData, linkedElement.Name, linkInstance.Name))
+                using (var form = new ParamMappingForm(sourceParamData, availableTargetParams, linkedElement.Name, linkInstance.Name, targetRefs.Count))
                 {
                     if (form.ShowDialog() != DialogResult.OK)
                         return Result.Cancelled;
@@ -68,16 +83,6 @@ namespace SKRevitAddins.GENTools
 
                 Parameter srcParam = linkedElement.LookupParameter(sourceParamName);
                 if (srcParam == null) return Result.Failed;
-
-                IList<Reference> targetRefs = null;
-                try
-                {
-                    targetRefs = uiDoc.Selection.PickObjects(ObjectType.Element, "Select Target Elements");
-                }
-                catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-                {
-                    return Result.Cancelled;
-                }
 
                 int successCount = 0;
                 int failCount = 0;
@@ -113,6 +118,20 @@ namespace SKRevitAddins.GENTools
             }
 
             return Result.Succeeded;
+        }
+
+        private List<string> GetWritableParamNames(Element e)
+        {
+            var list = new List<string>();
+            foreach (Parameter p in e.Parameters)
+            {
+                if (!p.IsReadOnly)
+                {
+                    list.Add(p.Definition.Name);
+                }
+            }
+            list.Sort();
+            return list;
         }
 
         private Dictionary<string, ParamData> GetElementParametersData(Element e)
@@ -177,18 +196,18 @@ namespace SKRevitAddins.GENTools
             private Button btnOK;
             private Button btnCancel;
 
-            private Dictionary<string, ParamData> _paramData;
+            private Dictionary<string, ParamData> _sourceData;
 
             public string SelectedSourceParam => cbSourceParam.Text;
             public string TargetParamName => cbTargetParam.Text;
             public bool IsCopyAsText => chkForceText.Checked;
 
-            public ParamMappingForm(Dictionary<string, ParamData> paramData, string elementName, string linkName)
+            public ParamMappingForm(Dictionary<string, ParamData> sourceData, List<string> targetParams, string elementName, string linkName, int targetCount)
             {
-                _paramData = paramData;
+                _sourceData = sourceData;
 
                 Text = "SKRevit - Copy Parameter Data";
-                MinimumSize = new Size(700, 420);
+                MinimumSize = new Size(800, 450);
                 StartPosition = FormStartPosition.CenterScreen;
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 MaximizeBox = false;
@@ -238,7 +257,7 @@ namespace SKRevitAddins.GENTools
 
                 var lblInfo = new Label
                 {
-                    Text = $"Link: {linkName}\nElement: {elementName}",
+                    Text = $"Source: {elementName} ({linkName})\nTargets: {targetCount} elements selected",
                     AutoSize = true,
                     Font = new Font(Font, FontStyle.Bold),
                     ForeColor = Color.DimGray,
@@ -259,7 +278,7 @@ namespace SKRevitAddins.GENTools
                 inputPanel.Controls.Add(new Label { Text = "Source Param:", Anchor = AnchorStyles.Left | AnchorStyles.Top, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, 0, 0);
                 cbSourceParam = new ComboBox
                 {
-                    DataSource = new List<string>(_paramData.Keys),
+                    DataSource = new List<string>(_sourceData.Keys),
                     Anchor = AnchorStyles.Left | AnchorStyles.Right,
                     DropDownStyle = ComboBoxStyle.DropDown,
                     AutoCompleteMode = AutoCompleteMode.SuggestAppend,
@@ -280,14 +299,12 @@ namespace SKRevitAddins.GENTools
                 inputPanel.Controls.Add(new Label { Text = "Target Param:", Anchor = AnchorStyles.Left | AnchorStyles.Top, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, 0, 2);
                 cbTargetParam = new ComboBox
                 {
+                    DataSource = targetParams,
                     Anchor = AnchorStyles.Left | AnchorStyles.Right,
                     DropDownStyle = ComboBoxStyle.DropDown,
                     AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                     AutoCompleteSource = AutoCompleteSource.ListItems
                 };
-
-                var editableParams = _paramData.Where(x => !x.Value.IsReadOnly).Select(x => x.Key).ToList();
-                foreach (var k in editableParams) cbTargetParam.Items.Add(k);
 
                 inputPanel.Controls.Add(cbTargetParam, 1, 2);
 
@@ -310,8 +327,8 @@ namespace SKRevitAddins.GENTools
                     AutoSize = true,
                     Padding = new Padding(15)
                 };
-                btnOK = new Button { Text = "Select Targets & Run", AutoSize = true, DialogResult = DialogResult.OK, Height = 35, BackColor = Color.White };
-                btnCancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel, Height = 35, BackColor = Color.White };
+                btnOK = new Button { Text = "Run", AutoSize = true, DialogResult = DialogResult.OK, Height = 35, BackColor = Color.White, Width = 80 };
+                btnCancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel, Height = 35, BackColor = Color.White, Width = 80 };
                 btnPanel.Controls.Add(btnOK);
                 btnPanel.Controls.Add(btnCancel);
 
@@ -340,8 +357,8 @@ namespace SKRevitAddins.GENTools
             private void UpdateValueReview()
             {
                 string key = cbSourceParam.Text;
-                if (_paramData.ContainsKey(key))
-                    txtSourceValue.Text = _paramData[key].Value;
+                if (_sourceData.ContainsKey(key))
+                    txtSourceValue.Text = _sourceData[key].Value;
                 else
                     txtSourceValue.Text = "";
             }
