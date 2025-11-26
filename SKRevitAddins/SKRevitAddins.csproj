@@ -149,7 +149,9 @@
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
     <Compile Include="MainCommands\GENTools\BatchCreateOrDeletePlansCmd.cs" />
     <Compile Include="MainCommands\GENTools\BatchDeleteFromExcelCmd.cs" />
+    <Compile Include="MainCommands\GENTools\CopyParamFromLink.cs" />
     <Compile Include="MainCommands\GENTools\CopySubdivisionToFloorCmd.cs" />
+    <Compile Include="MainCommands\GENTools\DuplicateElementsDetector.cs" />
     <Compile Include="MainCommands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -198,12 +200,6 @@
     <Compile Include="MainCommands\PermissibleRangeFrame\PermissibleRangeFrameRequestHandler.cs" />
     <Compile Include="MainCommands\PermissibleRangeFrame\PermissibleRangeFrameRequest.cs" />
     <Compile Include="MainCommands\PermissibleRangeFrame\PermissibleRangeFrameCmd.cs" />
-    <Compile Include="MainCommands\ParameterAssignment\ParameterAssignmentForm .cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="MainCommands\ParameterAssignment\ParameterAssignmentForm .Designer.cs">
-      <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
-    </Compile>
     <Compile Include="MainCommands\SleeveChecker\CheckerRequestHandler.cs" />
     <Compile Include="MainCommands\SleeveChecker\SleeveCheckerCmd.cs" />
     <Compile Include="MainCommands\SleeveChecker\SleeveCheckerLogic.cs" />
@@ -220,7 +216,6 @@
     <Compile Include="MainCommands\SelectElements\SelectElementsRequestHandler.cs" />
     <Compile Include="MainCommands\TEST\PlaceElementsFromBlocksCmd.cs" />
     <Compile Include="MainCommands\DuctPipePlaceholderAndFittings\PlaceDuctsAndPipesBaseonCadCmd.cs" />
-    <Compile Include="MainCommands\ParameterAssignment\ParameterAssignmentCmd.cs" />
     <Compile Include="MainCommands\TEST\ExportSchedulesExcel.cs" />
     <Compile Include="MainCommands\PermissibleRangeFrame\PreviewReportWindow.xaml.cs">
       <DependentUpon>PreviewReportWindow.xaml</DependentUpon>
@@ -451,9 +446,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MainCommands\ParamCopy\Properties\Resources.resx" />
-    <EmbeddedResource Include="MainCommands\ParameterAssignment\ParameterAssignmentForm .resx">
-      <DependentUpon>ParameterAssignmentForm .cs</DependentUpon>
-    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
