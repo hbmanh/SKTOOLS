@@ -148,11 +148,11 @@
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequest.cs" />
     <Compile Include="MainCommands\DeleteTypeOfTextNotesDontUse\DeleteTypeOfTextNotesDontUseRequestHandler.cs" />
     <Compile Include="MainCommands\GENTools\BatchCreateOrDeletePlansCmd.cs" />
-    <Compile Include="MainCommands\GENTools\CopyParamFromLink.cs" />
+    <Compile Include="MainCommands\GENTools\CopyParamFromLinkCmd.cs" />
     <Compile Include="MainCommands\GENTools\CopySubdivisionToFloorCmd.cs" />
-    <Compile Include="MainCommands\GENTools\DisallowBeamJoins.cs" />
-    <Compile Include="MainCommands\GENTools\DuplicateElementsDetector.cs" />
-    <Compile Include="MainCommands\GENTools\RoomDataToElements.cs" />
+    <Compile Include="MainCommands\GENTools\DisallowBeamJoinsCmd.cs" />
+    <Compile Include="MainCommands\GENTools\CheckDuplicateElementsCmd.cs" />
+    <Compile Include="MainCommands\GENTools\RoomDataToElementsCmd.cs" />
     <Compile Include="MainCommands\GridTools\GridToolsCmd.cs">
       <SubType>Form</SubType>
     </Compile>

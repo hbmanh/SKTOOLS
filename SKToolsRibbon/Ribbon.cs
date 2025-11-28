@@ -54,9 +54,9 @@ namespace SKToolsRibbon
             AddButton(GENPanel, "GridToolsCmd", "Grid\nTools", "SKRevitAddins.GridTools.GridToolsCmd", "GridTools.png");
             AddButton(GENPanel, "TagTools", "TAGs\nTool", "SKRevitAddins.TAGTools.TagToolsCmd", "TagAlign.png");
             AddButton(GENPanel, "FLTools", "Create FLs\nTool", "SKRevitAddins.GENTools.BatchCreateOrDeletePlansCmd", "BatchCreateFloorPlans.png");
-            AddButton(GENPanel, "DelIDs", "Duplicate\nDelete", "SKRevitAddins.GENTools.DuplicateElementsDetectorCmd", "DuplicateElementsDetector.png");
+            AddButton(GENPanel, "DelIDs", "Dupli\nDelete", "SKRevitAddins.GENTools.CheckDuplicateElementsCmd", "DuplicateElementsDetector.png");
             AddButton(GENPanel, "CopyInfor", "Copy\nParam", "SKRevitAddins.GENTools.CopyParamFromLinkCmd", "CopyParamFromLink.png");
-            AddButton(GENPanel, "RoomNameToElements", "RoomName\n ToElements", "SKRevitAddins.GENTools.RoomDataToElementsCmd", "RoomDataToElements.png");
+            AddButton(GENPanel, "RoomNameToElements", "RoomN\n ToEles", "SKRevitAddins.GENTools.RoomDataToElementsCmd", "RoomDataToElements.png");
 
             // CAD Panel
             AddButton(CADPanel, "AutoPlaceElementFrBlockCADCmd", "Elements\nCreate", "SKRevitAddins.AutoPlaceElementFrBlockCAD.AutoPlaceElementFrBlockCADCmd", "PlaceEleFromBlocks.png", "Create elements from Blocks");

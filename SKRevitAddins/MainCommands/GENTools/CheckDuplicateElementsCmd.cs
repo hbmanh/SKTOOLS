@@ -2,17 +2,37 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using SKRevitAddins.Utils;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
+using AnchorStyles = System.Windows.Forms.AnchorStyles;
 using Application = Autodesk.Revit.ApplicationServices.Application;
-using Form = System.Windows.Forms.Form;
 using Button = System.Windows.Forms.Button;
-using Panel = System.Windows.Forms.Panel;
 using Color = System.Drawing.Color;
+using ContentAlignment = System.Drawing.ContentAlignment;
+using DataGridView = System.Windows.Forms.DataGridView;
+using DataGridViewAutoSizeColumnMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode;
+using DataGridViewButtonColumn = System.Windows.Forms.DataGridViewButtonColumn;
+using DataGridViewCheckBoxColumn = System.Windows.Forms.DataGridViewCheckBoxColumn;
+using DataGridViewDataErrorContexts = System.Windows.Forms.DataGridViewDataErrorContexts;
+using DataGridViewRow = System.Windows.Forms.DataGridViewRow;
+using DataGridViewSelectionMode = System.Windows.Forms.DataGridViewSelectionMode;
+using DataGridViewTextBoxColumn = System.Windows.Forms.DataGridViewTextBoxColumn;
+using DockStyle = System.Windows.Forms.DockStyle;
+using Font = System.Drawing.Font;
+using FontStyle = System.Drawing.FontStyle;
+using Form = System.Windows.Forms.Form;
+using IWin32Window = System.Windows.Forms.IWin32Window;
+using Label = System.Windows.Forms.Label;
+using Padding = System.Windows.Forms.Padding;
+using Panel = System.Windows.Forms.Panel;
+using PictureBox = System.Windows.Forms.PictureBox;
+using PictureBoxSizeMode = System.Windows.Forms.PictureBoxSizeMode;
 using Point = System.Drawing.Point;
+using Size = System.Drawing.Size;
 
 namespace SKRevitAddins.GENTools
 {
@@ -37,8 +57,12 @@ namespace SKRevitAddins.GENTools
                 _instanceForm = new DuplicateCheckForm(exEvent, handler, commandData.Application.ActiveUIDocument);
                 handler.SetForm(_instanceForm);
 
-                System.Windows.Interop.WindowInteropHelper helper = new System.Windows.Interop.WindowInteropHelper(System.Windows.Application.Current.MainWindow);
-                _instanceForm.Show(new WindowWrapper(helper.Handle));
+                _instanceForm.FormClosed += (s, e) => { _instanceForm = null; };
+
+                IntPtr revitWindowHandle = Process.GetCurrentProcess().MainWindowHandle;
+                WindowWrapper wrapper = new WindowWrapper(revitWindowHandle);
+
+                _instanceForm.Show(wrapper);
 
                 handler.MakeRequest(RequestId.Reload);
                 exEvent.Raise();
@@ -47,15 +71,16 @@ namespace SKRevitAddins.GENTools
             }
             catch (Exception ex)
             {
-                message = ex.Message;
+                TaskDialog.Show("Error", ex.ToString());
                 return Result.Failed;
             }
         }
 
         public class WindowWrapper : IWin32Window
         {
-            public WindowWrapper(IntPtr handle) { Handle = handle; }
-            public IntPtr Handle { get; }
+            private IntPtr _handle;
+            public WindowWrapper(IntPtr handle) { _handle = handle; }
+            public IntPtr Handle => _handle;
         }
     }
 
@@ -63,7 +88,6 @@ namespace SKRevitAddins.GENTools
     {
         public Element KeeperElement { get; set; }
         public List<Element> DuplicateElements { get; set; }
-        public int TotalCount => 1 + DuplicateElements.Count;
     }
 
     public enum RequestId
@@ -101,7 +125,6 @@ namespace SKRevitAddins.GENTools
                     case RequestId.Reload:
                         RunCheckLogic(uiDoc);
                         break;
-
                     case RequestId.Delete:
                         DeleteLogic(doc);
                         RunCheckLogic(uiDoc);
@@ -110,12 +133,14 @@ namespace SKRevitAddins.GENTools
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Error", ex.Message);
+                TaskDialog.Show("Handler Error", ex.Message);
             }
         }
 
         private void RunCheckLogic(UIDocument uiDoc)
         {
+            if (_form == null || _form.IsDisposed) return;
+
             Document doc = uiDoc.Document;
             List<Element> elementsToCheck = new List<Element>();
             ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
@@ -134,7 +159,6 @@ namespace SKRevitAddins.GENTools
 
             double tolerance = 100.0 / 304.8;
             var duplicates = FindDuplicates(elementsToCheck, tolerance);
-
             _form.UpdateData(duplicates);
         }
 
@@ -149,7 +173,6 @@ namespace SKRevitAddins.GENTools
                     doc.Delete(idsToDelete);
                     t.Commit();
                 }
-                TaskDialog.Show("Info", $"Deleted {idsToDelete.Count} elements.");
             }
         }
 
@@ -209,7 +232,6 @@ namespace SKRevitAddins.GENTools
         private DataGridView dgvDuplicates;
         private Button btnDeleteAll, btnDeleteSelected, btnCancel, btnReload;
         private Label lblInfo;
-
         private ExternalEvent _exEvent;
         private DuplicateRequestHandler _handler;
         private UIDocument _uiDoc;
@@ -224,6 +246,12 @@ namespace SKRevitAddins.GENTools
 
         public void UpdateData(List<DuplicateGroup> groups)
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action<List<DuplicateGroup>>(UpdateData), groups);
+                return;
+            }
+
             dgvDuplicates.Rows.Clear();
             lblInfo.Text = $"Found {groups.Count} locations with duplicates.";
 
@@ -231,9 +259,22 @@ namespace SKRevitAddins.GENTools
             {
                 int index = dgvDuplicates.Rows.Add();
                 var row = dgvDuplicates.Rows[index];
-                row.Cells["colCheck"].Value = true;
+
+                row.Cells["colCheck"].Value = false;
                 row.Cells["colID"].Value = group.KeeperElement.Id.ToString();
-                row.Cells["colName"].Value = group.KeeperElement.Name;
+
+                string displayName = group.KeeperElement.Name;
+                ElementId typeId = group.KeeperElement.GetTypeId();
+                if (typeId != ElementId.InvalidElementId)
+                {
+                    ElementType type = group.KeeperElement.Document.GetElement(typeId) as ElementType;
+                    if (type != null)
+                    {
+                        displayName = $"{type.FamilyName} : {type.Name}";
+                    }
+                }
+
+                row.Cells["colName"].Value = displayName;
                 row.Cells["colCount"].Value = group.DuplicateElements.Count;
                 row.Tag = group;
             }
@@ -241,14 +282,26 @@ namespace SKRevitAddins.GENTools
 
         public List<ElementId> GetIdsToDelete(bool selectedOnly)
         {
+            dgvDuplicates.EndEdit();
+
             List<ElementId> ids = new List<ElementId>();
             foreach (DataGridViewRow row in dgvDuplicates.Rows)
             {
-                bool isChecked = Convert.ToBoolean(row.Cells["colCheck"].Value);
-                if (!selectedOnly || isChecked)
+                if (row.Tag is DuplicateGroup group)
                 {
-                    if (row.Tag is DuplicateGroup group)
+                    if (selectedOnly)
+                    {
+                        object val = row.Cells["colCheck"].Value;
+                        bool isChecked = (val != null && (bool)val == true);
+                        if (isChecked)
+                        {
+                            ids.AddRange(group.DuplicateElements.Select(e => e.Id));
+                        }
+                    }
+                    else
+                    {
                         ids.AddRange(group.DuplicateElements.Select(e => e.Id));
+                    }
                 }
             }
             return ids;
@@ -257,53 +310,102 @@ namespace SKRevitAddins.GENTools
         private void InitializeComponent()
         {
             Text = "SKRevit - Duplicate Check (Modeless)";
-            Size = new Size(750, 500);
-            StartPosition = FormStartPosition.CenterScreen;
+            Size = new Size(800, 500);
+            StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             TopMost = true;
             BackColor = Color.WhiteSmoke;
+            Font = System.Drawing.SystemFonts.MessageBoxFont;
 
-            var topPanel = new Panel { Dock = DockStyle.Top, Height = 45, Padding = new Padding(10), BackColor = Color.White };
-            lblInfo = new Label { Text = "Initializing...", AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(10, 12) };
+            var headerPanel = CreateHeaderPanel();
+            headerPanel.Dock = DockStyle.Top;
+            headerPanel.Height = 45;
 
-            btnReload = new Button { Text = "🔄 Reload / Re-Check", Width = 140, Height = 30, BackColor = Color.LightBlue, Location = new Point(580, 7), Anchor = AnchorStyles.Right | AnchorStyles.Top };
+            var actionPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 45,
+                Padding = new Padding(10, 5, 10, 5),
+                BackColor = Color.WhiteSmoke
+            };
+
+            btnReload = new Button
+            {
+                Text = "Reload",
+                Width = 100,
+                Dock = DockStyle.Right,
+                BackColor = Color.LightBlue,
+                Cursor = System.Windows.Forms.Cursors.Hand
+            };
             btnReload.Click += (s, e) => {
                 lblInfo.Text = "Checking...";
                 _handler.MakeRequest(RequestId.Reload);
                 _exEvent.Raise();
             };
 
-            topPanel.Controls.Add(lblInfo);
-            topPanel.Controls.Add(btnReload);
+            lblInfo = new Label
+            {
+                Text = "Initializing...",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold)
+            };
+
+            actionPanel.Controls.Add(btnReload);
+            actionPanel.Controls.Add(lblInfo);
 
             var botPanel = new Panel { Dock = DockStyle.Bottom, Height = 50, Padding = new Padding(10) };
 
-            btnDeleteAll = new Button { Text = "Delete ALL Listed", Width = 150, BackColor = Color.IndianRed, ForeColor = Color.White, Dock = DockStyle.Left };
+            btnDeleteAll = new Button
+            {
+                Text = "Delete ALL",
+                Width = 200,
+                BackColor = Color.IndianRed,
+                ForeColor = Color.White,
+                Dock = DockStyle.Left
+            };
             btnDeleteAll.Click += (s, e) => {
-                _handler.MakeRequest(RequestId.Delete, deleteSelectedOnly: false);
+                _handler.MakeRequest(RequestId.Delete, false);
                 _exEvent.Raise();
             };
 
-            btnDeleteSelected = new Button { Text = "Delete Checked Rows", Width = 150, Left = 160, Dock = DockStyle.Left };
+            btnDeleteSelected = new Button
+            {
+                Text = "Delete Checked Only",
+                Width = 150,
+                Left = 210,
+                Dock = DockStyle.Left
+            };
             btnDeleteSelected.Click += (s, e) => {
-                _handler.MakeRequest(RequestId.Delete, deleteSelectedOnly: true);
+                _handler.MakeRequest(RequestId.Delete, true);
                 _exEvent.Raise();
             };
 
             btnCancel = new Button { Text = "Close", Width = 100, Dock = DockStyle.Right };
             btnCancel.Click += (s, e) => Close();
 
+            Panel spacer = new Panel { Width = 10, Dock = DockStyle.Left };
             botPanel.Controls.Add(btnDeleteSelected);
-            botPanel.Controls.Add(new Panel { Width = 10, Dock = DockStyle.Left });
+            botPanel.Controls.Add(spacer);
             botPanel.Controls.Add(btnDeleteAll);
             botPanel.Controls.Add(btnCancel);
 
-            dgvDuplicates = new DataGridView { Dock = DockStyle.Fill, AutoGenerateColumns = false, AllowUserToAddRows = false, RowHeadersVisible = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, BackgroundColor = Color.White };
-            dgvDuplicates.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Del?", Width = 40, Name = "colCheck" });
-            dgvDuplicates.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Keeper ID", Width = 80, Name = "colID", ReadOnly = true });
-            dgvDuplicates.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Name", Width = 200, Name = "colName", ReadOnly = true, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            dgvDuplicates = new DataGridView { Dock = DockStyle.Fill, AutoGenerateColumns = false, AllowUserToAddRows = false, RowHeadersVisible = false, 
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect, BackgroundColor = Color.White,
+                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing,
+                ColumnHeadersHeight = 45,
+            };
+
+            dgvDuplicates.CurrentCellDirtyStateChanged += (s, e) => {
+                if (dgvDuplicates.IsCurrentCellDirty)
+                    dgvDuplicates.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+
+            dgvDuplicates.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Del?", Width = 60, Name = "colCheck" });
+            dgvDuplicates.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Keeper ID", Width = 100, Name = "colID", ReadOnly = true });
+            dgvDuplicates.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Family : Type", Width = 200, Name = "colName", ReadOnly = true, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
             dgvDuplicates.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Count", Width = 60, Name = "colCount", ReadOnly = true });
 
-            var colBtn = new DataGridViewButtonColumn { HeaderText = "Review", Text = "Select Box", UseColumnTextForButtonValue = true, Width = 80, Name = "colBtn" };
+            var colBtn = new DataGridViewButtonColumn { HeaderText = "Review", Text = "Select", UseColumnTextForButtonValue = true, Width = 80, Name = "colBtn" };
             dgvDuplicates.Columns.Add(colBtn);
 
             dgvDuplicates.CellContentClick += (s, e) => {
@@ -321,7 +423,21 @@ namespace SKRevitAddins.GENTools
 
             Controls.Add(dgvDuplicates);
             Controls.Add(botPanel);
-            Controls.Add(topPanel);
+            Controls.Add(actionPanel);
+            Controls.Add(headerPanel);
+        }
+
+        private Panel CreateHeaderPanel()
+        {
+            var headerPanel = new Panel { BackColor = Color.White };
+            var logoBox = new PictureBox { SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(30, 30), Location = new Point(10, 7) };
+
+            try { LogoHelper.TryLoadLogo(logoBox); } catch { }
+
+            headerPanel.Controls.Add(logoBox);
+            var companyLabel = new Label { Text = "Shinken Group®", Font = new Font("Segoe UI", 9F, FontStyle.Bold), AutoSize = true, Location = new Point(50, 12), ForeColor = Color.Black };
+            headerPanel.Controls.Add(companyLabel);
+            return headerPanel;
         }
     }
 }
